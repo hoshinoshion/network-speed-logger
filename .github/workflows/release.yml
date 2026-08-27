@@ -1,0 +1,71 @@
+name: Release v0.1.0
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check whether v0.1.0 already exists
+        id: release_check
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v0.1.0 *> $null
+          if ($LASTEXITCODE -eq 0) {
+            "exists=true" >> $env:GITHUB_OUTPUT
+          }
+          else {
+            "exists=false" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+      - name: Check out source
+        if: steps.release_check.outputs.exists != 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up MSBuild
+        if: steps.release_check.outputs.exists != 'true'
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build GUI application
+        if: steps.release_check.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          msbuild src\NetworkSpeedLogger\NetworkSpeedLogger.csproj /restore /m /p:Configuration=Release
+
+      - name: Create GitHub Release
+        if: steps.release_check.outputs.exists != 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $asset = Get-ChildItem -Path src\NetworkSpeedLogger\bin\Release -Recurse -Filter NetworkSpeedLogger.exe | Select-Object -First 1
+          if ($null -eq $asset) {
+            throw "NetworkSpeedLogger.exe was not produced by the build."
+          }
+
+          $notes = @"
+          Initial open-source release.
+
+          - Standalone Windows GUI application
+          - Simplified Chinese and English interface
+          - Automatic physical-adapter detection and multi-adapter aggregation
+          - Automatic Ethernet/Wi-Fi switching support
+          - CSV samples and Markdown session summaries
+          - PowerShell source and WPF GUI source included in the repository
+          "@
+
+          gh release create v0.1.0 $asset.FullName `
+            --target $env:GITHUB_SHA `
+            --title "Network Speed Logger 0.1.0" `
+            --notes $notes

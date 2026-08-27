@@ -1,0 +1,10 @@
+.vs/
+bin/
+obj/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+NetworkSpeed_*.csv
+NetworkSpeed_*_summary.md
