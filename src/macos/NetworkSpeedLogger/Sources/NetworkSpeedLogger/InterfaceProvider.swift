@@ -18,6 +18,8 @@ struct InterfaceProvider {
 
         var counters: [String: InterfaceCounter] = [:]
         var flagsByName: [String: UInt32] = [:]
+        var linkStateByName: [String: UInt8] = [:]
+        var interfacesWithIPAddress = Set<String>()
         var pointer: UnsafeMutablePointer<ifaddrs>? = firstAddress
 
         while let current = pointer {
@@ -25,31 +27,41 @@ struct InterfaceProvider {
             defer { pointer = address.ifa_next }
 
             guard let namePointer = address.ifa_name,
-                  let socketAddress = address.ifa_addr,
-                  Int32(socketAddress.pointee.sa_family) == AF_LINK,
-                  let rawData = address.ifa_data else {
+                  let socketAddress = address.ifa_addr else {
                 continue
             }
 
             let name = String(cString: namePointer)
+            let family = Int32(socketAddress.pointee.sa_family)
+            flagsByName[name] = address.ifa_flags
+
+            if family == AF_INET || family == AF_INET6 {
+                interfacesWithIPAddress.insert(name)
+                continue
+            }
+
+            guard family == AF_LINK, let rawData = address.ifa_data else { continue }
             let data = rawData.assumingMemoryBound(to: if_data.self).pointee
             counters[name] = InterfaceCounter(
                 receivedBytes: UInt64(data.ifi_ibytes),
                 sentBytes: UInt64(data.ifi_obytes)
             )
-            flagsByName[name] = address.ifa_flags
+            linkStateByName[name] = data.ifi_link_state
         }
 
         let interfaces = counters.keys.map { name -> NetworkInterfaceInfo in
             let flags = flagsByName[name] ?? 0
             let isUp = (flags & UInt32(IFF_UP)) != 0
             let isRunning = (flags & UInt32(IFF_RUNNING)) != 0
+            let hasIPAddress = interfacesWithIPAddress.contains(name)
+            let linkState = linkStateByName[name] ?? 0
+            let hasUsableLink = linkState == UInt8(LINK_STATE_UP)
             let isVirtual = Self.virtualPrefixes.contains { name.hasPrefix($0) }
             let isPhysical = hardware[name] != nil && !isVirtual
             return NetworkInterfaceInfo(
                 name: name,
                 displayName: hardware[name] ?? friendlyFallbackName(for: name),
-                isActive: isUp && isRunning,
+                isActive: isUp && isRunning && hasUsableLink && hasIPAddress,
                 isPhysical: isPhysical,
                 isVirtual: isVirtual
             )

@@ -1,4 +1,4 @@
-name: Release v0.2.0
+name: Release v0.2.1
 
 on:
   push:
@@ -16,12 +16,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.2.0 already exists
+      - name: Check whether v0.2.1 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.2.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.2.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -65,14 +65,14 @@ jobs:
   build-macos:
     needs: release-check
     if: needs.release-check.outputs.exists != 'true'
-    runs-on: macos-15
+    runs-on: macos-26
 
     steps:
       - name: Check out source
         uses: actions/checkout@v4
 
       - name: Build Universal macOS application and DMG
-        run: bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.0
+        run: bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.1
 
       - name: Verify Universal architectures
         run: lipo -info dist/NetworkSpeedLogger.app/Contents/MacOS/NetworkSpeedLogger
@@ -110,7 +110,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.2.0
+          Network Speed Logger 0.2.1
 
           - Native Universal macOS application for Apple silicon and Intel Macs
           - Standalone Windows GUI application
@@ -118,14 +118,17 @@ jobs:
           - Automatic Ethernet/Wi-Fi switching support
           - CSV samples and Markdown session summaries
           - Simplified Chinese and English interfaces
+          - Native macOS 26 Liquid Glass sidebar and toolbar appearance
+          - Editable duration and sample interval with configurable launch defaults
+          - Stricter active-interface detection and complete menu localization
 
           The macOS application is not signed with an Apple Developer ID and is not notarized. Follow the README instructions if Gatekeeper blocks its first launch.
           EOF
           )
-          gh release create v0.2.0 \
+          gh release create v0.2.1 \
             artifacts/NetworkSpeedLogger.exe \
             artifacts/NetworkSpeedLogger.dmg \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Network Speed Logger 0.2.0" \
+            --title "Network Speed Logger 0.2.1" \
             --notes "$notes"

@@ -14,6 +14,10 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: settings.outputFolderURL)
+        .task(id: settings.language) {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            MenuBarLocalizer.apply(usesChinese: settings.usesChinese)
+        }
     }
 }
 
@@ -96,13 +100,13 @@ private struct MainView: View {
                             Button(role: .destructive) {
                                 monitor.stop()
                             } label: {
-                                Label(settings.text("Stop", "结束"), systemImage: "stop.fill")
+                                Label(settings.text("Stop", "结束"), systemImage: "stop.circle.fill")
                             }
                         } else {
                             Button {
                                 monitor.start(using: settings)
                             } label: {
-                                Label(settings.text("Start", "开始"), systemImage: "record.circle")
+                                Label(settings.text("Start", "开始"), systemImage: "record.circle.fill")
                             }
                             .buttonStyle(.borderedProminent)
                             .disabled(startIsDisabled)
@@ -123,33 +127,18 @@ private struct ControlsSidebar: View {
     @ObservedObject var monitor: NetworkMonitor
 
     var body: some View {
-        Form {
+        List {
             Section(settings.text("Session", "记录")) {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text(settings.text("Duration", "记录时长"))
-                        Spacer()
-                        Text(durationText)
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                    }
-                    Stepper("", value: $settings.durationHours, in: 0...168, step: 1)
-                        .labelsHidden()
-                        .accessibilityLabel(settings.text("Duration in hours", "记录时长（小时）"))
-                }
+                DurationInputRow(
+                    title: settings.text("Duration", "记录时长"),
+                    value: $settings.durationHours,
+                    unlimitedText: settings.text("0 = unlimited", "0 表示不限时")
+                )
 
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text(settings.text("Sample interval", "采样间隔"))
-                        Spacer()
-                        Text("\(settings.sampleIntervalSeconds) s")
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                    }
-                    Stepper("", value: $settings.sampleIntervalSeconds, in: 1...3_600, step: 1)
-                        .labelsHidden()
-                        .accessibilityLabel(settings.text("Sample interval in seconds", "采样间隔（秒）"))
-                }
+                IntervalInputRow(
+                    title: settings.text("Sample interval", "采样间隔"),
+                    value: $settings.sampleIntervalSeconds
+                )
 
                 Picker(settings.text("Speed unit", "速度单位"), selection: $settings.speedUnit) {
                     Text("MB/s").tag(SpeedUnit.megabytesPerSecond)
@@ -183,21 +172,16 @@ private struct ControlsSidebar: View {
                         InterfaceRow(interface: interface, checked: true, settings: settings)
                     }
                 } else {
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 8) {
-                            ForEach(monitor.availableInterfaces) { interface in
-                                Toggle(isOn: Binding(
-                                    get: { settings.selectedInterfaceNames.contains(interface.name) },
-                                    set: { settings.toggleInterface(interface.name, enabled: $0) }
-                                )) {
-                                    InterfaceRow(interface: interface, checked: nil, settings: settings)
-                                }
-                                .toggleStyle(.checkbox)
-                            }
+                    ForEach(monitor.availableInterfaces) { interface in
+                        Toggle(isOn: Binding(
+                            get: { settings.selectedInterfaceNames.contains(interface.name) },
+                            set: { settings.toggleInterface(interface.name, enabled: $0) }
+                        )) {
+                            InterfaceRow(interface: interface, checked: nil, settings: settings)
                         }
+                        .toggleStyle(.checkbox)
+                        .disabled(monitor.state.isRunning)
                     }
-                    .frame(maxHeight: 190)
-                    .disabled(monitor.state.isRunning)
                 }
 
                 Button {
@@ -233,7 +217,11 @@ private struct ControlsSidebar: View {
                 }
             }
         }
-        .formStyle(.grouped)
+        .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            Color.clear.frame(height: 34)
+        }
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 8) {
                 Divider()
@@ -241,7 +229,7 @@ private struct ControlsSidebar: View {
                     Button(role: .destructive) {
                         monitor.stop()
                     } label: {
-                        Label(settings.text("Stop Logging", "结束记录"), systemImage: "stop.fill")
+                        Label(settings.text("Stop Logging", "结束记录"), systemImage: "stop.circle.fill")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
@@ -250,7 +238,7 @@ private struct ControlsSidebar: View {
                     Button {
                         monitor.start(using: settings)
                     } label: {
-                        Label(settings.text("Start Logging", "开始记录"), systemImage: "record.circle")
+                        Label(settings.text("Start Logging", "开始记录"), systemImage: "record.circle.fill")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
@@ -263,10 +251,67 @@ private struct ControlsSidebar: View {
         }
     }
 
-    private var durationText: String {
-        settings.durationHours == 0
-            ? settings.text("Unlimited", "不限时")
-            : String(format: settings.text("%.0f h", "%.0f 小时"), settings.durationHours)
+}
+
+private struct DurationInputRow: View {
+    let title: String
+    @Binding var value: Double
+    let unlimitedText: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 7) {
+                Text(title)
+                Spacer(minLength: 8)
+                TextField("", value: $value, format: .number.precision(.fractionLength(0...1)))
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.trailing)
+                    .monospacedDigit()
+                    .frame(width: 68)
+                    .onSubmit { value = min(max(value, 0), 168) }
+                Text("h")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 12, alignment: .leading)
+                Stepper("", value: $value, in: 0...168, step: 1)
+                    .labelsHidden()
+            }
+            Text(unlimitedText)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .onChange(of: value) { newValue in
+            if newValue < 0 || newValue > 168 {
+                value = min(max(newValue, 0), 168)
+            }
+        }
+    }
+}
+
+private struct IntervalInputRow: View {
+    let title: String
+    @Binding var value: Int
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Text(title)
+            Spacer(minLength: 8)
+            TextField("", value: $value, format: .number)
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
+                .monospacedDigit()
+                .frame(width: 68)
+                .onSubmit { value = min(max(value, 1), 3_600) }
+            Text("s")
+                .foregroundStyle(.secondary)
+                .frame(width: 12, alignment: .leading)
+            Stepper("", value: $value, in: 1...3_600, step: 1)
+                .labelsHidden()
+        }
+        .onChange(of: value) { newValue in
+            if newValue < 1 || newValue > 3_600 {
+                value = min(max(newValue, 1), 3_600)
+            }
+        }
     }
 }
 
@@ -618,27 +663,67 @@ struct PreferencesView: View {
 
     var body: some View {
         Form {
-            Picker(settings.text("Language", "语言"), selection: $settings.language) {
-                Text(settings.text("Automatic", "自动")).tag(AppLanguage.automatic)
-                Text("English").tag(AppLanguage.english)
-                Text("简体中文").tag(AppLanguage.simplifiedChinese)
-            }
-
-            LabeledContent(settings.text("Output folder", "保存文件夹")) {
-                HStack {
-                    Text(settings.outputFolderURL?.path ?? "—")
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .foregroundStyle(.secondary)
-                    Button(settings.text("Change…", "更改…")) {
-                        settings.chooseOutputFolder()
-                    }
-                    .disabled(monitor.state.isRunning)
+            Section(settings.text("General", "通用")) {
+                Picker(settings.text("Language", "语言"), selection: $settings.language) {
+                    Text(settings.text("Automatic", "自动")).tag(AppLanguage.automatic)
+                    Text("English").tag(AppLanguage.english)
+                    Text("简体中文").tag(AppLanguage.simplifiedChinese)
                 }
             }
 
-            LabeledContent(settings.text("Version", "版本"), value: "0.2.0")
+            Section(settings.text("Session Defaults", "记录默认配置")) {
+                DurationInputRow(
+                    title: settings.text("Duration", "记录时长"),
+                    value: $settings.defaultDurationHours,
+                    unlimitedText: settings.text("0 = unlimited", "0 表示不限时")
+                )
+
+                IntervalInputRow(
+                    title: settings.text("Sample interval", "采样间隔"),
+                    value: $settings.defaultSampleIntervalSeconds
+                )
+
+                Picker(settings.text("Speed unit", "速度单位"), selection: $settings.defaultSpeedUnit) {
+                    Text("MB/s").tag(SpeedUnit.megabytesPerSecond)
+                    Text("Mbps").tag(SpeedUnit.megabitsPerSecond)
+                }
+                .pickerStyle(.segmented)
+
+                Text(settings.text(
+                    "These values are loaded when the app starts. Changes made in the main window apply only to the current launch.",
+                    "应用每次启动时都会载入这些值；主窗口中的临时修改只在本次启动期间有效。"
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                Button(settings.text("Apply Defaults Now", "立即应用默认配置")) {
+                    settings.applyDefaultsToCurrentSession()
+                }
+                .disabled(monitor.state.isRunning)
+            }
+
+            Section(settings.text("Files", "文件")) {
+                LabeledContent(settings.text("Output folder", "保存文件夹")) {
+                    HStack {
+                        Text(settings.outputFolderURL?.path ?? "—")
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .foregroundStyle(.secondary)
+                        Button(settings.text("Change…", "更改…")) {
+                            settings.chooseOutputFolder()
+                        }
+                        .disabled(monitor.state.isRunning)
+                    }
+                }
+            }
+
+            Section {
+                LabeledContent(settings.text("Version", "版本"), value: "0.2.1")
+            }
         }
         .formStyle(.grouped)
+        .onDisappear {
+            settings.normalizeDefaultValues()
+        }
     }
 }

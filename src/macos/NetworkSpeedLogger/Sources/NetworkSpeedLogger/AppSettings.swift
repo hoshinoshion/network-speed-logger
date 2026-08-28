@@ -5,11 +5,11 @@ import Foundation
 final class AppSettings: ObservableObject {
     private enum Key {
         static let language = "language"
-        static let speedUnit = "speedUnit"
+        static let defaultSpeedUnit = "defaultSpeedUnit.v2"
         static let interfaceMode = "interfaceMode"
         static let selectedInterfaces = "selectedInterfaces"
-        static let durationHours = "durationHours"
-        static let sampleInterval = "sampleInterval"
+        static let defaultDurationHours = "defaultDurationHours.v2"
+        static let defaultSampleInterval = "defaultSampleInterval.v2"
         static let outputFolderBookmark = "outputFolderBookmark"
     }
 
@@ -20,9 +20,7 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(language.rawValue, forKey: Key.language) }
     }
 
-    @Published var speedUnit: SpeedUnit {
-        didSet { defaults.set(speedUnit.rawValue, forKey: Key.speedUnit) }
-    }
+    @Published var speedUnit: SpeedUnit
 
     @Published var interfaceMode: InterfaceSelectionMode {
         didSet { defaults.set(interfaceMode.rawValue, forKey: Key.interfaceMode) }
@@ -32,28 +30,43 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(Array(selectedInterfaceNames).sorted(), forKey: Key.selectedInterfaces) }
     }
 
-    @Published var durationHours: Double {
-        didSet { defaults.set(durationHours, forKey: Key.durationHours) }
+    @Published var durationHours: Double
+
+    @Published var sampleIntervalSeconds: Int
+
+    @Published var defaultSpeedUnit: SpeedUnit {
+        didSet { defaults.set(defaultSpeedUnit.rawValue, forKey: Key.defaultSpeedUnit) }
     }
 
-    @Published var sampleIntervalSeconds: Int {
-        didSet { defaults.set(sampleIntervalSeconds, forKey: Key.sampleInterval) }
+    @Published var defaultDurationHours: Double {
+        didSet { defaults.set(defaultDurationHours, forKey: Key.defaultDurationHours) }
+    }
+
+    @Published var defaultSampleIntervalSeconds: Int {
+        didSet { defaults.set(defaultSampleIntervalSeconds, forKey: Key.defaultSampleInterval) }
     }
 
     @Published private(set) var outputFolderURL: URL?
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        let storedDefaultDuration = (defaults.object(forKey: Key.defaultDurationHours) as? Double)
+            .map { min(max($0, 0), 168) } ?? 24
+        let storedDefaultInterval = (defaults.object(forKey: Key.defaultSampleInterval) as? Int)
+            .map { min(max($0, 1), 3_600) } ?? 15
+        let storedDefaultSpeedUnit = SpeedUnit(
+            rawValue: defaults.string(forKey: Key.defaultSpeedUnit) ?? ""
+        ) ?? .megabytesPerSecond
+
         language = AppLanguage(rawValue: defaults.string(forKey: Key.language) ?? "") ?? .automatic
-        speedUnit = SpeedUnit(rawValue: defaults.string(forKey: Key.speedUnit) ?? "") ?? .megabytesPerSecond
         interfaceMode = InterfaceSelectionMode(rawValue: defaults.string(forKey: Key.interfaceMode) ?? "") ?? .automatic
         selectedInterfaceNames = Set(defaults.stringArray(forKey: Key.selectedInterfaces) ?? [])
-
-        let storedDuration = defaults.object(forKey: Key.durationHours) as? Double
-        durationHours = storedDuration.map { min(max($0, 0), 168) } ?? 24
-
-        let storedInterval = defaults.object(forKey: Key.sampleInterval) as? Int
-        sampleIntervalSeconds = storedInterval.map { min(max($0, 1), 3_600) } ?? 15
+        defaultDurationHours = storedDefaultDuration
+        defaultSampleIntervalSeconds = storedDefaultInterval
+        defaultSpeedUnit = storedDefaultSpeedUnit
+        durationHours = storedDefaultDuration
+        sampleIntervalSeconds = storedDefaultInterval
+        speedUnit = storedDefaultSpeedUnit
 
         restoreOutputFolder()
     }
@@ -104,6 +117,22 @@ final class AppSettings: ObservableObject {
         } else {
             selectedInterfaceNames.remove(name)
         }
+    }
+
+    func applyDefaultsToCurrentSession() {
+        durationHours = defaultDurationHours
+        sampleIntervalSeconds = defaultSampleIntervalSeconds
+        speedUnit = defaultSpeedUnit
+    }
+
+    func normalizeCurrentSessionValues() {
+        durationHours = min(max(durationHours, 0), 168)
+        sampleIntervalSeconds = min(max(sampleIntervalSeconds, 1), 3_600)
+    }
+
+    func normalizeDefaultValues() {
+        defaultDurationHours = min(max(defaultDurationHours, 0), 168)
+        defaultSampleIntervalSeconds = min(max(defaultSampleIntervalSeconds, 1), 3_600)
     }
 
     private func restoreOutputFolder() {

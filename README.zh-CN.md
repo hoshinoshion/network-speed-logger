@@ -43,12 +43,13 @@ macOS 客户端是使用 SwiftUI 独立开发的原生应用，界面和交互�
 
 ### macOS 客户端功能
 
-- 使用标准 macOS 控件、导航、菜单、设置、系统颜色和 SF Symbols 的原生 SwiftUI 界面。
+- 使用标准 macOS 控件、导航、完整本地化菜单、设置、系统颜色和 SF Symbols 的原生 SwiftUI 界面；在 macOS 26 上自动采用系统 Liquid Glass 侧边栏与工具栏外观。
 - 自动识别物理网络接口，并排除回环、VPN/隧道、网桥、AWDL、虚拟机等虚拟接口。
 - 合并多个同时工作的物理接口流量，例如同时连接的以太网和 Wi-Fi。
 - 记录期间自动适应接口连接、断开、USB 网卡热插拔以及有线/Wi-Fi 切换。
 - 在 Mac 睡眠、唤醒、系统时间跳变或接口计数器重置后安全重建基线，避免产生错误的速度峰值。
 - 支持手动选择一个或多个物理或虚拟接口。
+- 记录时长和采样间隔既可直接填写，也可使用步进按钮；设置中可以配置时长、间隔和速度单位的启动默认值。
 - 使用 MB/s 或 Mbps 显示实时速度、累计流量、最近 60 个采样点曲线、最近采样和本次记录统计。
 - 每次采样后立即写入 CSV，并在记录结束时生成 Markdown 汇总。
 - 支持简体中文和英语；默认根据 macOS 首选语言选择，也可在设置中手动切换。
@@ -129,7 +130,7 @@ chmod +x macos/NetworkSpeedLogger.sh
 安装当前版本的 Xcode 命令行工具，然后在 macOS 上运行：
 
 ```sh
-bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.0
+bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.1
 ```
 
 脚本会分别编译 `arm64` 和 `x86_64`、合并为 Universal 应用、生成应用图标、应用临时签名，并创建 `dist/NetworkSpeedLogger.dmg`。
@@ -146,7 +147,7 @@ bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.0
 - `src/windows/NetworkSpeedLogger/`：Windows WPF 客户端源代码和图标。
 - `macos/NetworkSpeedLogger.sh`：macOS 终端版本。
 - `windows/NetworkSpeedLogger.ps1`：Windows PowerShell 版本。
-- `.github/workflows/release.yml`：可复现的 Windows 与 macOS v0.2.0 Release 工作流。
+- `.github/workflows/release.yml`：可复现的 Windows 与 macOS v0.2.1 Release 工作流。
 
 ## 开源协议
 

@@ -9,7 +9,7 @@ build_dir="$project_dir/.build/release-universal"
 dist_dir="$repository_root/dist"
 app_path="$dist_dir/NetworkSpeedLogger.app"
 dmg_path="$dist_dir/NetworkSpeedLogger.dmg"
-version=${1:-0.2.0}
+version=${1:-0.2.1}
 
 case "$version" in
     *[!0-9.]*|'')
@@ -57,6 +57,9 @@ chmod 755 "$app_path/Contents/MacOS/NetworkSpeedLogger"
 
 cp "$project_dir/Resources/Info.plist" "$app_path/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $version" "$app_path/Contents/Info.plist"
+while IFS= read -r -d '' localization_directory; do
+    cp -R "$localization_directory" "$app_path/Contents/Resources/"
+done < <(find "$project_dir/Resources" -maxdepth 1 -type d -name '*.lproj' -print0)
 
 iconset_path="$build_dir/AppIcon.iconset"
 xcrun swift "$project_dir/Scripts/render-icon.swift" "$iconset_path"
