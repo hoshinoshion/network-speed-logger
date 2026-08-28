@@ -10,6 +10,7 @@ struct InterfaceProvider {
 
     func capture() -> InterfaceCapture {
         let hardware = hardwareInterfaceMetadata()
+        let linkStatusByName = linkStatus(for: Array(hardware.keys))
         var addressList: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&addressList) == 0, let firstAddress = addressList else {
             return InterfaceCapture(interfaces: [], counters: [:])
@@ -18,7 +19,6 @@ struct InterfaceProvider {
 
         var counters: [String: InterfaceCounter] = [:]
         var flagsByName: [String: UInt32] = [:]
-        var linkStateByName: [String: UInt8] = [:]
         var interfacesWithIPAddress = Set<String>()
         var pointer: UnsafeMutablePointer<ifaddrs>? = firstAddress
 
@@ -46,7 +46,6 @@ struct InterfaceProvider {
                 receivedBytes: UInt64(data.ifi_ibytes),
                 sentBytes: UInt64(data.ifi_obytes)
             )
-            linkStateByName[name] = data.ifi_link_state
         }
 
         let interfaces = counters.keys.map { name -> NetworkInterfaceInfo in
@@ -54,8 +53,7 @@ struct InterfaceProvider {
             let isUp = (flags & UInt32(IFF_UP)) != 0
             let isRunning = (flags & UInt32(IFF_RUNNING)) != 0
             let hasIPAddress = interfacesWithIPAddress.contains(name)
-            let linkState = linkStateByName[name] ?? 0
-            let hasUsableLink = linkState == UInt8(LINK_STATE_UP)
+            let hasUsableLink = linkStatusByName[name] ?? hasIPAddress
             let isVirtual = Self.virtualPrefixes.contains { name.hasPrefix($0) }
             let isPhysical = hardware[name] != nil && !isVirtual
             return NetworkInterfaceInfo(
@@ -103,6 +101,28 @@ struct InterfaceProvider {
             let name = bsdNameReference as String
             let displayName = (SCNetworkInterfaceGetLocalizedDisplayName(interface) as String?) ?? name
             result[name] = displayName
+        }
+        return result
+    }
+
+    private func linkStatus(for names: [String]) -> [String: Bool] {
+        guard let store = SCDynamicStoreCreate(
+            kCFAllocatorDefault,
+            "NetworkSpeedLogger" as CFString,
+            nil,
+            nil
+        ) else {
+            return [:]
+        }
+
+        var result: [String: Bool] = [:]
+        for name in names {
+            let key = "State:/Network/Interface/\(name)/Link" as CFString
+            guard let values = SCDynamicStoreCopyValue(store, key) as? [String: Any],
+                  let active = values["Active"] as? Bool else {
+                continue
+            }
+            result[name] = active
         }
         return result
     }
