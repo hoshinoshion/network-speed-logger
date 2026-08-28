@@ -20,7 +20,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view v0.1.0 *> $null
+          gh release view v0.1.0 --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -eq 0) {
             "exists=true" >> $env:GITHUB_OUTPUT
           }
