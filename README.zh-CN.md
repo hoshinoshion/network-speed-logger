@@ -131,7 +131,7 @@ chmod +x macos/NetworkSpeedLogger.sh
 安装当前版本的 Xcode 命令行工具，然后在 macOS 上运行：
 
 ```sh
-bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.3
+bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.4
 ```
 
 脚本会分别编译 `arm64` 和 `x86_64`、合并为 Universal 应用、生成应用图标、应用临时签名，并创建 `dist/NetworkSpeedLogger.dmg`。
@@ -148,7 +148,7 @@ bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.3
 - `src/windows/NetworkSpeedLogger/`：Windows WPF 客户端源代码和图标。
 - `macos/NetworkSpeedLogger.sh`：macOS 终端版本。
 - `windows/NetworkSpeedLogger.ps1`：Windows PowerShell 版本。
-- `.github/workflows/release.yml`：可复现的 Windows 与 macOS v0.2.3 Release 工作流。
+- `.github/workflows/release.yml`：可复现的 Windows 与 macOS v0.2.4 Release 工作流。
 
 ## 开源协议
 

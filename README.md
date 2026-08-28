@@ -131,7 +131,7 @@ Each sample is flushed to the CSV immediately so completed data remains availabl
 Install the current Xcode command-line tools, then run on macOS:
 
 ```sh
-bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.3
+bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.4
 ```
 
 The script compiles `arm64` and `x86_64`, combines them into a Universal application, generates the application icon, applies an ad-hoc signature, and creates `dist/NetworkSpeedLogger.dmg`.
@@ -148,7 +148,7 @@ Open `src/windows/NetworkSpeedLogger/NetworkSpeedLogger.csproj` in Visual Studio
 - `src/windows/NetworkSpeedLogger/` — Windows WPF application source and icon.
 - `macos/NetworkSpeedLogger.sh` — macOS terminal version.
 - `windows/NetworkSpeedLogger.ps1` — Windows PowerShell version.
-- `.github/workflows/release.yml` — reproducible Windows and macOS v0.2.3 Release workflow.
+- `.github/workflows/release.yml` — reproducible Windows and macOS v0.2.4 Release workflow.
 
 ## License
 

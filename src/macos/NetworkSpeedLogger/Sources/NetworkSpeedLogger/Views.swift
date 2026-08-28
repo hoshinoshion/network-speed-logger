@@ -1,3 +1,4 @@
+import AppKit
 import Charts
 import SwiftUI
 
@@ -122,8 +123,76 @@ private struct MainView: View {
 }
 
 private enum SidebarMetrics {
-    static let trailingControlWidth: CGFloat = 150
+    static let trailingControlWidth: CGFloat = 120
+    static let numericFieldWidth: CGFloat = 74
     static let rowVerticalPadding: CGFloat = 6
+}
+
+private struct FixedWidthSegmentedPicker<Value: Hashable>: NSViewRepresentable {
+    @Environment(\.isEnabled) private var isEnabled
+    @Binding private var selection: Value
+    private let options: [(label: String, value: Value)]
+    private let totalWidth: CGFloat
+
+    init(
+        selection: Binding<Value>,
+        options: [(String, Value)],
+        totalWidth: CGFloat = SidebarMetrics.trailingControlWidth
+    ) {
+        _selection = selection
+        self.options = options.map { (label: $0.0, value: $0.1) }
+        self.totalWidth = totalWidth
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeNSView(context: Context) -> NSSegmentedControl {
+        NSSegmentedControl(
+            labels: options.map { $0.label },
+            trackingMode: .selectOne,
+            target: context.coordinator,
+            action: #selector(Coordinator.selectionChanged(_:))
+        )
+    }
+
+    func updateNSView(_ control: NSSegmentedControl, context: Context) {
+        context.coordinator.parent = self
+        if control.segmentCount != options.count {
+            control.segmentCount = options.count
+        }
+        for (index, option) in options.enumerated() {
+            control.setLabel(option.label, forSegment: index)
+            control.setWidth(totalWidth / CGFloat(options.count), forSegment: index)
+        }
+        control.selectedSegment = options.firstIndex { $0.value == selection } ?? -1
+        control.isEnabled = isEnabled
+    }
+
+    func sizeThatFits(
+        _ proposal: ProposedViewSize,
+        nsView: NSSegmentedControl,
+        context: Context
+    ) -> CGSize? {
+        CGSize(
+            width: totalWidth,
+            height: nsView.intrinsicContentSize.height
+        )
+    }
+
+    final class Coordinator: NSObject {
+        var parent: FixedWidthSegmentedPicker
+
+        init(parent: FixedWidthSegmentedPicker) {
+            self.parent = parent
+        }
+
+        @objc func selectionChanged(_ sender: NSSegmentedControl) {
+            guard parent.options.indices.contains(sender.selectedSegment) else { return }
+            parent.selection = parent.options[sender.selectedSegment].value
+        }
+    }
 }
 
 private struct ControlsSidebar: View {
@@ -147,12 +216,13 @@ private struct ControlsSidebar: View {
                 HStack(spacing: 12) {
                     Text(settings.text("Speed unit", "速度单位"))
                     Spacer(minLength: 12)
-                    Picker("", selection: $settings.speedUnit) {
-                        Text("MB/s").tag(SpeedUnit.megabytesPerSecond)
-                        Text("Mbps").tag(SpeedUnit.megabitsPerSecond)
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.segmented)
+                    FixedWidthSegmentedPicker(
+                        selection: $settings.speedUnit,
+                        options: [
+                            ("MB/s", SpeedUnit.megabytesPerSecond),
+                            ("Mbps", SpeedUnit.megabitsPerSecond)
+                        ]
+                    )
                     .frame(width: SidebarMetrics.trailingControlWidth)
                 }
                 .padding(.vertical, SidebarMetrics.rowVerticalPadding)
@@ -163,12 +233,13 @@ private struct ControlsSidebar: View {
                 HStack(spacing: 12) {
                     Text(settings.text("Mode", "模式"))
                     Spacer(minLength: 12)
-                    Picker("", selection: $settings.interfaceMode) {
-                        Text(settings.text("Automatic", "自动")).tag(InterfaceSelectionMode.automatic)
-                        Text(settings.text("Manual", "手动")).tag(InterfaceSelectionMode.manual)
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.segmented)
+                    FixedWidthSegmentedPicker(
+                        selection: $settings.interfaceMode,
+                        options: [
+                            (settings.text("Auto", "自动"), InterfaceSelectionMode.automatic),
+                            (settings.text("Manual", "手动"), InterfaceSelectionMode.manual)
+                        ]
+                    )
                     .frame(width: SidebarMetrics.trailingControlWidth)
                 }
                 .padding(.vertical, SidebarMetrics.rowVerticalPadding)
@@ -220,15 +291,30 @@ private struct ControlsSidebar: View {
                     .padding(.vertical, SidebarMetrics.rowVerticalPadding)
                 }
 
-                HStack(spacing: 10) {
-                    Button(settings.text("Change…", "更改…")) {
-                        settings.chooseOutputFolder()
-                    }
-                    .disabled(monitor.state.isRunning)
+                HStack {
+                    Spacer(minLength: 0)
+                    HStack(spacing: 10) {
+                        Button {
+                            settings.chooseOutputFolder()
+                        } label: {
+                            Text(settings.text("Change…", "更改…"))
+                                .frame(maxWidth: .infinity)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                        .disabled(monitor.state.isRunning)
 
-                    Button(settings.text("Reveal", "显示")) {
-                        settings.revealOutputFolder()
+                        Button {
+                            settings.revealOutputFolder()
+                        } label: {
+                            Text(settings.text("Reveal", "显示"))
+                                .frame(maxWidth: .infinity)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
                     }
+                    .frame(width: SidebarMetrics.trailingControlWidth)
+                    .controlSize(.small)
                 }
                 .padding(.vertical, 2)
             }
@@ -309,7 +395,7 @@ private struct DurationInputRow: View {
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.trailing)
                     .monospacedDigit()
-                    .frame(width: 64)
+                    .frame(width: SidebarMetrics.numericFieldWidth)
                     .onSubmit { value = min(max(value, 0), 168) }
                 Text("h")
                     .foregroundStyle(.secondary)
@@ -341,7 +427,7 @@ private struct IntervalInputRow: View {
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.trailing)
                     .monospacedDigit()
-                    .frame(width: 64)
+                    .frame(width: SidebarMetrics.numericFieldWidth)
                     .onSubmit { value = min(max(value, 1), 3_600) }
                 Text("s")
                     .foregroundStyle(.secondary)
@@ -766,7 +852,7 @@ struct PreferencesView: View {
             }
 
             Section {
-                LabeledContent(settings.text("Version", "版本"), value: "0.2.3")
+                LabeledContent(settings.text("Version", "版本"), value: "0.2.4")
             }
         }
         .formStyle(.grouped)

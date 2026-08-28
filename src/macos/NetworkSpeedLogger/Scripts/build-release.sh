@@ -9,7 +9,7 @@ build_dir="$project_dir/.build/release-universal"
 dist_dir="$repository_root/dist"
 app_path="$dist_dir/NetworkSpeedLogger.app"
 dmg_path="$dist_dir/NetworkSpeedLogger.dmg"
-version=${1:-0.2.3}
+version=${1:-0.2.4}
 
 case "$version" in
     *[!0-9.]*|'')
