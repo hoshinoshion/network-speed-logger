@@ -50,39 +50,39 @@ PowerShell 版本提供与 GUI 版本相同的核心网卡识别、流量合并�
 使用默认设置运行 24 小时，每 15 秒采样一次：
 
 ```powershell
-.\powershell\NetworkSpeedLogger.ps1
+.\windows\NetworkSpeedLogger.ps1
 ```
 
 不限时运行，使用 `Ctrl+C` 或 `Q` 手动结束：
 
 ```powershell
-.\powershell\NetworkSpeedLogger.ps1 -DurationHours 0
+.\windows\NetworkSpeedLogger.ps1 -DurationHours 0
 ```
 
 运行 2 小时，每 5 秒采样一次：
 
 ```powershell
-.\powershell\NetworkSpeedLogger.ps1 -DurationHours 2 -SampleIntervalSeconds 5
+.\windows\NetworkSpeedLogger.ps1 -DurationHours 2 -SampleIntervalSeconds 5
 ```
 
 列出网卡，然后只监控指定网卡：
 
 ```powershell
-.\powershell\NetworkSpeedLogger.ps1 -ListAdapters
-.\powershell\NetworkSpeedLogger.ps1 -AdapterName "Wi-Fi","Ethernet"
+.\windows\NetworkSpeedLogger.ps1 -ListAdapters
+.\windows\NetworkSpeedLogger.ps1 -AdapterName "Wi-Fi","Ethernet"
 ```
 
 手动指定语言：
 
 ```powershell
-.\powershell\NetworkSpeedLogger.ps1 -Language en-US
-.\powershell\NetworkSpeedLogger.ps1 -Language zh-CN
+.\windows\NetworkSpeedLogger.ps1 -Language en-US
+.\windows\NetworkSpeedLogger.ps1 -Language zh-CN
 ```
 
 如果 Windows 阻止本地脚本执行，可以仅为本次运行绕过执行策略：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\powershell\NetworkSpeedLogger.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\NetworkSpeedLogger.ps1
 ```
 
 ## macOS Shell 脚本
@@ -144,7 +144,7 @@ CSV 中的速度使用十进制 MB/s，即 1 MB 等于 1,000,000 字节。GUI �
 ## 仓库结构
 
 - `src/NetworkSpeedLogger/`：Windows WPF GUI 源代码和程序图标。
-- `powershell/NetworkSpeedLogger.ps1`：Windows PowerShell 版本。
+- `windows/NetworkSpeedLogger.ps1`：Windows PowerShell 版本。
 - `macos/NetworkSpeedLogger.sh`：macOS Shell 版本。
 - `.github/workflows/release.yml`：可复现的 Windows 编译和发布流程。
 

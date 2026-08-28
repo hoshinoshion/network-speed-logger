@@ -50,39 +50,39 @@ Requirements:
 Run with the defaults (24 hours, one sample every 15 seconds):
 
 ```powershell
-.\powershell\NetworkSpeedLogger.ps1
+.\windows\NetworkSpeedLogger.ps1
 ```
 
 Run indefinitely and stop manually with `Ctrl+C` or `Q`:
 
 ```powershell
-.\powershell\NetworkSpeedLogger.ps1 -DurationHours 0
+.\windows\NetworkSpeedLogger.ps1 -DurationHours 0
 ```
 
 Use a 5-second interval for 2 hours:
 
 ```powershell
-.\powershell\NetworkSpeedLogger.ps1 -DurationHours 2 -SampleIntervalSeconds 5
+.\windows\NetworkSpeedLogger.ps1 -DurationHours 2 -SampleIntervalSeconds 5
 ```
 
 List adapters, then monitor selected adapters:
 
 ```powershell
-.\powershell\NetworkSpeedLogger.ps1 -ListAdapters
-.\powershell\NetworkSpeedLogger.ps1 -AdapterName "Wi-Fi","Ethernet"
+.\windows\NetworkSpeedLogger.ps1 -ListAdapters
+.\windows\NetworkSpeedLogger.ps1 -AdapterName "Wi-Fi","Ethernet"
 ```
 
 Force a language instead of following the system language:
 
 ```powershell
-.\powershell\NetworkSpeedLogger.ps1 -Language en-US
-.\powershell\NetworkSpeedLogger.ps1 -Language zh-CN
+.\windows\NetworkSpeedLogger.ps1 -Language en-US
+.\windows\NetworkSpeedLogger.ps1 -Language zh-CN
 ```
 
 If Windows blocks local script execution, start it for the current run with:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\powershell\NetworkSpeedLogger.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\NetworkSpeedLogger.ps1
 ```
 
 ## macOS shell script
@@ -144,7 +144,7 @@ Open `src/NetworkSpeedLogger/NetworkSpeedLogger.csproj` in Visual Studio with th
 ## Repository layout
 
 - `src/NetworkSpeedLogger/` — Windows WPF GUI source code and application icon.
-- `powershell/NetworkSpeedLogger.ps1` — Windows PowerShell version.
+- `windows/NetworkSpeedLogger.ps1` — Windows PowerShell version.
 - `macos/NetworkSpeedLogger.sh` — macOS shell version.
 - `.github/workflows/release.yml` — reproducible Windows build and release workflow.
 
