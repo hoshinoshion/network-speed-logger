@@ -1,4 +1,4 @@
-name: Release v0.1.0
+name: Release v0.2.0
 
 on:
   push:
@@ -10,62 +10,122 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  release-check:
+    runs-on: ubuntu-latest
+    outputs:
+      exists: ${{ steps.release_check.outputs.exists }}
+
+    steps:
+      - name: Check whether v0.2.0 already exists
+        id: release_check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.2.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-windows:
+    needs: release-check
+    if: needs.release-check.outputs.exists != 'true'
     runs-on: windows-latest
 
     steps:
-      - name: Check whether v0.1.0 already exists
-        id: release_check
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release view v0.1.0 --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -eq 0) {
-            "exists=true" >> $env:GITHUB_OUTPUT
-          }
-          else {
-            "exists=false" >> $env:GITHUB_OUTPUT
-            exit 0
-          }
 
       - name: Check out source
-        if: steps.release_check.outputs.exists != 'true'
         uses: actions/checkout@v4
 
       - name: Set up MSBuild
-        if: steps.release_check.outputs.exists != 'true'
         uses: microsoft/setup-msbuild@v2
 
       - name: Build GUI application
-        if: steps.release_check.outputs.exists != 'true'
         shell: pwsh
         run: |
-          msbuild src\NetworkSpeedLogger\NetworkSpeedLogger.csproj /restore /m /p:Configuration=Release
+          msbuild src\windows\NetworkSpeedLogger\NetworkSpeedLogger.csproj /restore /m /p:Configuration=Release
 
-      - name: Create GitHub Release
-        if: steps.release_check.outputs.exists != 'true'
+      - name: Stage Windows artifact
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          $asset = Get-ChildItem -Path src\NetworkSpeedLogger\bin\Release -Recurse -Filter NetworkSpeedLogger.exe | Select-Object -First 1
+          $asset = Get-ChildItem -Path src\windows\NetworkSpeedLogger\bin\Release -Recurse -Filter NetworkSpeedLogger.exe | Select-Object -First 1
           if ($null -eq $asset) {
             throw "NetworkSpeedLogger.exe was not produced by the build."
           }
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          Copy-Item $asset.FullName artifacts\NetworkSpeedLogger.exe
 
-          $notes = @"
-          Initial open-source release.
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: artifacts/NetworkSpeedLogger.exe
+          if-no-files-found: error
 
+  build-macos:
+    needs: release-check
+    if: needs.release-check.outputs.exists != 'true'
+    runs-on: macos-15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build Universal macOS application and DMG
+        run: bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.0
+
+      - name: Verify Universal architectures
+        run: lipo -info dist/NetworkSpeedLogger.app/Contents/MacOS/NetworkSpeedLogger
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-release
+          path: dist/NetworkSpeedLogger.dmg
+          if-no-files-found: error
+
+  publish:
+    needs: [release-check, build-windows, build-macos]
+    if: >-
+      needs.release-check.outputs.exists != 'true' &&
+      needs.build-windows.result == 'success' &&
+      needs.build-macos.result == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-release
+          path: artifacts
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-release
+          path: artifacts
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes=$(cat <<'EOF'
+          Network Speed Logger 0.2.0
+
+          - Native Universal macOS application for Apple silicon and Intel Macs
           - Standalone Windows GUI application
-          - Simplified Chinese and English interface
           - Automatic physical-adapter detection and multi-adapter aggregation
           - Automatic Ethernet/Wi-Fi switching support
           - CSV samples and Markdown session summaries
-          - PowerShell source and WPF GUI source included in the repository
-          "@
+          - Simplified Chinese and English interfaces
 
-          gh release create v0.1.0 $asset.FullName `
-            --target $env:GITHUB_SHA `
-            --title "Network Speed Logger 0.1.0" `
-            --notes $notes
+          The macOS application is not signed with an Apple Developer ID and is not notarized. Follow the README instructions if Gatekeeper blocks its first launch.
+          EOF
+          )
+          gh release create v0.2.0 \
+            artifacts/NetworkSpeedLogger.exe \
+            artifacts/NetworkSpeedLogger.dmg \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Network Speed Logger 0.2.0" \
+            --notes "$notes"

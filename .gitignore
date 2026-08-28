@@ -1,6 +1,9 @@
 .vs/
+.build/
+.swiftpm/
 bin/
 obj/
+dist/
 *.suo
 *.user
 *.userosscache
