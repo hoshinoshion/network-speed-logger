@@ -44,6 +44,7 @@ The exception is remembered for later launches. Only bypass Gatekeeper when the 
 ### macOS features
 
 - Native SwiftUI interface using standard macOS controls, navigation, fully localized menus, Settings, colors, and SF Symbols. On macOS 26 it adopts the system Liquid Glass sidebar and toolbar appearance.
+- Refined macOS sidebar with compact interface status and output controls, plus a consistent toolbar control group in every logging state.
 - Automatic physical-interface detection and exclusion of loopback, VPN/tunnel, bridge, AWDL, virtual-machine, and similar virtual interfaces.
 - Aggregation of multiple active physical interfaces, such as Ethernet and Wi-Fi.
 - Automatic adaptation to interface connection, disconnection, USB adapter hot-plugging, and Ethernet/Wi-Fi switching while logging.
@@ -130,7 +131,7 @@ Each sample is flushed to the CSV immediately so completed data remains availabl
 Install the current Xcode command-line tools, then run on macOS:
 
 ```sh
-bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.1
+bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.2
 ```
 
 The script compiles `arm64` and `x86_64`, combines them into a Universal application, generates the application icon, applies an ad-hoc signature, and creates `dist/NetworkSpeedLogger.dmg`.
@@ -147,7 +148,7 @@ Open `src/windows/NetworkSpeedLogger/NetworkSpeedLogger.csproj` in Visual Studio
 - `src/windows/NetworkSpeedLogger/` — Windows WPF application source and icon.
 - `macos/NetworkSpeedLogger.sh` — macOS terminal version.
 - `windows/NetworkSpeedLogger.ps1` — Windows PowerShell version.
-- `.github/workflows/release.yml` — reproducible Windows and macOS v0.2.1 Release workflow.
+- `.github/workflows/release.yml` — reproducible Windows and macOS v0.2.2 Release workflow.
 
 ## License
 

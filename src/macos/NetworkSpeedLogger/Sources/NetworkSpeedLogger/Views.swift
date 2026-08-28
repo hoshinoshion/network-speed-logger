@@ -84,7 +84,7 @@ private struct MainView: View {
     var body: some View {
         NavigationSplitView {
             ControlsSidebar(settings: settings, monitor: monitor)
-                .navigationSplitViewColumnWidth(min: 270, ideal: 300, max: 340)
+                .navigationSplitViewColumnWidth(min: 300, ideal: 330, max: 380)
         } detail: {
             DashboardView(settings: settings, monitor: monitor)
                 .navigationTitle("Network Speed Logger")
@@ -108,7 +108,6 @@ private struct MainView: View {
                             } label: {
                                 Label(settings.text("Start", "开始"), systemImage: "record.circle.fill")
                             }
-                            .buttonStyle(.borderedProminent)
                             .disabled(startIsDisabled)
                         }
                     }
@@ -140,36 +139,41 @@ private struct ControlsSidebar: View {
                     value: $settings.sampleIntervalSeconds
                 )
 
-                Picker(settings.text("Speed unit", "速度单位"), selection: $settings.speedUnit) {
-                    Text("MB/s").tag(SpeedUnit.megabytesPerSecond)
-                    Text("Mbps").tag(SpeedUnit.megabitsPerSecond)
+                HStack(spacing: 12) {
+                    Text(settings.text("Speed unit", "速度单位"))
+                    Spacer(minLength: 12)
+                    Picker("", selection: $settings.speedUnit) {
+                        Text("MB/s").tag(SpeedUnit.megabytesPerSecond)
+                        Text("Mbps").tag(SpeedUnit.megabitsPerSecond)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(width: 150)
                 }
-                .pickerStyle(.segmented)
+                .padding(.vertical, 3)
             }
             .disabled(monitor.state.isRunning)
 
-            Section(settings.text("Interfaces", "网络接口")) {
-                Picker(settings.text("Mode", "模式"), selection: $settings.interfaceMode) {
-                    Text(settings.text("Automatic", "自动")).tag(InterfaceSelectionMode.automatic)
-                    Text(settings.text("Manual", "手动")).tag(InterfaceSelectionMode.manual)
+            Section {
+                HStack(spacing: 12) {
+                    Text(settings.text("Mode", "模式"))
+                    Spacer(minLength: 12)
+                    Picker("", selection: $settings.interfaceMode) {
+                        Text(settings.text("Automatic", "自动")).tag(InterfaceSelectionMode.automatic)
+                        Text(settings.text("Manual", "手动")).tag(InterfaceSelectionMode.manual)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(width: 150)
                 }
-                .pickerStyle(.segmented)
+                .padding(.vertical, 3)
                 .disabled(monitor.state.isRunning)
 
                 if settings.interfaceMode == .automatic {
-                    Label {
-                        Text(settings.text(
-                            "Active physical interfaces are combined automatically.",
-                            "自动合并所有活动物理接口。"
-                        ))
-                        .font(.caption)
-                    } icon: {
-                        Image(systemName: "wand.and.stars")
-                    }
-                    .foregroundStyle(.secondary)
+                    automaticInterfaceSummary
 
                     ForEach(monitor.availableInterfaces.filter { $0.isPhysical && $0.isActive }) { interface in
-                        InterfaceRow(interface: interface, checked: true, settings: settings)
+                        InterfaceRow(interface: interface, showsKind: false, settings: settings)
                     }
                 } else {
                     ForEach(monitor.availableInterfaces) { interface in
@@ -177,43 +181,63 @@ private struct ControlsSidebar: View {
                             get: { settings.selectedInterfaceNames.contains(interface.name) },
                             set: { settings.toggleInterface(interface.name, enabled: $0) }
                         )) {
-                            InterfaceRow(interface: interface, checked: nil, settings: settings)
+                            InterfaceRow(interface: interface, showsKind: true, settings: settings)
                         }
                         .toggleStyle(.checkbox)
                         .disabled(monitor.state.isRunning)
                     }
                 }
-
-                Button {
-                    monitor.refreshInterfaces()
-                } label: {
-                    Label(settings.text("Refresh Interfaces", "刷新接口"), systemImage: "arrow.clockwise")
+            } header: {
+                HStack {
+                    Text(settings.text("Interfaces", "网络接口"))
+                    Spacer()
+                    Button {
+                        monitor.refreshInterfaces()
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .buttonStyle(.borderless)
+                    .help(settings.text("Refresh Interfaces", "刷新接口"))
                 }
-                .buttonStyle(.plain)
             }
 
             Section(settings.text("Output", "输出")) {
                 if let folder = settings.outputFolderURL {
-                    Label {
-                        Text(folder.path)
-                            .lineLimit(2)
-                            .truncationMode(.middle)
-                            .font(.caption)
-                    } icon: {
+                    HStack(spacing: 10) {
                         Image(systemName: "folder.fill")
-                            .foregroundStyle(.blue)
-                    }
-                }
+                            .foregroundStyle(.secondary)
 
-                HStack {
-                    Button(settings.text("Change…", "更改…")) {
-                        settings.chooseOutputFolder()
-                    }
-                    .disabled(monitor.state.isRunning)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(folder.lastPathComponent)
+                                .lineLimit(1)
+                            Text(folder.deletingLastPathComponent().path)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
 
-                    Button(settings.text("Reveal", "显示")) {
-                        settings.revealOutputFolder()
+                        Spacer(minLength: 6)
+
+                        ControlGroup {
+                            Button {
+                                settings.revealOutputFolder()
+                            } label: {
+                                Image(systemName: "arrow.forward.circle")
+                            }
+                            .help(settings.text("Reveal in Finder", "在访达中显示"))
+
+                            Button {
+                                settings.chooseOutputFolder()
+                            } label: {
+                                Image(systemName: "ellipsis")
+                            }
+                            .help(settings.text("Change Output Folder", "更改保存文件夹"))
+                            .disabled(monitor.state.isRunning)
+                        }
+                        .controlSize(.small)
                     }
+                    .padding(.vertical, 3)
                 }
             }
         }
@@ -222,35 +246,24 @@ private struct ControlsSidebar: View {
         .safeAreaInset(edge: .top, spacing: 0) {
             Color.clear.frame(height: 34)
         }
-        .safeAreaInset(edge: .bottom) {
-            VStack(spacing: 8) {
-                Divider()
-                if monitor.state.isRunning {
-                    Button(role: .destructive) {
-                        monitor.stop()
-                    } label: {
-                        Label(settings.text("Stop Logging", "结束记录"), systemImage: "stop.circle.fill")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                } else {
-                    Button {
-                        monitor.start(using: settings)
-                    } label: {
-                        Label(settings.text("Start Logging", "开始记录"), systemImage: "record.circle.fill")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .disabled(settings.interfaceMode == .manual && settings.selectedInterfaceNames.isEmpty)
-                }
-            }
-            .padding([.horizontal, .bottom])
-            .background(.bar)
-        }
     }
 
+    private var automaticInterfaceSummary: some View {
+        let count = monitor.availableInterfaces.filter { $0.isPhysical && $0.isActive }.count
+        return Label {
+            Text(count == 0
+                ? settings.text("No active physical interface", "没有活动物理接口")
+                : settings.text(
+                    "\(count) active physical \(count == 1 ? "interface" : "interfaces")",
+                    "\(count) 个活动物理接口"
+                ))
+                .font(.caption)
+        } icon: {
+            Image(systemName: count == 0 ? "exclamationmark.triangle" : "point.3.connected.trianglepath.dotted")
+        }
+        .foregroundStyle(.secondary)
+        .padding(.vertical, 2)
+    }
 }
 
 private struct DurationInputRow: View {
@@ -259,26 +272,27 @@ private struct DurationInputRow: View {
     let unlimitedText: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 7) {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                Spacer(minLength: 8)
-                TextField("", value: $value, format: .number.precision(.fractionLength(0...1)))
-                    .textFieldStyle(.roundedBorder)
-                    .multilineTextAlignment(.trailing)
-                    .monospacedDigit()
-                    .frame(width: 68)
-                    .onSubmit { value = min(max(value, 0), 168) }
-                Text("h")
-                    .foregroundStyle(.secondary)
-                    .frame(width: 12, alignment: .leading)
-                Stepper("", value: $value, in: 0...168, step: 1)
-                    .labelsHidden()
+                Text(unlimitedText)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
-            Text(unlimitedText)
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+            Spacer(minLength: 12)
+            TextField("", value: $value, format: .number.precision(.fractionLength(0...1)))
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
+                .monospacedDigit()
+                .frame(width: 64)
+                .onSubmit { value = min(max(value, 0), 168) }
+            Text("h")
+                .foregroundStyle(.secondary)
+                .frame(width: 12, alignment: .leading)
+            Stepper("", value: $value, in: 0...168, step: 1)
+                .labelsHidden()
         }
+        .padding(.vertical, 3)
         .onChange(of: value) { newValue in
             if newValue < 0 || newValue > 168 {
                 value = min(max(newValue, 0), 168)
@@ -294,12 +308,12 @@ private struct IntervalInputRow: View {
     var body: some View {
         HStack(spacing: 7) {
             Text(title)
-            Spacer(minLength: 8)
+            Spacer(minLength: 12)
             TextField("", value: $value, format: .number)
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.trailing)
                 .monospacedDigit()
-                .frame(width: 68)
+                .frame(width: 64)
                 .onSubmit { value = min(max(value, 1), 3_600) }
             Text("s")
                 .foregroundStyle(.secondary)
@@ -307,6 +321,7 @@ private struct IntervalInputRow: View {
             Stepper("", value: $value, in: 1...3_600, step: 1)
                 .labelsHidden()
         }
+        .padding(.vertical, 3)
         .onChange(of: value) { newValue in
             if newValue < 1 || newValue > 3_600 {
                 value = min(max(newValue, 1), 3_600)
@@ -317,7 +332,7 @@ private struct IntervalInputRow: View {
 
 private struct InterfaceRow: View {
     let interface: NetworkInterfaceInfo
-    let checked: Bool?
+    let showsKind: Bool
     @ObservedObject var settings: AppSettings
 
     var body: some View {
@@ -330,9 +345,11 @@ private struct InterfaceRow: View {
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                 }
-                Text(interfaceKind)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                if showsKind {
+                    Text(interfaceKind)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
             Spacer(minLength: 4)
             Circle()
@@ -340,6 +357,7 @@ private struct InterfaceRow: View {
                 .frame(width: 7, height: 7)
                 .help(interface.isActive ? settings.text("Active", "活动") : settings.text("Inactive", "未活动"))
         }
+        .padding(.vertical, showsKind ? 2 : 3)
     }
 
     private var interfaceKind: String {
@@ -718,7 +736,7 @@ struct PreferencesView: View {
             }
 
             Section {
-                LabeledContent(settings.text("Version", "版本"), value: "0.2.1")
+                LabeledContent(settings.text("Version", "版本"), value: "0.2.2")
             }
         }
         .formStyle(.grouped)
