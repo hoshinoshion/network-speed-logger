@@ -44,7 +44,7 @@ macOS 客户端是使用 SwiftUI 独立开发的原生应用，界面和交互�
 ### macOS 客户端功能
 
 - 使用标准 macOS 控件、导航、完整本地化菜单、设置、系统颜色和 SF Symbols 的原生 SwiftUI 界面；在 macOS 26 上自动采用系统 Liquid Glass 侧边栏与工具栏外观。
-- 优化后的 macOS 侧边栏采用更紧凑的接口状态和输出操作，并在各种记录状态下保持一致的工具栏按钮组。
+- 优化后的 macOS 侧边栏提供对齐的控件、舒适的间距、完整的文件夹操作以及便捷的开始/结束按钮。
 - 自动识别物理网络接口，并排除回环、VPN/隧道、网桥、AWDL、虚拟机等虚拟接口。
 - 合并多个同时工作的物理接口流量，例如同时连接的以太网和 Wi-Fi。
 - 记录期间自动适应接口连接、断开、USB 网卡热插拔以及有线/Wi-Fi 切换。
@@ -131,7 +131,7 @@ chmod +x macos/NetworkSpeedLogger.sh
 安装当前版本的 Xcode 命令行工具，然后在 macOS 上运行：
 
 ```sh
-bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.2
+bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.3
 ```
 
 脚本会分别编译 `arm64` 和 `x86_64`、合并为 Universal 应用、生成应用图标、应用临时签名，并创建 `dist/NetworkSpeedLogger.dmg`。
@@ -148,7 +148,7 @@ bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.2
 - `src/windows/NetworkSpeedLogger/`：Windows WPF 客户端源代码和图标。
 - `macos/NetworkSpeedLogger.sh`：macOS 终端版本。
 - `windows/NetworkSpeedLogger.ps1`：Windows PowerShell 版本。
-- `.github/workflows/release.yml`：可复现的 Windows 与 macOS v0.2.2 Release 工作流。
+- `.github/workflows/release.yml`：可复现的 Windows 与 macOS v0.2.3 Release 工作流。
 
 ## 开源协议
 

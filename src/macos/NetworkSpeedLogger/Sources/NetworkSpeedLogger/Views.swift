@@ -121,6 +121,11 @@ private struct MainView: View {
     }
 }
 
+private enum SidebarMetrics {
+    static let trailingControlWidth: CGFloat = 150
+    static let rowVerticalPadding: CGFloat = 6
+}
+
 private struct ControlsSidebar: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject var monitor: NetworkMonitor
@@ -148,9 +153,9 @@ private struct ControlsSidebar: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.segmented)
-                    .frame(width: 150)
+                    .frame(width: SidebarMetrics.trailingControlWidth)
                 }
-                .padding(.vertical, 3)
+                .padding(.vertical, SidebarMetrics.rowVerticalPadding)
             }
             .disabled(monitor.state.isRunning)
 
@@ -164,9 +169,9 @@ private struct ControlsSidebar: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.segmented)
-                    .frame(width: 150)
+                    .frame(width: SidebarMetrics.trailingControlWidth)
                 }
-                .padding(.vertical, 3)
+                .padding(.vertical, SidebarMetrics.rowVerticalPadding)
                 .disabled(monitor.state.isRunning)
 
                 if settings.interfaceMode == .automatic {
@@ -188,57 +193,44 @@ private struct ControlsSidebar: View {
                     }
                 }
             } header: {
-                HStack {
+                HStack(spacing: 4) {
                     Text(settings.text("Interfaces", "网络接口"))
-                    Spacer()
                     Button {
                         monitor.refreshInterfaces()
                     } label: {
                         Image(systemName: "arrow.clockwise")
                     }
                     .buttonStyle(.borderless)
+                    .controlSize(.small)
                     .help(settings.text("Refresh Interfaces", "刷新接口"))
                 }
             }
 
             Section(settings.text("Output", "输出")) {
                 if let folder = settings.outputFolderURL {
-                    HStack(spacing: 10) {
+                    Label {
+                        Text(folder.path)
+                            .lineLimit(2)
+                            .truncationMode(.middle)
+                            .font(.caption)
+                    } icon: {
                         Image(systemName: "folder.fill")
-                            .foregroundStyle(.secondary)
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(folder.lastPathComponent)
-                                .lineLimit(1)
-                            Text(folder.deletingLastPathComponent().path)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer(minLength: 6)
-
-                        ControlGroup {
-                            Button {
-                                settings.revealOutputFolder()
-                            } label: {
-                                Image(systemName: "arrow.forward.circle")
-                            }
-                            .help(settings.text("Reveal in Finder", "在访达中显示"))
-
-                            Button {
-                                settings.chooseOutputFolder()
-                            } label: {
-                                Image(systemName: "ellipsis")
-                            }
-                            .help(settings.text("Change Output Folder", "更改保存文件夹"))
-                            .disabled(monitor.state.isRunning)
-                        }
-                        .controlSize(.small)
+                            .foregroundStyle(.blue)
                     }
-                    .padding(.vertical, 3)
+                    .padding(.vertical, SidebarMetrics.rowVerticalPadding)
                 }
+
+                HStack(spacing: 10) {
+                    Button(settings.text("Change…", "更改…")) {
+                        settings.chooseOutputFolder()
+                    }
+                    .disabled(monitor.state.isRunning)
+
+                    Button(settings.text("Reveal", "显示")) {
+                        settings.revealOutputFolder()
+                    }
+                }
+                .padding(.vertical, 2)
             }
         }
         .listStyle(.sidebar)
@@ -246,6 +238,38 @@ private struct ControlsSidebar: View {
         .safeAreaInset(edge: .top, spacing: 0) {
             Color.clear.frame(height: 34)
         }
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: 8) {
+                Divider()
+                if monitor.state.isRunning {
+                    Button(role: .destructive) {
+                        monitor.stop()
+                    } label: {
+                        Label(settings.text("Stop Logging", "结束记录"), systemImage: "stop.circle.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                } else {
+                    Button {
+                        monitor.start(using: settings)
+                    } label: {
+                        Label(settings.text("Start Logging", "开始记录"), systemImage: "record.circle.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(startIsDisabled)
+                }
+            }
+            .padding([.horizontal, .bottom])
+            .background(.bar)
+        }
+    }
+
+    private var startIsDisabled: Bool {
+        settings.outputFolderURL == nil
+            || (settings.interfaceMode == .manual && settings.selectedInterfaceNames.isEmpty)
     }
 
     private var automaticInterfaceSummary: some View {
@@ -262,7 +286,7 @@ private struct ControlsSidebar: View {
             Image(systemName: count == 0 ? "exclamationmark.triangle" : "point.3.connected.trianglepath.dotted")
         }
         .foregroundStyle(.secondary)
-        .padding(.vertical, 2)
+        .padding(.vertical, SidebarMetrics.rowVerticalPadding)
     }
 }
 
@@ -280,19 +304,22 @@ private struct DurationInputRow: View {
                     .foregroundStyle(.tertiary)
             }
             Spacer(minLength: 12)
-            TextField("", value: $value, format: .number.precision(.fractionLength(0...1)))
-                .textFieldStyle(.roundedBorder)
-                .multilineTextAlignment(.trailing)
-                .monospacedDigit()
-                .frame(width: 64)
-                .onSubmit { value = min(max(value, 0), 168) }
-            Text("h")
-                .foregroundStyle(.secondary)
-                .frame(width: 12, alignment: .leading)
-            Stepper("", value: $value, in: 0...168, step: 1)
-                .labelsHidden()
+            HStack(spacing: 7) {
+                TextField("", value: $value, format: .number.precision(.fractionLength(0...1)))
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.trailing)
+                    .monospacedDigit()
+                    .frame(width: 64)
+                    .onSubmit { value = min(max(value, 0), 168) }
+                Text("h")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 12, alignment: .leading)
+                Stepper("", value: $value, in: 0...168, step: 1)
+                    .labelsHidden()
+            }
+            .frame(width: SidebarMetrics.trailingControlWidth, alignment: .trailing)
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, SidebarMetrics.rowVerticalPadding)
         .onChange(of: value) { newValue in
             if newValue < 0 || newValue > 168 {
                 value = min(max(newValue, 0), 168)
@@ -309,19 +336,22 @@ private struct IntervalInputRow: View {
         HStack(spacing: 7) {
             Text(title)
             Spacer(minLength: 12)
-            TextField("", value: $value, format: .number)
-                .textFieldStyle(.roundedBorder)
-                .multilineTextAlignment(.trailing)
-                .monospacedDigit()
-                .frame(width: 64)
-                .onSubmit { value = min(max(value, 1), 3_600) }
-            Text("s")
-                .foregroundStyle(.secondary)
-                .frame(width: 12, alignment: .leading)
-            Stepper("", value: $value, in: 1...3_600, step: 1)
-                .labelsHidden()
+            HStack(spacing: 7) {
+                TextField("", value: $value, format: .number)
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.trailing)
+                    .monospacedDigit()
+                    .frame(width: 64)
+                    .onSubmit { value = min(max(value, 1), 3_600) }
+                Text("s")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 12, alignment: .leading)
+                Stepper("", value: $value, in: 1...3_600, step: 1)
+                    .labelsHidden()
+            }
+            .frame(width: SidebarMetrics.trailingControlWidth, alignment: .trailing)
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, SidebarMetrics.rowVerticalPadding)
         .onChange(of: value) { newValue in
             if newValue < 1 || newValue > 3_600 {
                 value = min(max(newValue, 1), 3_600)
@@ -357,7 +387,7 @@ private struct InterfaceRow: View {
                 .frame(width: 7, height: 7)
                 .help(interface.isActive ? settings.text("Active", "活动") : settings.text("Inactive", "未活动"))
         }
-        .padding(.vertical, showsKind ? 2 : 3)
+        .padding(.vertical, showsKind ? 5 : SidebarMetrics.rowVerticalPadding)
     }
 
     private var interfaceKind: String {
@@ -736,7 +766,7 @@ struct PreferencesView: View {
             }
 
             Section {
-                LabeledContent(settings.text("Version", "版本"), value: "0.2.2")
+                LabeledContent(settings.text("Version", "版本"), value: "0.2.3")
             }
         }
         .formStyle(.grouped)
