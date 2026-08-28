@@ -66,7 +66,7 @@ iconutil -c icns "$iconset_path" -o "$app_path/Contents/Resources/AppIcon.icns"
 # bundle internally consistent while the project intentionally remains unsigned.
 codesign --force --deep --sign - "$app_path"
 codesign --verify --deep --strict "$app_path"
-lipo -verify_arch arm64 x86_64 "$app_path/Contents/MacOS/NetworkSpeedLogger"
+lipo "$app_path/Contents/MacOS/NetworkSpeedLogger" -verify_arch arm64 x86_64
 
 dmg_stage=$(mktemp -d "${TMPDIR:-/tmp}/network-speed-logger-dmg.XXXXXX")
 cleanup() {
