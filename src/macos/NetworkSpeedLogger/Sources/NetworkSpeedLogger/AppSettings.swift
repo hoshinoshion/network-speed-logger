@@ -58,12 +58,6 @@ final class AppSettings: ObservableObject {
         restoreOutputFolder()
     }
 
-    deinit {
-        if isAccessingOutputFolder {
-            outputFolderURL?.stopAccessingSecurityScopedResource()
-        }
-    }
-
     var usesChinese: Bool {
         switch language {
         case .english:
