@@ -67,7 +67,7 @@
                            Style="{StaticResource CaptionStyle}" />
               </StackPanel>
               <NumberBox x:Name="DefaultDurationNumber" Grid.Column="1" Minimum="0" Maximum="8760"
-                         SmallChange="1" SpinButtonPlacementMode="Compact" />
+                         SmallChange="1" SpinButtonPlacementMode="Inline" />
             </Grid>
           </Border>
 
@@ -83,7 +83,7 @@
                            Style="{StaticResource CaptionStyle}" />
               </StackPanel>
               <NumberBox x:Name="DefaultIntervalNumber" Grid.Column="1" Minimum="1" Maximum="3600"
-                         SmallChange="1" SpinButtonPlacementMode="Compact" />
+                         SmallChange="1" SpinButtonPlacementMode="Inline" />
             </Grid>
           </Border>
 

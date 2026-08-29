@@ -56,13 +56,13 @@
               <StackPanel Spacing="6">
                 <TextBlock x:Name="DurationLabel" Text="运行时长（小时）" />
                 <NumberBox x:Name="DurationNumber" Minimum="0" Maximum="8760" SmallChange="1"
-                           SpinButtonPlacementMode="Compact" ToolTipService.ToolTip="输入 0 表示不限时" />
+                           SpinButtonPlacementMode="Inline" ToolTipService.ToolTip="输入 0 表示不限时" />
               </StackPanel>
 
               <StackPanel Spacing="6">
                 <TextBlock x:Name="IntervalLabel" Text="采样间隔（秒）" />
                 <NumberBox x:Name="IntervalNumber" Minimum="1" Maximum="3600" SmallChange="1"
-                           SpinButtonPlacementMode="Compact" />
+                           SpinButtonPlacementMode="Inline" />
               </StackPanel>
 
               <StackPanel Spacing="6">
