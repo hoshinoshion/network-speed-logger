@@ -51,7 +51,7 @@ jobs:
             "/p:AssemblyVersion=${env:APP_VERSION}.0" `
             "/p:FileVersion=${env:APP_VERSION}.0"
 
-          $app = Get-Item src\windows\NetworkSpeedLogger\bin\Release\NetworkSpeedLogger.exe
+          $app = Get-Item src\windows\NetworkSpeedLogger\bin\Release\net48\NetworkSpeedLogger.exe
           if (-not $app.VersionInfo.FileVersion.StartsWith($env:APP_VERSION)) {
             throw "Unexpected application file version: $($app.VersionInfo.FileVersion)"
           }

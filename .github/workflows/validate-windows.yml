@@ -15,7 +15,7 @@ jobs:
         shell: pwsh
         run: |
           msbuild src\windows\NetworkSpeedLogger\NetworkSpeedLogger.csproj /restore /m /p:Configuration=Release
-          $app = Get-Item src\windows\NetworkSpeedLogger\bin\Release\NetworkSpeedLogger.exe
+          $app = Get-Item src\windows\NetworkSpeedLogger\bin\Release\net48\NetworkSpeedLogger.exe
           if (-not $app.VersionInfo.FileVersion.StartsWith('0.3.0')) {
             throw "Unexpected file version: $($app.VersionInfo.FileVersion)"
           }

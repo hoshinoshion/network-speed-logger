@@ -56,7 +56,7 @@ chinesesimp.DotNetMissing=Network Speed Logger 需要 .NET Framework 4.8 或更�
 Name: "desktopicon"; Description: "{cm:DesktopShortcut}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "..\..\src\windows\NetworkSpeedLogger\bin\Release\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\src\windows\NetworkSpeedLogger\bin\Release\net48\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
