@@ -62,7 +62,7 @@ jobs:
             throw "dotnet publish failed with exit code $LASTEXITCODE."
           }
 
-          $app = Get-Item src\windows\NetworkSpeedLogger.WinUI\bin\Release\net10.0-windows10.0.17763.0\win-x64\publish\NetworkSpeedLogger.exe
+          $app = Get-Item src\windows\NetworkSpeedLogger.WinUI\bin\x64\Release\net10.0-windows10.0.17763.0\win-x64\publish\NetworkSpeedLogger.exe
           if (-not $app.VersionInfo.FileVersion.StartsWith($env:APP_VERSION)) {
             throw "Unexpected application file version: $($app.VersionInfo.FileVersion)"
           }

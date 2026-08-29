@@ -56,7 +56,7 @@ chinesesimp.DesktopShortcut=创建桌面快捷方式
 Name: "desktopicon"; Description: "{cm:DesktopShortcut}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "..\..\src\windows\NetworkSpeedLogger.WinUI\bin\Release\net10.0-windows10.0.17763.0\win-x64\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\src\windows\NetworkSpeedLogger.WinUI\bin\x64\Release\net10.0-windows10.0.17763.0\win-x64\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [InstallDelete]
 Type: files; Name: "{app}\{#AppExeName}.config"
