@@ -112,7 +112,7 @@ jobs:
           $requiredFiles = @(
             "NetworkSpeedLogger.exe",
             "NetworkSpeedLogger.dll",
-            "resources.pri",
+            "NetworkSpeedLogger.pri",
             "Microsoft.ui.xaml.dll",
             "Microsoft.WindowsAppRuntime.dll"
           )
