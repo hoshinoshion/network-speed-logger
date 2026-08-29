@@ -129,6 +129,17 @@ jobs:
           $process = Start-Process $app.FullName -PassThru
           Start-Sleep -Seconds 8
           if ($process.HasExited) {
+            $crashLog = Join-Path $env:LOCALAPPDATA "NetworkSpeedLogger\crash.log"
+            if (Test-Path $crashLog) {
+              Write-Host "Application crash log:"
+              Get-Content $crashLog
+            }
+            Write-Host "Recent Windows application events:"
+            Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = (Get-Date).AddMinutes(-3) } `
+              -ErrorAction SilentlyContinue |
+              Where-Object { $_.Message -match "NetworkSpeedLogger" } |
+              Select-Object -First 10 TimeCreated, Id, ProviderName, LevelDisplayName, Message |
+              Format-List | Out-String | Write-Host
             throw "The installed application exited during the startup smoke test with code $($process.ExitCode)."
           }
           Stop-Process -Id $process.Id -Force
