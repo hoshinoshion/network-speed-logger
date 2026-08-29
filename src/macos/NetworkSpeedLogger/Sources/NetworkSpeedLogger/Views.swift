@@ -616,14 +616,16 @@ private struct DashboardView: View {
                 Chart(chartSamples) { sample in
                     LineMark(
                         x: .value("Time", sample.timestamp),
-                        y: .value("Download", settings.speedUnit.value(fromBytesPerSecond: sample.downloadBytesPerSecond))
+                        y: .value("Download", settings.speedUnit.value(fromBytesPerSecond: sample.downloadBytesPerSecond)),
+                        series: .value("Series", "Download")
                     )
                     .foregroundStyle(.blue)
                     .interpolationMethod(.catmullRom)
 
                     LineMark(
                         x: .value("Time", sample.timestamp),
-                        y: .value("Upload", settings.speedUnit.value(fromBytesPerSecond: sample.uploadBytesPerSecond))
+                        y: .value("Upload", settings.speedUnit.value(fromBytesPerSecond: sample.uploadBytesPerSecond)),
+                        series: .value("Series", "Upload")
                     )
                     .foregroundStyle(.purple)
                     .interpolationMethod(.catmullRom)
@@ -889,7 +891,7 @@ struct PreferencesView: View {
             }
 
             Section {
-                LabeledContent(settings.text("Version", "版本"), value: "0.2.6")
+                LabeledContent(settings.text("Version", "版本"), value: "0.2.7")
             }
         }
         .formStyle(.grouped)
