@@ -90,13 +90,26 @@ private struct MainView: View {
             DashboardView(settings: settings, monitor: monitor)
                 .navigationTitle("Network Speed Logger")
                 .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            openSettingsWindow()
-                        } label: {
-                            Label(settings.text("Settings", "设置"), systemImage: "gearshape")
+                    if #available(macOS 14.0, *) {
+                        ToolbarItem(placement: .primaryAction) {
+                            SettingsLink {
+                                Label(settings.text("Settings", "设置"), systemImage: "gearshape")
+                            }
+                            .help(settings.text("Open Settings", "打开设置"))
                         }
-                        .help(settings.text("Open Settings", "打开设置"))
+                    } else {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button {
+                                openLegacySettingsWindow()
+                            } label: {
+                                Label(settings.text("Settings", "设置"), systemImage: "gearshape")
+                            }
+                            .help(settings.text("Open Settings", "打开设置"))
+                        }
+                    }
+
+                    if #available(macOS 26.0, *) {
+                        ToolbarSpacer(.fixed, placement: .primaryAction)
                     }
 
                     ToolbarItemGroup(placement: .primaryAction) {
@@ -130,15 +143,15 @@ private struct MainView: View {
             || (settings.interfaceMode == .manual && settings.selectedInterfaceNames.isEmpty)
     }
 
-    private func openSettingsWindow() {
+    private func openLegacySettingsWindow() {
         let opened = NSApp.sendAction(
-            Selector(("showSettingsWindow:")),
+            Selector(("showPreferencesWindow:")),
             to: nil,
             from: nil
         )
         if !opened {
             NSApp.sendAction(
-                Selector(("showPreferencesWindow:")),
+                Selector(("showSettingsWindow:")),
                 to: nil,
                 from: nil
             )
@@ -876,7 +889,7 @@ struct PreferencesView: View {
             }
 
             Section {
-                LabeledContent(settings.text("Version", "版本"), value: "0.2.5")
+                LabeledContent(settings.text("Version", "版本"), value: "0.2.6")
             }
         }
         .formStyle(.grouped)
