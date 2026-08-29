@@ -1,0 +1,181 @@
+<Window
+    x:Class="NetworkSpeedLogger.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Grid x:Name="RootGrid" Background="{ThemeResource AppContentBrush}">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="48" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <Grid x:Name="SettingsTitleBar" Background="Transparent">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <FontIcon Glyph="&#xE713;" FontSize="15" Margin="18,0,10,0" VerticalAlignment="Center" />
+      <TextBlock x:Name="TitleBarText" Grid.Column="1" Text="设置" VerticalAlignment="Center"
+                 FontSize="12" FontWeight="SemiBold" />
+    </Grid>
+
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Padding="30,22,30,28" Spacing="20">
+        <StackPanel Spacing="4">
+          <TextBlock x:Name="PageTitleText" Text="设置" FontSize="28" FontWeight="SemiBold" />
+          <TextBlock x:Name="PageSubtitleText" Text="管理每次启动时使用的默认值和文件保存位置"
+                     Style="{StaticResource CaptionStyle}" />
+        </StackPanel>
+
+        <StackPanel Spacing="8">
+          <TextBlock x:Name="GeneralSectionText" Text="常规" Style="{StaticResource SectionTitleStyle}" />
+          <Border Style="{StaticResource CardStyle}" Padding="16,12">
+            <Grid ColumnSpacing="20">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="260" />
+              </Grid.ColumnDefinitions>
+              <StackPanel VerticalAlignment="Center" Spacing="3">
+                <TextBlock x:Name="LanguageLabel" Text="界面语言" FontWeight="SemiBold" />
+                <TextBlock x:Name="LanguageDescription" Text="默认根据 Windows 显示语言自动选择"
+                           Style="{StaticResource CaptionStyle}" />
+              </StackPanel>
+              <ComboBox x:Name="LanguageCombo" Grid.Column="1" HorizontalAlignment="Stretch">
+                <ComboBoxItem x:Name="LanguageAutoItem" Tag="Auto" Content="跟随系统" />
+                <ComboBoxItem x:Name="LanguageChineseItem" Tag="zh-CN" Content="简体中文" />
+                <ComboBoxItem x:Name="LanguageEnglishItem" Tag="en-US" Content="English" />
+              </ComboBox>
+            </Grid>
+          </Border>
+        </StackPanel>
+
+        <StackPanel Spacing="8">
+          <TextBlock x:Name="DefaultsSectionText" Text="启动默认值" Style="{StaticResource SectionTitleStyle}" />
+          <TextBlock x:Name="DefaultsDescriptionText" Text="主窗口中的临时修改不会覆盖这些值"
+                     Style="{StaticResource CaptionStyle}" />
+
+          <Border Style="{StaticResource CardStyle}" Padding="16,12">
+            <Grid ColumnSpacing="20">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="260" />
+              </Grid.ColumnDefinitions>
+              <StackPanel VerticalAlignment="Center" Spacing="3">
+                <TextBlock x:Name="DefaultDurationLabel" Text="运行时长" FontWeight="SemiBold" />
+                <TextBlock x:Name="DefaultDurationDescription" Text="小时；0 表示不限时"
+                           Style="{StaticResource CaptionStyle}" />
+              </StackPanel>
+              <NumberBox x:Name="DefaultDurationNumber" Grid.Column="1" Minimum="0" Maximum="8760"
+                         SmallChange="1" SpinButtonPlacementMode="Compact" />
+            </Grid>
+          </Border>
+
+          <Border Style="{StaticResource CardStyle}" Padding="16,12">
+            <Grid ColumnSpacing="20">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="260" />
+              </Grid.ColumnDefinitions>
+              <StackPanel VerticalAlignment="Center" Spacing="3">
+                <TextBlock x:Name="DefaultIntervalLabel" Text="采样间隔" FontWeight="SemiBold" />
+                <TextBlock x:Name="DefaultIntervalDescription" Text="1 到 3600 秒"
+                           Style="{StaticResource CaptionStyle}" />
+              </StackPanel>
+              <NumberBox x:Name="DefaultIntervalNumber" Grid.Column="1" Minimum="1" Maximum="3600"
+                         SmallChange="1" SpinButtonPlacementMode="Compact" />
+            </Grid>
+          </Border>
+
+          <Border Style="{StaticResource CardStyle}" Padding="16,12">
+            <Grid ColumnSpacing="20">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="260" />
+              </Grid.ColumnDefinitions>
+              <StackPanel VerticalAlignment="Center" Spacing="3">
+                <TextBlock x:Name="DefaultUnitLabel" Text="速度单位" FontWeight="SemiBold" />
+                <TextBlock x:Name="DefaultUnitDescription" Text="只影响显示和输出列单位"
+                           Style="{StaticResource CaptionStyle}" />
+              </StackPanel>
+              <ComboBox x:Name="DefaultUnitCombo" Grid.Column="1" HorizontalAlignment="Stretch">
+                <ComboBoxItem x:Name="DefaultUnitMbItem" Tag="MB/s" Content="MB/s（兆字节/秒）" />
+                <ComboBoxItem x:Name="DefaultUnitMbpsItem" Tag="Mbps" Content="Mbps（兆比特/秒）" />
+              </ComboBox>
+            </Grid>
+          </Border>
+        </StackPanel>
+
+        <StackPanel Spacing="8">
+          <TextBlock x:Name="FilesSectionText" Text="文件" Style="{StaticResource SectionTitleStyle}" />
+          <Border Style="{StaticResource CardStyle}">
+            <StackPanel Spacing="10">
+              <StackPanel Spacing="3">
+                <TextBlock x:Name="OutputFolderLabel" Text="结果保存位置" FontWeight="SemiBold" />
+                <TextBlock x:Name="OutputFolderDescription" Text="CSV 和 Markdown 汇总都会保存到此文件夹"
+                           Style="{StaticResource CaptionStyle}" />
+              </StackPanel>
+              <TextBox x:Name="OutputFolderText" IsReadOnly="True" />
+              <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <Button x:Name="OpenFolderButton" Click="OpenFolderButton_Click">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE8B7;" FontSize="13" />
+                    <TextBlock x:Name="OpenFolderButtonText" Text="打开" />
+                  </StackPanel>
+                </Button>
+                <Button x:Name="BrowseButton" Click="BrowseButton_Click">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xED43;" FontSize="13" />
+                    <TextBlock x:Name="BrowseButtonText" Text="更改" />
+                  </StackPanel>
+                </Button>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <StackPanel Spacing="8">
+          <TextBlock x:Name="AboutSectionText" Text="关于" Style="{StaticResource SectionTitleStyle}" />
+          <Border Style="{StaticResource CardStyle}" Padding="16,12">
+            <Grid ColumnSpacing="20">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel VerticalAlignment="Center" Spacing="3">
+                <TextBlock Text="Network Speed Logger" FontWeight="SemiBold" />
+                <TextBlock x:Name="VersionText" Text="0.4.0" Style="{StaticResource CaptionStyle}" />
+              </StackPanel>
+              <Button x:Name="RepositoryButton" Grid.Column="1" Click="RepositoryButton_Click">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <FontIcon Glyph="&#xE8A7;" FontSize="13" />
+                  <TextBlock x:Name="RepositoryButtonText" Text="GitHub 仓库" />
+                </StackPanel>
+              </Button>
+            </Grid>
+          </Border>
+        </StackPanel>
+
+        <InfoBar x:Name="ValidationInfoBar" IsOpen="False" IsClosable="True" Severity="Error" />
+      </StackPanel>
+    </ScrollViewer>
+
+    <Border Grid.Row="2" Background="{ThemeResource AppPaneBrush}" BorderBrush="{ThemeResource CardBorderBrush}"
+            BorderThickness="0,1,0,0" Padding="20,14">
+      <Grid ColumnSpacing="8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <TextBlock x:Name="SaveHintText" VerticalAlignment="Center" Style="{StaticResource CaptionStyle}"
+                   Text="保存后将在下次启动时使用" />
+        <Button x:Name="CancelButton" Grid.Column="1" Content="取消" Click="CancelButton_Click" />
+        <Button x:Name="SaveButton" Grid.Column="2" Content="保存" Click="SaveButton_Click" />
+        <Button x:Name="ApplyDefaultsButton" Grid.Column="3" Content="保存并立即应用"
+                Style="{StaticResource AccentButtonStyle}" Click="ApplyDefaultsButton_Click" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

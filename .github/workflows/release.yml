@@ -1,16 +1,17 @@
-name: Pre-release v0.3.0
+name: Pre-release v0.4.0
 
 on:
   push:
     branches:
       - main
+      - feature/windows-winui3
   workflow_dispatch:
 
 permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.3.0
+  APP_VERSION: 0.4.0
 
 jobs:
   release-check:
@@ -19,12 +20,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.3.0 already exists
+      - name: Check whether v0.4.0 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.3.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.4.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -39,19 +40,25 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Set up MSBuild
-        uses: microsoft/setup-msbuild@v2
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
 
       - name: Build Windows application
         shell: pwsh
         run: |
-          msbuild src\windows\NetworkSpeedLogger\NetworkSpeedLogger.csproj `
-            /restore /m /p:Configuration=Release `
-            "/p:Version=$env:APP_VERSION" `
-            "/p:AssemblyVersion=${env:APP_VERSION}.0" `
-            "/p:FileVersion=${env:APP_VERSION}.0"
+          dotnet publish src\windows\NetworkSpeedLogger.WinUI\NetworkSpeedLogger.WinUI.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            -p:Platform=x64 `
+            -p:WindowsAppSDKSelfContained=true `
+            -p:Version=$env:APP_VERSION `
+            -p:AssemblyVersion=${env:APP_VERSION}.0 `
+            -p:FileVersion=${env:APP_VERSION}.0
 
-          $app = Get-Item src\windows\NetworkSpeedLogger\bin\Release\net48\NetworkSpeedLogger.exe
+          $app = Get-Item src\windows\NetworkSpeedLogger.WinUI\bin\Release\net10.0-windows10.0.17763.0\win-x64\publish\NetworkSpeedLogger.exe
           if (-not $app.VersionInfo.FileVersion.StartsWith($env:APP_VERSION)) {
             throw "Unexpected application file version: $($app.VersionInfo.FileVersion)"
           }
@@ -80,7 +87,7 @@ jobs:
           }
 
           $installer = Get-Item dist\NetworkSpeedLogger-Setup.exe
-          if ($installer.Length -lt 100KB) {
+          if ($installer.Length -lt 10MB) {
             throw "The installer is unexpectedly small."
           }
 
@@ -94,6 +101,7 @@ jobs:
   publish:
     needs: [release-check, build-windows]
     if: >-
+      github.ref == 'refs/heads/main' &&
       needs.release-check.outputs.exists != 'true' &&
       needs.build-windows.result == 'success'
     runs-on: ubuntu-latest
@@ -110,23 +118,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.3.0 Windows pre-release
+          Network Speed Logger 0.4.0 Windows pre-release
 
-          - Replaced the portable executable release with a standard per-user installer and uninstaller
-          - Added a dedicated Settings window for language, session defaults, output folder, and version information
-          - Added remembered launch defaults for duration, sample interval, and speed unit
-          - Main-window changes to those three values now remain temporary and reset to the saved defaults after restarting the app
-          - Added a required, remembered output folder with a first-run folder selection experience
-          - Migrates the language preference saved by earlier Windows versions
-          - Unified Windows application and installer version metadata at 0.3.0
+          - Rebuilt the Windows client with WinUI 3 and the stable Windows App SDK
+          - Added a Windows 11 Fluent visual design with Mica, native controls, light and dark themes, and an integrated title bar
+          - Preserved the task-focused layout with session controls on the left and live monitoring cards on the right
+          - Preserved automatic physical-adapter detection, multi-adapter aggregation, live interface switching, and manual selection
+          - Preserved compatible settings, launch defaults, remembered output folders, CSV logs, and Markdown summaries
+          - Replaced the WPF chart and sample grid with native WinUI implementations
+          - Ships as a self-contained per-user installer for x64 Windows 10 version 1809 and later
 
-          This pre-release contains the Windows installer only. The application and installer are not code-signed, so Windows SmartScreen may identify the publisher as unknown.
+          This pre-release contains the Windows installer only. The application and installer are not code-signed, so Windows SmartScreen may identify the publisher as unknown. The self-contained installer is larger than previous releases because it includes the required .NET and Windows App SDK components.
           EOF
           )
-          gh release create v0.3.0 \
+          gh release create v0.4.0 \
             artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.3.0" \
+            --title "v0.4.0" \
             --prerelease \
             --notes "$notes"
