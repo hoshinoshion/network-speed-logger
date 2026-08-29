@@ -44,7 +44,7 @@ VersionInfoCopyright=Copyright (C) 2026 hoshinoshion
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
-Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+Name: "chinesesimp"; MessagesFile: "compiler:Default.isl,languages\ChineseSimplified.isl"
 
 [CustomMessages]
 english.DesktopShortcut=Create a desktop shortcut
@@ -57,6 +57,7 @@ Name: "desktopicon"; Description: "{cm:DesktopShortcut}"; GroupDescription: "{cm
 
 [Files]
 Source: "..\..\src\windows\NetworkSpeedLogger\bin\Release\net48\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\src\windows\NetworkSpeedLogger\bin\Release\net48\{#AppExeName}.config"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"

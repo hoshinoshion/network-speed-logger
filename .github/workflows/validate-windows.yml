@@ -36,10 +36,13 @@ jobs:
 
           $installedFolder = Join-Path $env:LOCALAPPDATA 'Programs\NetworkSpeedLogger'
           $installedApp = Join-Path $installedFolder 'NetworkSpeedLogger.exe'
+          $installedConfig = Join-Path $installedFolder 'NetworkSpeedLogger.exe.config'
           $uninstaller = Join-Path $installedFolder 'unins000.exe'
           if (-not (Test-Path $installedApp)) { throw 'The installed application was not found.' }
+          if (-not (Test-Path $installedConfig)) { throw 'The application configuration was not found.' }
           if (-not (Test-Path $uninstaller)) { throw 'The uninstaller was not found.' }
 
           $uninstall = Start-Process -FilePath $uninstaller -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
           if ($uninstall.ExitCode -ne 0) { throw "Uninstall exited with $($uninstall.ExitCode)." }
           if (Test-Path $installedApp) { throw 'The application remained after uninstall.' }
+          if (Test-Path $installedConfig) { throw 'The application configuration remained after uninstall.' }
