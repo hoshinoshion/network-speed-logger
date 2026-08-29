@@ -95,6 +95,48 @@ jobs:
             throw "The installer is unexpectedly small."
           }
 
+      - name: Smoke-test installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $installer = (Resolve-Path dist\NetworkSpeedLogger-Setup.exe).Path
+          $installDir = Join-Path $env:RUNNER_TEMP "NetworkSpeedLogger-smoke"
+
+          & $installer /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- "/DIR=$installDir"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Silent installation failed with exit code $LASTEXITCODE."
+          }
+
+          $requiredFiles = @(
+            "NetworkSpeedLogger.exe",
+            "NetworkSpeedLogger.dll",
+            "Microsoft.ui.xaml.dll",
+            "Microsoft.WindowsAppRuntime.dll"
+          )
+          foreach ($file in $requiredFiles) {
+            if (-not (Test-Path (Join-Path $installDir $file))) {
+              throw "Installed payload is missing $file."
+            }
+          }
+
+          $app = Get-Item (Join-Path $installDir "NetworkSpeedLogger.exe")
+          if (-not $app.VersionInfo.FileVersion.StartsWith($env:APP_VERSION)) {
+            throw "Unexpected installed application file version: $($app.VersionInfo.FileVersion)"
+          }
+
+          $process = Start-Process $app.FullName -PassThru
+          Start-Sleep -Seconds 8
+          if ($process.HasExited) {
+            throw "The installed application exited during the startup smoke test with code $($process.ExitCode)."
+          }
+          Stop-Process -Id $process.Id -Force
+
+          $uninstaller = Join-Path $installDir "unins000.exe"
+          & $uninstaller /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+          if ($LASTEXITCODE -ne 0) {
+            throw "Silent uninstall failed with exit code $LASTEXITCODE."
+          }
+
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
