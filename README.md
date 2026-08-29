@@ -8,12 +8,12 @@ It records the traffic actually sent and received by your computer, including in
 
 ## Download
 
-For most users, the desktop applications are the easiest way to get started. Download them from the [latest release](https://github.com/hoshinoshion/network-speed-logger/releases/latest):
+For most users, the desktop applications are the easiest way to get started. Download them from the [Releases page](https://github.com/hoshinoshion/network-speed-logger/releases):
 
 | Platform | File | Requirements |
 | --- | --- | --- |
 | macOS | `NetworkSpeedLogger.dmg` | macOS 13 or later; Apple silicon or Intel |
-| Windows | `NetworkSpeedLogger.exe` | Windows 10 or 11; .NET Framework 4.8 |
+| Windows | `NetworkSpeedLogger-Setup.exe` | Windows 10 or 11; .NET Framework 4.8 |
 
 Neither application requires administrator privileges.
 
@@ -24,7 +24,8 @@ Both desktop applications provide:
 - Automatic detection of physical network interfaces and exclusion of loopback, VPN, tunnel, bridge, virtual-machine, and similar virtual interfaces.
 - Combined traffic from multiple active physical interfaces, with automatic adaptation to Ethernet/Wi-Fi changes during a session.
 - Manual selection of one or more physical or virtual interfaces.
-- Configurable duration, sample interval, speed unit, and output folder.
+- Configurable duration, sample interval, speed unit, and a remembered output folder.
+- Saved launch defaults for duration, sample interval, and speed unit; main-window changes remain temporary for the current launch.
 - Real-time MB/s or Mbps display, traffic totals, a 60-sample chart, recent samples, and session statistics.
 - Immediate CSV writes after every sample and a Markdown summary when the session ends.
 - Simplified Chinese and English, selected from the system language by default and switchable in the application.
@@ -52,14 +53,19 @@ The macOS application requires no Homebrew packages, kernel extensions, or netwo
 
 ## Windows application
 
-The Windows client is a standalone WPF application:
+The Windows client is installed per user with a standard setup and uninstall process:
 
-1. Run `NetworkSpeedLogger.exe`.
-2. Choose the duration, sample interval, speed unit, adapter mode, and output folder.
-3. Select **Start logging**.
-4. Select **Stop logging** at any time, or let the configured duration finish.
+1. Run `NetworkSpeedLogger-Setup.exe` and complete Setup. Administrator privileges are not required.
+2. Open **Network Speed Logger** from the Start menu.
+3. Choose an output folder on first launch. The app remembers it for future sessions.
+4. Choose the current duration, sample interval, speed unit, and adapter mode, then select **Start**.
+5. Select **Stop** at any time, or let the configured duration finish.
 
-It targets .NET Framework 4.8 and has no third-party runtime dependencies.
+Use the Settings button to change the interface language, output folder, and launch defaults. Changes to duration, sample interval, and speed unit made directly in the main window apply only until the app is closed. Windows Settings can uninstall the application; uninstalling never removes CSV or Markdown files.
+
+It targets .NET Framework 4.8 and has no third-party runtime dependencies. The current Windows application and installer are not code-signed, so SmartScreen may identify the publisher as unknown.
+
+Users of an earlier portable version can install the new version normally and then delete the old standalone EXE. The saved language preference is migrated automatically.
 
 ## macOS shell script
 
@@ -132,15 +138,16 @@ The script builds `arm64` and `x86_64`, combines them into a Universal applicati
 
 ### Windows
 
-Open `src/windows/NetworkSpeedLogger/NetworkSpeedLogger.csproj` in Visual Studio with the **.NET desktop development** workload, select Release, and build.
+Open `src/windows/NetworkSpeedLogger/NetworkSpeedLogger.csproj` in Visual Studio with the **.NET desktop development** workload, select Release, and build. To create the installer, install Inno Setup 6 and compile `installer/windows/NetworkSpeedLogger.iss` after the Release build finishes.
 
 ## Repository layout
 
 - `src/macos/NetworkSpeedLogger/` — native SwiftUI application and Universal DMG build scripts.
 - `macos/NetworkSpeedLogger.sh` — macOS terminal version.
 - `src/windows/NetworkSpeedLogger/` — Windows WPF application source and icon.
+- `installer/windows/` — Inno Setup definition for the Windows installer and uninstaller.
 - `windows/NetworkSpeedLogger.ps1` — Windows PowerShell version.
-- `.github/workflows/release.yml` — reproducible release workflow for both platforms.
+- `.github/workflows/release.yml` — reproducible release workflow for the current release.
 
 ## License
 

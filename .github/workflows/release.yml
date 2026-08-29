@@ -1,4 +1,4 @@
-name: Pre-release v0.2.7
+name: Pre-release v0.3.0
 
 on:
   push:
@@ -9,6 +9,9 @@ on:
 permissions:
   contents: write
 
+env:
+  APP_VERSION: 0.3.0
+
 jobs:
   release-check:
     runs-on: ubuntu-latest
@@ -16,73 +19,114 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.2.7 already exists
+      - name: Check whether v0.3.0 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.2.7 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.3.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-  build-macos:
+  build-windows:
     needs: release-check
     if: needs.release-check.outputs.exists != 'true'
-    runs-on: macos-26
+    runs-on: windows-latest
 
     steps:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Build Universal macOS application and DMG
-        run: bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.7
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
 
-      - name: Verify Universal architectures
-        run: lipo -info dist/NetworkSpeedLogger.app/Contents/MacOS/NetworkSpeedLogger
+      - name: Build Windows application
+        shell: pwsh
+        run: |
+          msbuild src\windows\NetworkSpeedLogger\NetworkSpeedLogger.csproj `
+            /restore /m /p:Configuration=Release `
+            "/p:Version=$env:APP_VERSION" `
+            "/p:AssemblyVersion=${env:APP_VERSION}.0" `
+            "/p:FileVersion=${env:APP_VERSION}.0"
 
-      - name: Upload macOS artifact
+          $app = Get-Item src\windows\NetworkSpeedLogger\bin\Release\net48\NetworkSpeedLogger.exe
+          if (-not $app.VersionInfo.FileVersion.StartsWith($env:APP_VERSION)) {
+            throw "Unexpected application file version: $($app.VersionInfo.FileVersion)"
+          }
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+          $iscc = if ($null -ne $command) {
+            $command.Source
+          } else {
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
+
+          if (-not (Test-Path $iscc)) {
+            throw "ISCC.exe was not found."
+          }
+
+          & $iscc "/DAppVersion=$env:APP_VERSION" installer\windows\NetworkSpeedLogger.iss
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup failed with exit code $LASTEXITCODE."
+          }
+
+          $installer = Get-Item dist\NetworkSpeedLogger-Setup.exe
+          if ($installer.Length -lt 100KB) {
+            throw "The installer is unexpectedly small."
+          }
+
+      - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
-          name: macos-release
-          path: dist/NetworkSpeedLogger.dmg
+          name: windows-installer
+          path: dist/NetworkSpeedLogger-Setup.exe
           if-no-files-found: error
 
   publish:
-    needs: [release-check, build-macos]
+    needs: [release-check, build-windows]
     if: >-
       needs.release-check.outputs.exists != 'true' &&
-      needs.build-macos.result == 'success'
+      needs.build-windows.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download macOS artifact
+      - name: Download Windows installer
         uses: actions/download-artifact@v4
         with:
-          name: macos-release
+          name: windows-installer
           path: artifacts
 
-      - name: Create GitHub Release
+      - name: Create GitHub pre-release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.2.7 macOS pre-release
+          Network Speed Logger 0.3.0 Windows pre-release
 
-          - Native Universal macOS application for Apple silicon and Intel Macs
-          - Fixed the live chart incorrectly connecting download and upload samples as one line
-          - Download and upload now render as independent blue and purple series
+          - Replaced the portable executable release with a standard per-user installer and uninstaller
+          - Added a dedicated Settings window for language, session defaults, output folder, and version information
+          - Added remembered launch defaults for duration, sample interval, and speed unit
+          - Main-window changes to those three values now remain temporary and reset to the saved defaults after restarting the app
+          - Added a required, remembered output folder with a first-run folder selection experience
+          - Migrates the language preference saved by earlier Windows versions
+          - Unified Windows application and installer version metadata at 0.3.0
 
-          This pre-release contains the macOS DMG only. The latest stable release remains recommended for general use.
-
-          The macOS application is not signed with an Apple Developer ID and is not notarized. Follow the README instructions if Gatekeeper blocks its first launch.
+          This pre-release contains the Windows installer only. The application and installer are not code-signed, so Windows SmartScreen may identify the publisher as unknown.
           EOF
           )
-          gh release create v0.2.7 \
-            artifacts/NetworkSpeedLogger.dmg \
+          gh release create v0.3.0 \
+            artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.2.7" \
+            --title "v0.3.0" \
             --prerelease \
             --notes "$notes"

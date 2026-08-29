@@ -181,14 +181,7 @@
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <StackPanel x:Name="ConfigInputs" Margin="23,20,23,16">
-            <TextBlock x:Name="SettingsTitleText" Text="记录设置" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,16"/>
-
-            <TextBlock x:Name="LanguageLabel" Text="界面语言" Style="{StaticResource SidebarLabel}"/>
-            <ComboBox x:Name="LanguageCombo" Style="{StaticResource SidebarCombo}" SelectedIndex="0" Margin="0,0,0,17">
-              <ComboBoxItem x:Name="AutoLanguageItem" Content="自动（跟随系统）" Tag="Auto"/>
-              <ComboBoxItem x:Name="ChineseLanguageItem" Content="简体中文" Tag="zh-CN"/>
-              <ComboBoxItem x:Name="EnglishLanguageItem" Content="English" Tag="en-US"/>
-            </ComboBox>
+            <TextBlock x:Name="SettingsTitleText" Text="本次记录" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,16"/>
 
             <Grid Margin="0,0,0,14">
               <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -233,9 +226,10 @@
 
             <TextBlock x:Name="OutputFolderLabel" Text="结果保存位置" Style="{StaticResource SidebarLabel}"/>
             <Grid>
-              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="6"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
               <TextBox x:Name="OutputFolderText" Style="{StaticResource InputTextBox}" IsReadOnly="True"/>
-              <Button x:Name="BrowseButton" Grid.Column="2" Content="选择" Style="{StaticResource SecondaryButton}" Padding="12,8"/>
+              <Button x:Name="BrowseButton" Grid.Column="2" Content="更改" Style="{StaticResource SecondaryButton}" Padding="10,8"/>
+              <Button x:Name="ShowOutputButton" Grid.Column="4" Content="打开" Style="{StaticResource SecondaryButton}" Padding="10,8"/>
             </Grid>
           </StackPanel>
         </ScrollViewer>
@@ -256,12 +250,18 @@
     <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
       <StackPanel Margin="28,24,30,30">
         <Grid Margin="2,0,2,20">
-          <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="12"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
           <StackPanel>
             <TextBlock x:Name="MainTitleText" Text="网络流量监控" Foreground="#152033" FontSize="25" FontWeight="SemiBold"/>
             <TextBlock x:Name="MainSubtitleText" Text="记录电脑物理网卡的实时上传与下载速度" Foreground="#7D899C" FontSize="12" Margin="0,6,0,0"/>
           </StackPanel>
-          <Border Grid.Column="1" Background="#EAF0FF" CornerRadius="15" Padding="13,7" VerticalAlignment="Center">
+          <Button x:Name="SettingsButton" Grid.Column="1" Content="⚙  设置" Style="{StaticResource LightButton}" Padding="13,8" VerticalAlignment="Center"/>
+          <Border Grid.Column="3" Background="#EAF0FF" CornerRadius="15" Padding="13,7" VerticalAlignment="Center">
             <StackPanel Orientation="Horizontal">
               <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="#8B98AA" Margin="0,0,7,0" VerticalAlignment="Center"/>
               <TextBlock x:Name="StatusText" Text="未运行" Foreground="#52627A" FontSize="12" FontWeight="SemiBold"/>
@@ -375,5 +375,24 @@
         </Border>
       </StackPanel>
     </ScrollViewer>
+
+    <Border x:Name="FirstRunOverlay" Grid.ColumnSpan="2" Panel.ZIndex="20" Background="#F3F6FA" Visibility="Collapsed">
+      <Grid>
+        <Border Width="590" Background="White" BorderBrush="#DFE6F0" BorderThickness="1" CornerRadius="20" Padding="42" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <StackPanel>
+            <Border Width="82" Height="82" CornerRadius="22" Background="#4F7CFF" HorizontalAlignment="Center">
+              <TextBlock Text="↕" Foreground="White" FontSize="40" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <TextBlock Text="Network Speed Logger" Foreground="#172033" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,24,0,0"/>
+            <TextBlock x:Name="FirstRunTitleText" Text="首次记录前请选择保存文件夹" Foreground="#334155" FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,12,0,0"/>
+            <TextBlock x:Name="FirstRunDescriptionText"
+                       Text="每个采样都会立即写入 CSV，记录结束时会生成 Markdown 汇总。应用会记住这个文件夹，之后无需重复选择。"
+                       Foreground="#7D899C" FontSize="12" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" MaxWidth="470" Margin="0,12,0,0"/>
+            <TextBlock x:Name="UnavailableFolderText" Foreground="#B54A4A" FontSize="11" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" MaxWidth="470" Margin="0,10,0,0" Visibility="Collapsed"/>
+            <Button x:Name="FirstRunChooseButton" Content="选择保存文件夹" Style="{StaticResource BaseButton}" Height="44" MinWidth="180" HorizontalAlignment="Center" Margin="0,24,0,0"/>
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Border>
   </Grid>
 </Window>
