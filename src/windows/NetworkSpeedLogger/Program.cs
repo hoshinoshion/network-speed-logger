@@ -19,14 +19,6 @@ using System.Xml;
 using Forms = System.Windows.Forms;
 using Ellipse = System.Windows.Shapes.Ellipse;
 
-[assembly: AssemblyTitle("Network Speed Logger")]
-[assembly: AssemblyDescription("Bilingual Windows network speed logger / 双语 Windows 网速记录工具")]
-[assembly: AssemblyProduct("Network Speed Logger")]
-[assembly: AssemblyCompany("")]
-[assembly: AssemblyCopyright("Copyright © 2026 hoshinoshion")]
-[assembly: AssemblyVersion("0.1.0.0")]
-[assembly: AssemblyFileVersion("0.1.0.0")]
-
 namespace NetworkSpeedLogger
 {
     internal sealed class AdapterChoice : INotifyPropertyChanged
@@ -242,7 +234,6 @@ namespace NetworkSpeedLogger
         private readonly Window _window;
         private readonly TextBox _durationText;
         private readonly TextBox _intervalText;
-        private readonly ComboBox _languageCombo;
         private readonly ComboBox _unitCombo;
         private readonly RadioButton _autoModeRadio;
         private readonly RadioButton _manualModeRadio;
@@ -251,8 +242,10 @@ namespace NetworkSpeedLogger
         private readonly Button _refreshAdaptersButton;
         private readonly TextBox _outputFolderText;
         private readonly Button _browseButton;
+        private readonly Button _showOutputButton;
         private readonly Button _startButton;
         private readonly Button _stopButton;
+        private readonly Button _settingsButton;
         private readonly StackPanel _configInputs;
         private readonly TextBlock _sidebarStatusText;
         private readonly Ellipse _statusDot;
@@ -274,7 +267,13 @@ namespace NetworkSpeedLogger
         private readonly Button _openResultsButton;
         private readonly Border _sessionMessageBorder;
         private readonly TextBlock _sessionMessageText;
+        private readonly Border _firstRunOverlay;
+        private readonly TextBlock _firstRunTitleText;
+        private readonly TextBlock _firstRunDescriptionText;
+        private readonly TextBlock _unavailableFolderText;
+        private readonly Button _firstRunChooseButton;
         private readonly SpeedChart _chart;
+        private readonly AppSettingsData _settings;
 
         private readonly ObservableCollection<AdapterChoice> _adapterChoices = new ObservableCollection<AdapterChoice>();
         private readonly ObservableCollection<SampleRow> _recentSamples = new ObservableCollection<SampleRow>();
@@ -287,7 +286,6 @@ namespace NetworkSpeedLogger
 
         private bool _isRunning;
         private bool _hasCompletedSession;
-        private bool _updatingLanguage;
         private bool _isChinese;
         private string _languagePreference = "Auto";
         private bool _physicalDetectionFallback;
@@ -316,7 +314,6 @@ namespace NetworkSpeedLogger
             _window = window;
             _durationText = Find<TextBox>("DurationText");
             _intervalText = Find<TextBox>("IntervalText");
-            _languageCombo = Find<ComboBox>("LanguageCombo");
             _unitCombo = Find<ComboBox>("UnitCombo");
             _autoModeRadio = Find<RadioButton>("AutoModeRadio");
             _manualModeRadio = Find<RadioButton>("ManualModeRadio");
@@ -325,8 +322,10 @@ namespace NetworkSpeedLogger
             _refreshAdaptersButton = Find<Button>("RefreshAdaptersButton");
             _outputFolderText = Find<TextBox>("OutputFolderText");
             _browseButton = Find<Button>("BrowseButton");
+            _showOutputButton = Find<Button>("ShowOutputButton");
             _startButton = Find<Button>("StartButton");
             _stopButton = Find<Button>("StopButton");
+            _settingsButton = Find<Button>("SettingsButton");
             _configInputs = Find<StackPanel>("ConfigInputs");
             _sidebarStatusText = Find<TextBlock>("SidebarStatusText");
             _statusDot = Find<Ellipse>("StatusDot");
@@ -348,24 +347,31 @@ namespace NetworkSpeedLogger
             _openResultsButton = Find<Button>("OpenResultsButton");
             _sessionMessageBorder = Find<Border>("SessionMessageBorder");
             _sessionMessageText = Find<TextBlock>("SessionMessageText");
+            _firstRunOverlay = Find<Border>("FirstRunOverlay");
+            _firstRunTitleText = Find<TextBlock>("FirstRunTitleText");
+            _firstRunDescriptionText = Find<TextBlock>("FirstRunDescriptionText");
+            _unavailableFolderText = Find<TextBlock>("UnavailableFolderText");
+            _firstRunChooseButton = Find<Button>("FirstRunChooseButton");
 
             var chartHost = Find<ContentControl>("ChartHost");
             _chart = new SpeedChart();
             chartHost.Content = _chart;
             _adapterList.ItemsSource = _adapterChoices;
             _recentGrid.ItemsSource = _recentSamples;
-            _outputFolderText.Text = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
-
-            _languagePreference = LoadLanguagePreference();
+            _settings = AppSettingsStore.Load();
+            _languagePreference = _settings.Language;
             _isChinese = ResolveIsChinese(_languagePreference);
-            SelectLanguagePreference(_languagePreference);
+            ApplyDefaultsToCurrentSession();
+            _outputFolderText.Text = _settings.OutputFolder;
 
             _autoModeRadio.Checked += delegate { UpdateAdapterModeUi(); };
             _manualModeRadio.Checked += delegate { UpdateAdapterModeUi(); };
-            _languageCombo.SelectionChanged += LanguageSelectionChanged;
             _unitCombo.SelectionChanged += delegate { UpdateUnitUi(); };
             _refreshAdaptersButton.Click += delegate { RefreshAdapters(true); };
             _browseButton.Click += BrowseButtonClick;
+            _showOutputButton.Click += delegate { RevealFolder(_settings.OutputFolder, _window); };
+            _firstRunChooseButton.Click += BrowseButtonClick;
+            _settingsButton.Click += SettingsButtonClick;
             _startButton.Click += StartButtonClick;
             _stopButton.Click += delegate { StopMonitoring(Tr("用户手动停止", "Stopped by user"), true, false); };
             _openResultsButton.Click += OpenResultsButtonClick;
@@ -376,6 +382,7 @@ namespace NetworkSpeedLogger
             _uiTimer.Tick += UiTimerTick;
 
             ApplyLanguage();
+            UpdateOutputFolderState();
             RefreshAdapters(false);
         }
 
@@ -396,46 +403,11 @@ namespace NetworkSpeedLogger
             Find<TextBlock>(name).Text = Tr(chinese, english);
         }
 
-        private void SelectLanguagePreference(string preference)
-        {
-            _updatingLanguage = true;
-            try
-            {
-                foreach (ComboBoxItem item in _languageCombo.Items)
-                {
-                    if (string.Equals(Convert.ToString(item.Tag, CultureInfo.InvariantCulture), preference, StringComparison.OrdinalIgnoreCase))
-                    {
-                        _languageCombo.SelectedItem = item;
-                        return;
-                    }
-                }
-                _languageCombo.SelectedIndex = 0;
-            }
-            finally
-            {
-                _updatingLanguage = false;
-            }
-        }
-
-        private void LanguageSelectionChanged(object sender, SelectionChangedEventArgs eventArgs)
-        {
-            if (_updatingLanguage) return;
-            var item = _languageCombo.SelectedItem as ComboBoxItem;
-            if (item == null || item.Tag == null) return;
-
-            _languagePreference = item.Tag.ToString();
-            _isChinese = ResolveIsChinese(_languagePreference);
-            SaveLanguagePreference(_languagePreference);
-            ApplyLanguage();
-            if (!_isRunning) RefreshAdapters(false);
-        }
-
         private void ApplyLanguage()
         {
             _window.Title = Tr("网速记录工具", "Network Speed Logger");
             SetText("AppTitleText", "网速记录工具", "Network Speed Logger");
-            SetText("SettingsTitleText", "记录设置", "Settings");
-            SetText("LanguageLabel", "界面语言", "Language");
+            SetText("SettingsTitleText", "本次记录", "Current session");
             SetText("DurationLabel", "运行时长（小时）", "Duration (hours)");
             SetText("IntervalLabel", "采样间隔（秒）", "Sample interval (sec)");
             SetText("UnitLabel", "速度单位", "Speed unit");
@@ -457,16 +429,20 @@ namespace NetworkSpeedLogger
             SetText("MinLabelText", "最小速度", "Minimum");
             SetText("MaxLabelText", "最大速度", "Maximum");
             SetText("AvgLabelText", "平均速度", "Average");
+            _firstRunTitleText.Text = Tr("首次记录前请选择保存文件夹", "Choose an output folder before your first session");
+            _firstRunDescriptionText.Text = Tr(
+                "每个采样都会立即写入 CSV，记录结束时会生成 Markdown 汇总。应用会记住这个文件夹，之后无需重复选择。",
+                "Every sample is written to CSV immediately, and a Markdown summary is created when logging ends. The app remembers this folder for future sessions.");
 
-            Find<ComboBoxItem>("AutoLanguageItem").Content = Tr("自动（跟随系统）", "Auto (system language)");
-            Find<ComboBoxItem>("ChineseLanguageItem").Content = Tr("简体中文", "Simplified Chinese");
-            Find<ComboBoxItem>("EnglishLanguageItem").Content = "English";
             Find<ComboBoxItem>("UnitMbItem").Content = Tr("MB/s（兆字节/秒）", "MB/s (megabytes/sec)");
             Find<ComboBoxItem>("UnitMbpsItem").Content = Tr("Mbps（兆比特/秒）", "Mbps (megabits/sec)");
             _autoModeRadio.Content = Tr("自动（推荐）", "Auto (recommended)");
             _manualModeRadio.Content = Tr("手动", "Manual");
             _refreshAdaptersButton.Content = Tr("刷新网卡列表", "Refresh adapters");
-            _browseButton.Content = Tr("选择", "Browse");
+            _browseButton.Content = Tr("更改", "Change");
+            _showOutputButton.Content = Tr("打开", "Open");
+            _settingsButton.Content = Tr("⚙  设置", "⚙  Settings");
+            _firstRunChooseButton.Content = Tr("选择保存文件夹", "Choose output folder");
             _startButton.Content = Tr("开始记录", "Start");
             _stopButton.Content = Tr("结束记录", "Stop");
             _openResultsButton.Content = Tr("打开结果文件夹", "Open results folder");
@@ -477,6 +453,7 @@ namespace NetworkSpeedLogger
             _chart.SetLanguage(_isChinese);
             UpdateAdapterModeUi();
             UpdateUnitUi(false);
+            UpdateOutputFolderState();
 
             if (_isRunning)
             {
@@ -516,37 +493,222 @@ namespace NetworkSpeedLogger
             return string.Equals(CultureInfo.CurrentUICulture.TwoLetterISOLanguageName, "zh", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static string LanguageSettingsPath
+        private void ApplyDefaultsToCurrentSession()
         {
-            get
-            {
-                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NetworkSpeedLogger", "language.txt");
-            }
+            _durationText.Text = FormatSettingNumber(_settings.Defaults.DurationHours);
+            _intervalText.Text = _settings.Defaults.SampleIntervalSeconds.ToString(CultureInfo.InvariantCulture);
+            SelectComboByTag(_unitCombo, _settings.Defaults.SpeedUnit);
+            if (_chart != null) UpdateUnitUi(false);
         }
 
-        private static string LoadLanguagePreference()
+        private static string FormatSettingNumber(double value)
+        {
+            return value.ToString("0.###", CultureInfo.InvariantCulture);
+        }
+
+        private static void SelectComboByTag(ComboBox comboBox, string tag)
+        {
+            foreach (object entry in comboBox.Items)
+            {
+                var item = entry as ComboBoxItem;
+                if (item != null && string.Equals(Convert.ToString(item.Tag, CultureInfo.InvariantCulture), tag, StringComparison.OrdinalIgnoreCase))
+                {
+                    comboBox.SelectedItem = item;
+                    return;
+                }
+            }
+            comboBox.SelectedIndex = 0;
+        }
+
+        private static string ReadComboTag(ComboBox comboBox, string fallback)
+        {
+            var item = comboBox.SelectedItem as ComboBoxItem;
+            return item == null || item.Tag == null ? fallback : item.Tag.ToString();
+        }
+
+        private static T FindIn<T>(FrameworkElement root, string name) where T : FrameworkElement
+        {
+            var value = root.FindName(name) as T;
+            if (value == null) throw new InvalidOperationException("Missing UI control: " + name);
+            return value;
+        }
+
+        private void SettingsButtonClick(object sender, RoutedEventArgs eventArgs)
+        {
+            Window dialog = XamlWindowFactory.Load("NetworkSpeedLogger.SettingsWindow.xaml");
+            dialog.Owner = _window;
+
+            var languageCombo = FindIn<ComboBox>(dialog, "SettingsLanguageCombo");
+            var durationText = FindIn<TextBox>(dialog, "DefaultDurationText");
+            var intervalText = FindIn<TextBox>(dialog, "DefaultIntervalText");
+            var unitCombo = FindIn<ComboBox>(dialog, "DefaultUnitCombo");
+            var outputText = FindIn<TextBox>(dialog, "SettingsOutputFolderText");
+            var browseButton = FindIn<Button>(dialog, "SettingsBrowseButton");
+            var openFolderButton = FindIn<Button>(dialog, "SettingsOpenFolderButton");
+            var cancelButton = FindIn<Button>(dialog, "CancelSettingsButton");
+            var saveButton = FindIn<Button>(dialog, "SaveSettingsButton");
+            var applyButton = FindIn<Button>(dialog, "ApplyDefaultsButton");
+            var runningHint = FindIn<TextBlock>(dialog, "OutputFolderRunningHint");
+
+            ApplySettingsWindowLanguage(dialog);
+            SelectComboByTag(languageCombo, _settings.Language);
+            durationText.Text = FormatSettingNumber(_settings.Defaults.DurationHours);
+            intervalText.Text = _settings.Defaults.SampleIntervalSeconds.ToString(CultureInfo.InvariantCulture);
+            SelectComboByTag(unitCombo, _settings.Defaults.SpeedUnit);
+            outputText.Text = _settings.OutputFolder;
+
+            languageCombo.IsEnabled = !_isRunning;
+            browseButton.IsEnabled = !_isRunning;
+            applyButton.IsEnabled = !_isRunning;
+            runningHint.Visibility = _isRunning ? Visibility.Visible : Visibility.Collapsed;
+            openFolderButton.IsEnabled = Directory.Exists(outputText.Text);
+
+            browseButton.Click += delegate
+            {
+                string selected;
+                if (TryChooseOutputFolder(dialog, outputText.Text, out selected))
+                {
+                    outputText.Text = selected;
+                    openFolderButton.IsEnabled = true;
+                }
+            };
+            openFolderButton.Click += delegate { RevealFolder(outputText.Text, dialog); };
+            FindIn<Button>(dialog, "RepositoryButton").Click += delegate { OpenRepository(dialog); };
+            cancelButton.Click += delegate { dialog.DialogResult = false; };
+            saveButton.Click += delegate
+            {
+                if (TrySaveSettingsDialog(dialog, languageCombo, durationText, intervalText, unitCombo, outputText, false))
+                    dialog.DialogResult = true;
+            };
+            applyButton.Click += delegate
+            {
+                if (TrySaveSettingsDialog(dialog, languageCombo, durationText, intervalText, unitCombo, outputText, true))
+                    dialog.DialogResult = true;
+            };
+
+            dialog.ShowDialog();
+        }
+
+        private void ApplySettingsWindowLanguage(Window dialog)
+        {
+            dialog.Title = Tr("设置", "Settings");
+            FindIn<TextBlock>(dialog, "SettingsHeadingText").Text = Tr("设置", "Settings");
+            FindIn<TextBlock>(dialog, "SettingsSubtitleText").Text = Tr(
+                "管理应用行为和每次启动时载入的记录默认值",
+                "Manage app behavior and the session defaults loaded at launch");
+            FindIn<TextBlock>(dialog, "GeneralSectionTitle").Text = Tr("通用", "General");
+            FindIn<TextBlock>(dialog, "SettingsLanguageLabel").Text = Tr("界面语言", "Language");
+            FindIn<ComboBoxItem>(dialog, "SettingsAutoLanguageItem").Content = Tr("自动（跟随系统）", "Auto (system language)");
+            FindIn<ComboBoxItem>(dialog, "SettingsChineseLanguageItem").Content = Tr("简体中文", "Simplified Chinese");
+            FindIn<ComboBoxItem>(dialog, "SettingsEnglishLanguageItem").Content = "English";
+            FindIn<TextBlock>(dialog, "DefaultsSectionTitle").Text = Tr("记录默认配置", "Session defaults");
+            FindIn<TextBlock>(dialog, "DefaultDurationLabel").Text = Tr("默认记录时长（小时）", "Default duration (hours)");
+            FindIn<TextBlock>(dialog, "DefaultDurationHint").Text = Tr("输入 0 表示不限时", "Enter 0 for no time limit");
+            FindIn<TextBlock>(dialog, "DefaultIntervalLabel").Text = Tr("默认采样间隔（秒）", "Default sample interval (sec)");
+            FindIn<TextBlock>(dialog, "DefaultUnitLabel").Text = Tr("默认速度单位", "Default speed unit");
+            FindIn<TextBlock>(dialog, "DefaultsExplanationText").Text = Tr(
+                "应用每次启动时都会载入这些值；主窗口中的临时修改只在本次启动期间有效。",
+                "These values are loaded whenever the app starts. Changes in the main window apply only to the current launch.");
+            FindIn<TextBlock>(dialog, "FilesSectionTitle").Text = Tr("文件", "Files");
+            FindIn<TextBlock>(dialog, "SettingsOutputFolderLabel").Text = Tr("CSV 和 Markdown 保存文件夹", "CSV and Markdown output folder");
+            FindIn<Button>(dialog, "SettingsBrowseButton").Content = Tr("更改…", "Change…");
+            FindIn<Button>(dialog, "SettingsOpenFolderButton").Content = Tr("打开", "Open");
+            FindIn<TextBlock>(dialog, "OutputFolderRunningHint").Text = Tr("记录过程中不能更改保存文件夹。", "The output folder cannot be changed while logging.");
+            FindIn<TextBlock>(dialog, "AboutSectionTitle").Text = Tr("关于", "About");
+            Version version = Assembly.GetExecutingAssembly().GetName().Version;
+            string versionNumber = version == null ? "0.3.0" : version.ToString(3);
+            FindIn<TextBlock>(dialog, "VersionText").Text = Tr("版本 ", "Version ") + versionNumber;
+            FindIn<Button>(dialog, "RepositoryButton").Content = Tr("GitHub 仓库", "GitHub repository");
+            FindIn<Button>(dialog, "CancelSettingsButton").Content = Tr("取消", "Cancel");
+            FindIn<Button>(dialog, "SaveSettingsButton").Content = Tr("保存", "Save");
+            FindIn<Button>(dialog, "ApplyDefaultsButton").Content = Tr("立即应用默认配置", "Apply defaults now");
+        }
+
+        private bool TrySaveSettingsDialog(
+            Window dialog,
+            ComboBox languageCombo,
+            TextBox durationText,
+            TextBox intervalText,
+            ComboBox unitCombo,
+            TextBox outputText,
+            bool applyNow)
+        {
+            double duration;
+            int interval;
+            if (!TryReadDouble(durationText.Text, out duration) || !AppSettingsStore.IsValidDuration(duration))
+            {
+                ShowSettingsValidation(dialog,
+                    Tr("默认记录时长必须是 0 到 8760 之间的数字；输入 0 表示不限时。", "Default duration must be a number from 0 to 8760. Enter 0 for no time limit."),
+                    durationText);
+                return false;
+            }
+            if (!int.TryParse(intervalText.Text.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out interval) || !AppSettingsStore.IsValidSampleInterval(interval))
+            {
+                ShowSettingsValidation(dialog,
+                    Tr("默认采样间隔必须是 1 到 3600 之间的整数秒。", "Default sample interval must be an integer from 1 to 3600 seconds."),
+                    intervalText);
+                return false;
+            }
+
+            string outputFolder = outputText.Text.Trim();
+            string folderError;
+            if (!TryValidateOutputFolder(outputFolder, out folderError))
+            {
+                MessageBox.Show(dialog,
+                    Tr("保存文件夹不可用。\n\n", "The output folder is unavailable.\n\n") + folderError,
+                    Tr("无法保存设置", "Unable to save settings"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return false;
+            }
+
+            AppSettingsData candidate = _settings.Clone();
+            candidate.Language = ReadComboTag(languageCombo, "Auto");
+            candidate.OutputFolder = outputFolder;
+            candidate.Defaults.DurationHours = duration;
+            candidate.Defaults.SampleIntervalSeconds = interval;
+            candidate.Defaults.SpeedUnit = ReadComboTag(unitCombo, "MB/s");
+
+            string saveError;
+            if (!AppSettingsStore.TrySave(candidate, out saveError))
+            {
+                MessageBox.Show(dialog,
+                    Tr("无法保存设置。\n\n", "Unable to save settings.\n\n") + saveError,
+                    Tr("保存失败", "Save failed"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                return false;
+            }
+
+            _settings.Language = candidate.Language;
+            _settings.OutputFolder = candidate.OutputFolder;
+            _settings.Defaults = candidate.Defaults.Clone();
+            _languagePreference = _settings.Language;
+            _isChinese = ResolveIsChinese(_languagePreference);
+            _outputFolderText.Text = _settings.OutputFolder;
+            if (applyNow && !_isRunning) ApplyDefaultsToCurrentSession();
+            ApplyLanguage();
+            if (!_isRunning) RefreshAdapters(false);
+            return true;
+        }
+
+        private void ShowSettingsValidation(Window owner, string message, TextBox field)
+        {
+            MessageBox.Show(owner, message, Tr("参数有误", "Invalid setting"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            field.Focus();
+            field.SelectAll();
+        }
+
+        private void OpenRepository(Window owner)
         {
             try
             {
-                string value = File.ReadAllText(LanguageSettingsPath, Encoding.UTF8).Trim();
-                if (value == "Auto" || value == "zh-CN" || value == "en-US") return value;
+                Process.Start(new ProcessStartInfo("https://github.com/hoshinoshion/network-speed-logger") { UseShellExecute = true });
             }
-            catch
+            catch (Exception exception)
             {
-            }
-            return "Auto";
-        }
-
-        private static void SaveLanguagePreference(string preference)
-        {
-            try
-            {
-                string folder = Path.GetDirectoryName(LanguageSettingsPath);
-                if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
-                File.WriteAllText(LanguageSettingsPath, preference, new UTF8Encoding(false));
-            }
-            catch
-            {
+                MessageBox.Show(owner, Tr("无法打开 GitHub 仓库。\n\n", "Unable to open the GitHub repository.\n\n") + exception.Message,
+                    Tr("打开失败", "Open failed"), MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
@@ -574,6 +736,7 @@ namespace NetworkSpeedLogger
         private void UpdateUnitUi(bool resetChart = true)
         {
             string unit = ReadSelectedUnit();
+            if (!_isRunning) _unit = unit;
             _downloadUnitText.Text = unit;
             _uploadUnitText.Text = unit;
             if (_recentGrid.Columns.Count >= 3)
@@ -582,6 +745,7 @@ namespace NetworkSpeedLogger
                 _recentGrid.Columns[2].Header = Tr("上传 ", "Upload ") + unit;
             }
             if (resetChart && !_isRunning) _chart.Reset(unit);
+            if (_hasCompletedSession && !_isRunning) UpdateStatisticsUi();
         }
 
         private string ReadSelectedUnit()
@@ -684,12 +848,156 @@ namespace NetworkSpeedLogger
 
         private void BrowseButtonClick(object sender, RoutedEventArgs eventArgs)
         {
+            string selected;
+            if (!TryChooseOutputFolder(_window, _settings.OutputFolder, out selected)) return;
+
+            AppSettingsData candidate = _settings.Clone();
+            candidate.OutputFolder = selected;
+            string saveError;
+            if (!AppSettingsStore.TrySave(candidate, out saveError))
+            {
+                MessageBox.Show(_window,
+                    Tr("文件夹已经选择，但应用无法记住该位置。\n\n", "The folder was selected, but the app could not remember it.\n\n") + saveError,
+                    Tr("保存失败", "Save failed"), MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            _settings.OutputFolder = selected;
+            _outputFolderText.Text = selected;
+            UpdateOutputFolderState();
+        }
+
+        private bool TryChooseOutputFolder(Window owner, string initialFolder, out string selectedFolder)
+        {
+            selectedFolder = null;
             using (var dialog = new Forms.FolderBrowserDialog())
             {
                 dialog.Description = Tr("选择 CSV 和 Markdown 汇总的保存位置", "Choose where CSV logs and Markdown summaries are saved");
                 dialog.ShowNewFolderButton = true;
-                if (Directory.Exists(_outputFolderText.Text)) dialog.SelectedPath = _outputFolderText.Text;
-                if (dialog.ShowDialog() == Forms.DialogResult.OK) _outputFolderText.Text = dialog.SelectedPath;
+                if (Directory.Exists(initialFolder))
+                    dialog.SelectedPath = initialFolder;
+                else
+                {
+                    string documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                    if (Directory.Exists(documents)) dialog.SelectedPath = documents;
+                }
+
+                var handle = new System.Windows.Interop.WindowInteropHelper(owner).Handle;
+                Forms.DialogResult result = handle == IntPtr.Zero
+                    ? dialog.ShowDialog()
+                    : dialog.ShowDialog(new Win32WindowHandle(handle));
+                if (result != Forms.DialogResult.OK) return false;
+
+                string error;
+                if (!TryValidateOutputFolder(dialog.SelectedPath, out error))
+                {
+                    MessageBox.Show(owner,
+                        Tr("无法使用这个保存文件夹。\n\n", "This output folder cannot be used.\n\n") + error,
+                        Tr("文件夹不可用", "Folder unavailable"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return false;
+                }
+
+                selectedFolder = NormalizeFolderPath(dialog.SelectedPath);
+                return true;
+            }
+        }
+
+        private bool TryValidateOutputFolder(string folder, out string error)
+        {
+            error = null;
+            if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+            {
+                error = Tr("文件夹不存在，请重新选择。", "The folder does not exist. Choose another folder.");
+                return false;
+            }
+
+            try
+            {
+                string selected = NormalizeFolderPath(folder);
+                string applicationFolder = NormalizeFolderPath(AppDomain.CurrentDomain.BaseDirectory);
+                if (string.Equals(selected, applicationFolder, StringComparison.OrdinalIgnoreCase) ||
+                    selected.StartsWith(applicationFolder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                {
+                    error = Tr("不能将程序安装目录用作记录保存位置。", "The application folder cannot be used for session files.");
+                    return false;
+                }
+
+                string testPath = Path.Combine(selected, ".network-speed-logger-" + Guid.NewGuid().ToString("N") + ".tmp");
+                try
+                {
+                    using (var stream = new FileStream(testPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                    {
+                        stream.WriteByte(0);
+                        stream.Flush(true);
+                    }
+                    File.Delete(testPath);
+                }
+                finally
+                {
+                    try
+                    {
+                        if (File.Exists(testPath)) File.Delete(testPath);
+                    }
+                    catch
+                    {
+                    }
+                }
+                return true;
+            }
+            catch (Exception exception)
+            {
+                error = exception.Message;
+                return false;
+            }
+        }
+
+        private static string NormalizeFolderPath(string folder)
+        {
+            string fullPath = Path.GetFullPath(folder);
+            string trimmed = fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string root = Path.GetPathRoot(fullPath);
+            if (!string.IsNullOrEmpty(root) &&
+                string.Equals(trimmed, root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), StringComparison.OrdinalIgnoreCase))
+            {
+                return root;
+            }
+            return trimmed;
+        }
+
+        private void UpdateOutputFolderState()
+        {
+            bool available = Directory.Exists(_settings.OutputFolder);
+            _outputFolderText.Text = _settings.OutputFolder;
+            _showOutputButton.IsEnabled = available && !_isRunning;
+            if (!_isRunning) _startButton.IsEnabled = available;
+            _firstRunOverlay.Visibility = !_isRunning && !available ? Visibility.Visible : Visibility.Collapsed;
+
+            if (!available && !string.IsNullOrWhiteSpace(_settings.OutputFolder))
+            {
+                _unavailableFolderText.Text = Tr(
+                    "之前保存的文件夹当前不可用：" + _settings.OutputFolder,
+                    "The previously saved folder is unavailable: " + _settings.OutputFolder);
+                _unavailableFolderText.Visibility = Visibility.Visible;
+                _firstRunTitleText.Text = Tr("请重新选择保存文件夹", "Choose another output folder");
+            }
+            else
+            {
+                _unavailableFolderText.Visibility = Visibility.Collapsed;
+                _firstRunTitleText.Text = Tr("首次记录前请选择保存文件夹", "Choose an output folder before your first session");
+            }
+        }
+
+        private void RevealFolder(string folder, Window owner)
+        {
+            try
+            {
+                if (!Directory.Exists(folder)) throw new DirectoryNotFoundException(folder);
+                Process.Start("explorer.exe", "\"" + folder + "\"");
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(owner, Tr("无法打开保存文件夹。\n\n", "Unable to open the output folder.\n\n") + exception.Message,
+                    Tr("打开失败", "Open failed"), MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
@@ -709,9 +1017,11 @@ namespace NetworkSpeedLogger
                 ShowValidation(Tr("采样间隔必须是 1 到 3600 之间的整数秒。", "Sample interval must be an integer from 1 to 3600 seconds."), _intervalText);
                 return;
             }
-            if (!Directory.Exists(_outputFolderText.Text))
+            string outputError;
+            if (!TryValidateOutputFolder(_outputFolderText.Text, out outputError))
             {
-                MessageBox.Show(_window, Tr("结果保存位置不存在，请重新选择。", "The output folder does not exist. Please choose another folder."), Tr("无法开始", "Unable to start"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(_window, Tr("结果保存位置不可用，请重新选择。\n\n", "The output folder is unavailable. Choose another folder.\n\n") + outputError, Tr("无法开始", "Unable to start"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                UpdateOutputFolderState();
                 return;
             }
 
@@ -973,6 +1283,7 @@ namespace NetworkSpeedLogger
             _configInputs.IsEnabled = true;
             _startButton.IsEnabled = true;
             _stopButton.IsEnabled = false;
+            UpdateOutputFolderState();
             RefreshAdapters(false);
             _runProgress.IsIndeterminate = false;
             if (_targetSeconds > 0 && durationReached) _runProgress.Value = 100;
@@ -1204,6 +1515,30 @@ namespace NetworkSpeedLogger
         }
     }
 
+    internal sealed class Win32WindowHandle : Forms.IWin32Window
+    {
+        internal Win32WindowHandle(IntPtr handle)
+        {
+            Handle = handle;
+        }
+
+        public IntPtr Handle { get; private set; }
+    }
+
+    internal static class XamlWindowFactory
+    {
+        internal static Window Load(string resourceName)
+        {
+            Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
+            if (stream == null) throw new InvalidOperationException("Unable to load embedded UI resource: " + resourceName);
+            using (stream)
+            using (var reader = XmlReader.Create(stream))
+            {
+                return (Window)XamlReader.Load(reader);
+            }
+        }
+    }
+
     internal static class Program
     {
         [STAThread]
@@ -1211,14 +1546,7 @@ namespace NetworkSpeedLogger
         {
             try
             {
-                Window window;
-                Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("NetworkSpeedLogger.MainWindow.xaml");
-                if (stream == null) throw new InvalidOperationException("无法加载内置界面资源。");
-                using (stream)
-                using (var reader = XmlReader.Create(stream))
-                {
-                    window = (Window)XamlReader.Load(reader);
-                }
+                Window window = XamlWindowFactory.Load("NetworkSpeedLogger.MainWindow.xaml");
 
                 var application = new Application();
                 application.ShutdownMode = ShutdownMode.OnMainWindowClose;

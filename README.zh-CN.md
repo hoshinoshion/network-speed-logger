@@ -8,12 +8,12 @@ Network Speed Logger 是一款适用于 Windows 与 macOS 的轻量级开源网�
 
 ## 下载
 
-对大多数用户来说，桌面客户端是最方便的使用方式。请从[最新 Release](https://github.com/hoshinoshion/network-speed-logger/releases/latest)下载：
+对大多数用户来说，桌面客户端是最方便的使用方式。请从 [Releases 页面](https://github.com/hoshinoshion/network-speed-logger/releases)下载：
 
 | 平台 | 文件 | 运行要求 |
 | --- | --- | --- |
 | macOS | `NetworkSpeedLogger.dmg` | macOS 13 或更高版本；Apple 芯片或 Intel Mac |
-| Windows | `NetworkSpeedLogger.exe` | Windows 10 或 11；.NET Framework 4.8 |
+| Windows | `NetworkSpeedLogger-Setup.exe` | Windows 10 或 11；.NET Framework 4.8 |
 
 两个客户端都不需要管理员权限。
 
@@ -24,7 +24,8 @@ Network Speed Logger 是一款适用于 Windows 与 macOS 的轻量级开源网�
 - 自动识别物理网络接口，并排除回环、VPN、隧道、网桥、虚拟机等虚拟接口。
 - 合并多个同时工作的物理接口流量，并在记录期间自动适应有线与 Wi-Fi 的连接变化。
 - 手动选择一个或多个物理或虚拟接口。
-- 设置记录时长、采样间隔、速度单位和输出文件夹。
+- 设置记录时长、采样间隔、速度单位，并记住手动选择的输出文件夹。
+- 为记录时长、采样间隔和速度单位保存启动默认值；主窗口中的修改只在本次启动期间有效。
 - 使用 MB/s 或 Mbps 显示实时速度、累计流量、最近 60 个采样点曲线、最近采样和本次记录统计。
 - 每次采样后立即写入 CSV，并在记录结束时生成 Markdown 汇总。
 - 简体中文和英语界面；默认跟随系统语言，也可以在应用中手动切换。
@@ -52,14 +53,19 @@ macOS 客户端不依赖 Homebrew，也不需要内核扩展或网络扩展；�
 
 ## Windows 客户端
 
-Windows 客户端是可以直接运行的 WPF 应用：
+Windows 客户端采用当前用户安装方式，具有标准的安装和卸载流程：
 
-1. 运行 `NetworkSpeedLogger.exe`。
-2. 设置记录时长、采样间隔、速度单位、网卡模式和输出文件夹。
-3. 点击“开始记录”。
-4. 随时点击“结束记录”，或等待设定时长结束。
+1. 运行 `NetworkSpeedLogger-Setup.exe` 并完成安装，不需要管理员权限。
+2. 从开始菜单打开 **Network Speed Logger**。
+3. 首次启动时选择输出文件夹，应用会在以后自动恢复该位置。
+4. 设置本次记录的时长、采样间隔、速度单位和网卡模式，然后点击“开始”。
+5. 随时点击“结束”，或等待设定时长结束。
 
-客户端以 .NET Framework 4.8 为目标框架，不依赖第三方运行库。
+通过“设置”可以更改界面语言、输出文件夹以及每次启动时载入的默认配置。直接在主窗口修改记录时长、采样间隔和速度单位，只在关闭应用前有效。可以从 Windows“设置”中卸载应用，卸载不会删除 CSV 或 Markdown 记录文件。
+
+客户端以 .NET Framework 4.8 为目标框架，不依赖第三方运行库。当前 Windows 客户端和安装器没有代码签名，因此 SmartScreen 可能将发布者显示为未知。
+
+旧版单体 EXE 用户可以直接安装新版，然后手动删除原来的 EXE；旧版保存的语言选择会自动迁移。
 
 ## macOS Shell 脚本
 
@@ -132,15 +138,16 @@ bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.7
 
 ### Windows
 
-在安装了“.NET 桌面开发”工作负载的 Visual Studio 中打开 `src/windows/NetworkSpeedLogger/NetworkSpeedLogger.csproj`，选择 Release 配置并生成。
+在安装了“.NET 桌面开发”工作负载的 Visual Studio 中打开 `src/windows/NetworkSpeedLogger/NetworkSpeedLogger.csproj`，选择 Release 配置并生成。若要创建安装器，请安装 Inno Setup 6，并在 Release 构建完成后编译 `installer/windows/NetworkSpeedLogger.iss`。
 
 ## 仓库结构
 
 - `src/macos/NetworkSpeedLogger/`：原生 SwiftUI 客户端和 Universal DMG 构建脚本。
 - `macos/NetworkSpeedLogger.sh`：macOS 终端版本。
 - `src/windows/NetworkSpeedLogger/`：Windows WPF 客户端源代码和图标。
+- `installer/windows/`：Windows 安装器和卸载程序的 Inno Setup 配置。
 - `windows/NetworkSpeedLogger.ps1`：Windows PowerShell 版本。
-- `.github/workflows/release.yml`：适用于两个平台的可复现 Release 工作流。
+- `.github/workflows/release.yml`：当前版本使用的可复现 Release 工作流。
 
 ## 开源协议
 

@@ -1,0 +1,45 @@
+name: Validate Windows v0.3.0
+
+on:
+  push:
+    branches:
+      - validation/windows-v0.3.0
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: microsoft/setup-msbuild@v2
+      - name: Build application
+        shell: pwsh
+        run: |
+          msbuild src\windows\NetworkSpeedLogger\NetworkSpeedLogger.csproj /restore /m /p:Configuration=Release
+          $app = Get-Item src\windows\NetworkSpeedLogger\bin\Release\NetworkSpeedLogger.exe
+          if (-not $app.VersionInfo.FileVersion.StartsWith('0.3.0')) {
+            throw "Unexpected file version: $($app.VersionInfo.FileVersion)"
+          }
+      - name: Build installer
+        shell: pwsh
+        run: |
+          choco install innosetup --yes --no-progress
+          $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+          $iscc = if ($null -ne $command) { $command.Source } else { "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          & $iscc "/DAppVersion=0.3.0" installer\windows\NetworkSpeedLogger.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE." }
+      - name: Verify silent install and uninstall
+        shell: pwsh
+        run: |
+          $installer = (Resolve-Path dist\NetworkSpeedLogger-Setup.exe).Path
+          $install = Start-Process -FilePath $installer -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS=""' -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "Setup exited with $($install.ExitCode)." }
+
+          $installedFolder = Join-Path $env:LOCALAPPDATA 'Programs\NetworkSpeedLogger'
+          $installedApp = Join-Path $installedFolder 'NetworkSpeedLogger.exe'
+          $uninstaller = Join-Path $installedFolder 'unins000.exe'
+          if (-not (Test-Path $installedApp)) { throw 'The installed application was not found.' }
+          if (-not (Test-Path $uninstaller)) { throw 'The uninstaller was not found.' }
+
+          $uninstall = Start-Process -FilePath $uninstaller -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0) { throw "Uninstall exited with $($uninstall.ExitCode)." }
+          if (Test-Path $installedApp) { throw 'The application remained after uninstall.' }
