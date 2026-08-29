@@ -102,9 +102,11 @@ jobs:
           $installer = (Resolve-Path dist\NetworkSpeedLogger-Setup.exe).Path
           $installDir = Join-Path $env:RUNNER_TEMP "NetworkSpeedLogger-smoke"
 
-          & $installer /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- "/DIR=$installDir"
-          if ($LASTEXITCODE -ne 0) {
-            throw "Silent installation failed with exit code $LASTEXITCODE."
+          $installProcess = Start-Process $installer `
+            -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$installDir") `
+            -Wait -PassThru
+          if ($installProcess.ExitCode -ne 0) {
+            throw "Silent installation failed with exit code $($installProcess.ExitCode)."
           }
 
           $requiredFiles = @(
@@ -132,9 +134,11 @@ jobs:
           Stop-Process -Id $process.Id -Force
 
           $uninstaller = Join-Path $installDir "unins000.exe"
-          & $uninstaller /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
-          if ($LASTEXITCODE -ne 0) {
-            throw "Silent uninstall failed with exit code $LASTEXITCODE."
+          $uninstallProcess = Start-Process $uninstaller `
+            -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART") `
+            -Wait -PassThru
+          if ($uninstallProcess.ExitCode -ne 0) {
+            throw "Silent uninstall failed with exit code $($uninstallProcess.ExitCode)."
           }
 
       - name: Upload Windows installer
