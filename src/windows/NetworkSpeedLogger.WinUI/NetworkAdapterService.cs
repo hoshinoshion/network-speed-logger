@@ -1,5 +1,6 @@
 using System.Management;
 using System.Net.NetworkInformation;
+using System.Runtime.InteropServices;
 
 namespace NetworkSpeedLogger;
 
@@ -16,8 +17,6 @@ public sealed class NetworkAdapterService
         RefreshPhysicalAdapterIds();
         NetworkInterface[] adapters = NetworkInterface.GetAllNetworkInterfaces()
             .Where(item => item.NetworkInterfaceType is not NetworkInterfaceType.Loopback and not NetworkInterfaceType.Tunnel)
-            .OrderByDescending(item => item.OperationalStatus == OperationalStatus.Up)
-            .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
 
         bool hasPreviousSelection = previouslySelected is not null;
@@ -34,8 +33,15 @@ public sealed class NetworkAdapterService
             string description = string.IsNullOrWhiteSpace(adapter.Description)
                 ? adapter.NetworkInterfaceType.ToString()
                 : adapter.Description;
-            return new AdapterChoice(id, adapter.Name, state + " · " + kind + " · " + description, physical, connected, selected);
-        }).ToArray();
+            var choice = new AdapterChoice(id, adapter.Name, state + " · " + kind + " · " + description, physical, connected, selected);
+            int sortGroup = physical && connected ? 0 : physical ? 1 : connected ? 2 : 3;
+            return new { Choice = choice, SortGroup = sortGroup };
+        })
+        .OrderBy(item => item.SortGroup)
+        .ThenBy(item => item.Choice.Name, NaturalNameComparer.Instance)
+        .ThenBy(item => item.Choice.Detail, NaturalNameComparer.Instance)
+        .Select(item => item.Choice)
+        .ToArray();
     }
 
     public void RefreshPhysicalAdapterIds()
@@ -124,6 +130,22 @@ public sealed class NetworkAdapterService
             NetworkInterfaceType.Wman or
             NetworkInterfaceType.Wwanpp or
             NetworkInterfaceType.Wwanpp2;
+    }
+
+    private sealed class NaturalNameComparer : IComparer<string>
+    {
+        public static NaturalNameComparer Instance { get; } = new();
+
+        public int Compare(string? left, string? right)
+        {
+            if (ReferenceEquals(left, right)) return 0;
+            if (left is null) return -1;
+            if (right is null) return 1;
+            return StrCmpLogicalW(left, right);
+        }
+
+        [DllImport("shlwapi.dll", CharSet = CharSet.Unicode)]
+        private static extern int StrCmpLogicalW(string left, string right);
     }
 }
 

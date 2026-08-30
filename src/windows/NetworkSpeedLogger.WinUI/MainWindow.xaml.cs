@@ -6,6 +6,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
 using Windows.Storage;
@@ -32,6 +33,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(RootGrid_PointerPressed), true);
 
         _settings = AppSettingsStore.Load();
         Localization.ApplyPreference(_settings.Language);
@@ -77,6 +79,12 @@ public sealed partial class MainWindow : Window
     }
 
     private string T(string chinese, string english) => Localization.T(chinese, english);
+
+    private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (InputFocusHelper.ShouldClearFocus(RootGrid.XamlRoot, e.OriginalSource as DependencyObject))
+            FocusSink.Focus(FocusState.Programmatic);
+    }
 
     private void ApplyLanguage()
     {

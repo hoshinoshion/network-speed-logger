@@ -6,6 +6,7 @@ using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
 using Windows.Storage;
@@ -37,6 +38,7 @@ public sealed partial class SettingsWindow : Window
     public SettingsWindow(AppSettingsData settings, nint ownerHandle)
     {
         InitializeComponent();
+        RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(RootGrid_PointerPressed), true);
         _settings = settings;
         _ownerHandle = ownerHandle;
 
@@ -70,6 +72,12 @@ public sealed partial class SettingsWindow : Window
     }
 
     private string T(string chinese, string english) => Localization.T(chinese, english);
+
+    private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (InputFocusHelper.ShouldClearFocus(RootGrid.XamlRoot, e.OriginalSource as DependencyObject))
+            FocusSink.Focus(FocusState.Programmatic);
+    }
 
     private void LoadSettings()
     {
