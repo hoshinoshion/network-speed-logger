@@ -1,4 +1,4 @@
-name: Pre-release v0.5.1
+name: Release v0.6.0
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.5.1
-  APP_BUILD_NUMBER: 17
+  APP_VERSION: 0.6.0
+  APP_BUILD_NUMBER: 18
 
 jobs:
   release-check:
@@ -20,12 +20,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.5.1 already exists
+      - name: Check whether v0.6.0 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.5.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.6.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -225,23 +225,42 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.5.1 pre-release
+          Network Speed Logger 0.6.0
 
           - Adds optional automatic checks for the latest stable GitHub Release on macOS and Windows
           - Adds manual update checks to both Settings interfaces and the macOS application menu
           - Uses a native macOS alert and a non-blocking Windows InfoBar when a new stable version is available
           - Validates the platform-specific DMG or installer before presenting an update
-          - Reads displayed versions from application metadata and maintains an incrementing macOS build number
+          - Aligns the Windows automatic-update toggle consistently at the far right of its settings card
           - Includes the Universal macOS DMG and the self-contained Windows x64 installer
 
           The macOS application is not signed with an Apple Developer ID and is not notarized. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown. Follow the README instructions if macOS Gatekeeper blocks the first launch.
           EOF
           )
-          gh release create v0.5.1 \
+          gh release create v0.6.0 \
             artifacts/NetworkSpeedLogger.dmg \
             artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.5.1" \
-            --prerelease \
+            --title "v0.6.0" \
+            --latest \
             --notes "$notes"
+
+  cleanup-pre-releases:
+    needs: [release-check, publish]
+    if: >-
+      always() &&
+      github.ref == 'refs/heads/main' &&
+      (needs.publish.result == 'success' || needs.release-check.outputs.exists == 'true')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Remove previous pre-releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release_ids=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.prerelease == true) | .id')
+          for release_id in $release_ids; do
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/$release_id"
+          done

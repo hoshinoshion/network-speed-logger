@@ -161,7 +161,7 @@
             <Grid ColumnSpacing="16">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="230" />
               </Grid.ColumnDefinitions>
               <StackPanel VerticalAlignment="Center" Spacing="3">
                 <TextBlock x:Name="AutomaticUpdatesLabel" Text="自动检查更新" FontWeight="SemiBold" />
@@ -169,7 +169,7 @@
                            Style="{StaticResource CaptionStyle}" />
               </StackPanel>
               <ToggleSwitch x:Name="AutomaticUpdatesToggle" Grid.Column="1" IsOn="True"
-                            VerticalAlignment="Center" />
+                            HorizontalAlignment="Right" VerticalAlignment="Center" />
             </Grid>
           </Border>
 
