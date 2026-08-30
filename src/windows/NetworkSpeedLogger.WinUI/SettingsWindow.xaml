@@ -21,20 +21,20 @@
     </Grid>
 
     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-      <StackPanel Padding="30,22,30,28" Spacing="20">
-        <StackPanel Spacing="4">
-          <TextBlock x:Name="PageTitleText" Text="设置" FontSize="28" FontWeight="SemiBold" />
+      <StackPanel Padding="24,14,24,18" Spacing="14">
+        <StackPanel Spacing="2">
+          <TextBlock x:Name="PageTitleText" Text="设置" FontSize="24" FontWeight="SemiBold" />
           <TextBlock x:Name="PageSubtitleText" Text="管理每次启动时使用的默认值和文件保存位置"
                      Style="{StaticResource CaptionStyle}" />
         </StackPanel>
 
-        <StackPanel Spacing="8">
+        <StackPanel Spacing="6">
           <TextBlock x:Name="GeneralSectionText" Text="常规" Style="{StaticResource SectionTitleStyle}" />
-          <Border Style="{StaticResource CardStyle}" Padding="16,12">
-            <Grid ColumnSpacing="20">
+          <Border Style="{StaticResource CardStyle}" Padding="14,9">
+            <Grid ColumnSpacing="16">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="230" />
               </Grid.ColumnDefinitions>
               <StackPanel VerticalAlignment="Center" Spacing="3">
                 <TextBlock x:Name="LanguageLabel" Text="界面语言" FontWeight="SemiBold" />
@@ -50,16 +50,16 @@
           </Border>
         </StackPanel>
 
-        <StackPanel Spacing="8">
+        <StackPanel Spacing="6">
           <TextBlock x:Name="DefaultsSectionText" Text="启动默认值" Style="{StaticResource SectionTitleStyle}" />
           <TextBlock x:Name="DefaultsDescriptionText" Text="主窗口中的临时修改不会覆盖这些值"
                      Style="{StaticResource CaptionStyle}" />
 
-          <Border Style="{StaticResource CardStyle}" Padding="16,12">
-            <Grid ColumnSpacing="20">
+          <Border Style="{StaticResource CardStyle}" Padding="14,9">
+            <Grid ColumnSpacing="16">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="230" />
               </Grid.ColumnDefinitions>
               <StackPanel VerticalAlignment="Center" Spacing="3">
                 <TextBlock x:Name="DefaultDurationLabel" Text="运行时长" FontWeight="SemiBold" />
@@ -71,11 +71,11 @@
             </Grid>
           </Border>
 
-          <Border Style="{StaticResource CardStyle}" Padding="16,12">
-            <Grid ColumnSpacing="20">
+          <Border Style="{StaticResource CardStyle}" Padding="14,9">
+            <Grid ColumnSpacing="16">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="230" />
               </Grid.ColumnDefinitions>
               <StackPanel VerticalAlignment="Center" Spacing="3">
                 <TextBlock x:Name="DefaultIntervalLabel" Text="采样间隔" FontWeight="SemiBold" />
@@ -87,11 +87,11 @@
             </Grid>
           </Border>
 
-          <Border Style="{StaticResource CardStyle}" Padding="16,12">
-            <Grid ColumnSpacing="20">
+          <Border Style="{StaticResource CardStyle}" Padding="14,9">
+            <Grid ColumnSpacing="16">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="230" />
               </Grid.ColumnDefinitions>
               <StackPanel VerticalAlignment="Center" Spacing="3">
                 <TextBlock x:Name="DefaultUnitLabel" Text="速度单位" FontWeight="SemiBold" />
@@ -106,10 +106,10 @@
           </Border>
         </StackPanel>
 
-        <StackPanel Spacing="8">
+        <StackPanel Spacing="6">
           <TextBlock x:Name="FilesSectionText" Text="文件" Style="{StaticResource SectionTitleStyle}" />
-          <Border Style="{StaticResource CardStyle}">
-            <StackPanel Spacing="10">
+          <Border Style="{StaticResource CardStyle}" Padding="14,10">
+            <StackPanel Spacing="7">
               <StackPanel Spacing="3">
                 <TextBlock x:Name="OutputFolderLabel" Text="结果保存位置" FontWeight="SemiBold" />
                 <TextBlock x:Name="OutputFolderDescription" Text="CSV 和 Markdown 汇总都会保存到此文件夹"
@@ -134,10 +134,10 @@
           </Border>
         </StackPanel>
 
-        <StackPanel Spacing="8">
+        <StackPanel Spacing="6">
           <TextBlock x:Name="AboutSectionText" Text="关于" Style="{StaticResource SectionTitleStyle}" />
-          <Border Style="{StaticResource CardStyle}" Padding="16,12">
-            <Grid ColumnSpacing="20">
+          <Border Style="{StaticResource CardStyle}" Padding="14,9">
+            <Grid ColumnSpacing="16">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -160,8 +160,7 @@
       </StackPanel>
     </ScrollViewer>
 
-    <Border Grid.Row="2" Background="{ThemeResource AppPaneBrush}" BorderBrush="{ThemeResource CardBorderBrush}"
-            BorderThickness="0,1,0,0" Padding="20,14">
+    <Border Grid.Row="2" Background="Transparent" Padding="16,10">
       <Grid ColumnSpacing="8">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*" />

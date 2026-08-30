@@ -53,7 +53,7 @@ public sealed partial class SettingsWindow : Window
         nint windowHandle = WindowNative.GetWindowHandle(this);
         WindowId windowId = Win32Interop.GetWindowIdFromWindow(windowHandle);
         _appWindow = AppWindow.GetFromWindowId(windowId);
-        WindowSizing.ResizeAndCenter(_appWindow, windowId, windowHandle, 1120, 980);
+        WindowSizing.ResizeAndCenter(_appWindow, windowId, windowHandle, 900, 760);
         try
         {
             _appWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Icon.ico"));

@@ -49,7 +49,7 @@ public sealed partial class MainWindow : Window
         nint windowHandle = WindowNative.GetWindowHandle(this);
         WindowId windowId = Win32Interop.GetWindowIdFromWindow(windowHandle);
         _appWindow = AppWindow.GetFromWindowId(windowId);
-        WindowSizing.ResizeAndCenter(_appWindow, windowId, windowHandle, 1680, 1050);
+        WindowSizing.ResizeAndCenter(_appWindow, windowId, windowHandle, 1480, 880);
         _appWindow.Closing += AppWindow_Closing;
         try
         {

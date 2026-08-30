@@ -17,7 +17,6 @@
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
       <Border Width="28" Height="28" Margin="16,0,10,0" CornerRadius="6"
               Background="{ThemeResource AccentFillColorDefaultBrush}" VerticalAlignment="Center">
@@ -25,20 +24,15 @@
       </Border>
       <TextBlock x:Name="TitleBarText" Grid.Column="1" VerticalAlignment="Center"
                  FontSize="12" FontWeight="SemiBold" Text="Network Speed Logger" />
-      <Button x:Name="SettingsButton" Grid.Column="2" Width="40" Height="32" Margin="0,0,142,0"
-              VerticalAlignment="Center" ToolTipService.ToolTip="Settings" Click="SettingsButton_Click">
-        <FontIcon Glyph="&#xE713;" FontSize="15" />
-      </Button>
     </Grid>
 
     <Grid Grid.Row="1">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="330" />
+        <ColumnDefinition Width="300" />
         <ColumnDefinition Width="*" />
       </Grid.ColumnDefinitions>
 
-      <Border Grid.Column="0" Background="{ThemeResource AppPaneBrush}"
-              BorderBrush="{ThemeResource CardBorderBrush}" BorderThickness="0,1,1,0">
+      <Border Grid.Column="0" Background="{ThemeResource AppContentBrush}">
         <Grid>
           <Grid.RowDefinitions>
             <RowDefinition Height="*" />
@@ -46,26 +40,26 @@
           </Grid.RowDefinitions>
 
           <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel x:Name="ConfigurationPanel" Padding="22,20,22,16" Spacing="16">
-              <StackPanel Spacing="4">
-                <TextBlock x:Name="CurrentSessionTitle" Text="本次记录" FontSize="20" FontWeight="SemiBold" />
+            <StackPanel x:Name="ConfigurationPanel" Padding="18,14,18,10" Spacing="10">
+              <StackPanel Spacing="2">
+                <TextBlock x:Name="CurrentSessionTitle" Text="本次记录" FontSize="18" FontWeight="SemiBold" />
                 <TextBlock x:Name="CurrentSessionDescription" Style="{StaticResource CaptionStyle}"
                            Text="主窗口中的修改只在本次启动期间有效" />
               </StackPanel>
 
-              <StackPanel Spacing="6">
+              <StackPanel Spacing="4">
                 <TextBlock x:Name="DurationLabel" Text="运行时长（小时）" />
                 <NumberBox x:Name="DurationNumber" Minimum="0" Maximum="8760" SmallChange="1"
                            SpinButtonPlacementMode="Inline" ToolTipService.ToolTip="输入 0 表示不限时" />
               </StackPanel>
 
-              <StackPanel Spacing="6">
+              <StackPanel Spacing="4">
                 <TextBlock x:Name="IntervalLabel" Text="采样间隔（秒）" />
                 <NumberBox x:Name="IntervalNumber" Minimum="1" Maximum="3600" SmallChange="1"
                            SpinButtonPlacementMode="Inline" />
               </StackPanel>
 
-              <StackPanel Spacing="6">
+              <StackPanel Spacing="4">
                 <TextBlock x:Name="UnitLabel" Text="速度单位" />
                 <ComboBox x:Name="UnitCombo" HorizontalAlignment="Stretch" SelectionChanged="UnitCombo_SelectionChanged">
                   <ComboBoxItem x:Name="UnitMbItem" Tag="MB/s" Content="MB/s（兆字节/秒）" />
@@ -73,9 +67,9 @@
                 </ComboBox>
               </StackPanel>
 
-              <StackPanel Spacing="7">
+              <StackPanel Spacing="5">
                 <TextBlock x:Name="AdapterModeLabel" Text="网卡模式" />
-                <StackPanel Orientation="Horizontal" Spacing="18">
+                <StackPanel Orientation="Horizontal" Spacing="14">
                   <RadioButton x:Name="AutoModeRadio" GroupName="AdapterMode" IsChecked="True"
                                Content="自动（推荐）" Checked="AdapterMode_Changed" />
                   <RadioButton x:Name="ManualModeRadio" GroupName="AdapterMode"
@@ -84,18 +78,18 @@
                 <TextBlock x:Name="AdapterModeHint" Style="{StaticResource CaptionStyle}" />
                 <Border Background="{ThemeResource CardBackgroundBrush}" BorderBrush="{ThemeResource CardBorderBrush}"
                         BorderThickness="1" CornerRadius="6" Padding="4">
-                  <ListView x:Name="AdapterList" Height="184" SelectionMode="None"
+                  <ListView x:Name="AdapterList" Height="126" SelectionMode="None"
                             ItemsSource="{x:Bind AdapterChoices}">
                     <ListView.ItemContainerStyle>
                       <Style TargetType="ListViewItem">
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                        <Setter Property="Padding" Value="6" />
+                        <Setter Property="Padding" Value="3" />
                       </Style>
                     </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
                       <DataTemplate x:DataType="local:AdapterChoice">
                         <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" HorizontalAlignment="Stretch">
-                          <StackPanel Margin="5,2,0,2" Spacing="2">
+                          <StackPanel Margin="4,1,0,1" Spacing="1">
                             <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                             <TextBlock Text="{x:Bind Detail}" Style="{StaticResource CaptionStyle}"
                                        MaxLines="2" TextTrimming="CharacterEllipsis" />
@@ -114,7 +108,7 @@
                 </Button>
               </StackPanel>
 
-              <StackPanel Spacing="7">
+              <StackPanel Spacing="5">
                 <TextBlock x:Name="OutputFolderLabel" Text="结果保存位置" />
                 <TextBox x:Name="OutputFolderText" IsReadOnly="True" />
                 <Grid ColumnSpacing="8">
@@ -165,35 +159,39 @@
             </StackPanel>
           </ScrollViewer>
 
-          <Border Grid.Row="1" Padding="22,14" BorderBrush="{ThemeResource CardBorderBrush}" BorderThickness="0,1,0,0">
+          <Border Grid.Row="1" Padding="18,8">
             <Grid ColumnSpacing="10">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
               </Grid.ColumnDefinitions>
               <Ellipse x:Name="SidebarStatusDot" Width="8" Height="8" Fill="{ThemeResource SubtleTextBrush}" />
               <TextBlock x:Name="SidebarStatusText" Grid.Column="1" Style="{StaticResource CaptionStyle}"
                          Text="准备就绪" TextTrimming="CharacterEllipsis" MaxLines="2" />
+              <Button x:Name="SettingsButton" Grid.Column="2" Width="32" Height="28" Padding="0"
+                      VerticalAlignment="Center" ToolTipService.ToolTip="Settings" Click="SettingsButton_Click">
+                <FontIcon Glyph="&#xE713;" FontSize="14" />
+              </Button>
             </Grid>
           </Border>
         </Grid>
       </Border>
 
-      <Border Grid.Column="1" Background="{ThemeResource AppContentBrush}" BorderBrush="{ThemeResource CardBorderBrush}"
-              BorderThickness="0,1,0,0">
+      <Border Grid.Column="1" Background="{ThemeResource AppContentBrush}">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel Padding="28,24,28,30" Spacing="16">
+          <StackPanel Padding="22,16,22,18" Spacing="10">
             <Grid>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
               </Grid.ColumnDefinitions>
-              <StackPanel Spacing="4">
-                <TextBlock x:Name="MainTitleText" Text="网络流量监控" FontSize="28" FontWeight="SemiBold" />
+              <StackPanel Spacing="2">
+                <TextBlock x:Name="MainTitleText" Text="网络流量监控" FontSize="24" FontWeight="SemiBold" />
                 <TextBlock x:Name="MainSubtitleText" Style="{StaticResource CaptionStyle}"
                            Text="记录电脑实际发送与接收的流量" />
               </StackPanel>
-              <Border Grid.Column="1" Padding="12,6" CornerRadius="14"
+              <Border Grid.Column="1" Padding="10,4" CornerRadius="12"
                       Background="{ThemeResource CardBackgroundBrush}" BorderBrush="{ThemeResource CardBorderBrush}" BorderThickness="1">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="{ThemeResource SubtleTextBrush}" />
@@ -202,36 +200,36 @@
               </Border>
             </Grid>
 
-            <Grid ColumnSpacing="12">
+            <Grid ColumnSpacing="10">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
               <Border Style="{StaticResource CardStyle}">
-                <StackPanel Spacing="8">
+                <StackPanel Spacing="5">
                   <TextBlock x:Name="CurrentDownloadLabel" Style="{StaticResource CaptionStyle}" Text="当前下载" />
-                  <StackPanel Orientation="Horizontal" Spacing="8">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xE896;" Foreground="{StaticResource DownloadBrush}" FontSize="18" />
-                    <TextBlock x:Name="CurrentDownloadText" Text="0.000" FontSize="28" FontWeight="SemiBold" />
+                    <TextBlock x:Name="CurrentDownloadText" Text="0.000" FontSize="24" FontWeight="SemiBold" />
                   </StackPanel>
                   <TextBlock x:Name="DownloadUnitText" Text="MB/s" Style="{StaticResource CaptionStyle}" />
                 </StackPanel>
               </Border>
               <Border Grid.Column="1" Style="{StaticResource CardStyle}">
-                <StackPanel Spacing="8">
+                <StackPanel Spacing="5">
                   <TextBlock x:Name="CurrentUploadLabel" Style="{StaticResource CaptionStyle}" Text="当前上传" />
-                  <StackPanel Orientation="Horizontal" Spacing="8">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xE898;" Foreground="{StaticResource UploadBrush}" FontSize="18" />
-                    <TextBlock x:Name="CurrentUploadText" Text="0.000" FontSize="28" FontWeight="SemiBold" />
+                    <TextBlock x:Name="CurrentUploadText" Text="0.000" FontSize="24" FontWeight="SemiBold" />
                   </StackPanel>
                   <TextBlock x:Name="UploadUnitText" Text="MB/s" Style="{StaticResource CaptionStyle}" />
                 </StackPanel>
               </Border>
               <Border Grid.Column="2" Style="{StaticResource CardStyle}">
-                <StackPanel Spacing="8">
+                <StackPanel Spacing="5">
                   <TextBlock x:Name="ElapsedLabel" Style="{StaticResource CaptionStyle}" Text="已运行" />
-                  <TextBlock x:Name="ElapsedText" Text="00:00:00" FontSize="28" FontWeight="SemiBold" />
+                  <TextBlock x:Name="ElapsedText" Text="00:00:00" FontSize="24" FontWeight="SemiBold" />
                   <TextBlock x:Name="RemainingText" Text="尚未开始" Style="{StaticResource CaptionStyle}" />
                 </StackPanel>
               </Border>
@@ -239,8 +237,8 @@
 
             <ProgressBar x:Name="RunProgress" Minimum="0" Maximum="100" Value="0" />
 
-            <Border Style="{StaticResource CardStyle}" Padding="20,16,20,14">
-              <StackPanel Spacing="12">
+            <Border Style="{StaticResource CardStyle}" Padding="16,12,16,10">
+              <StackPanel Spacing="8">
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -251,7 +249,7 @@
                     <TextBlock x:Name="ChartSubtitleText" Style="{StaticResource CaptionStyle}"
                                Text="最近 60 个采样点，纵轴会自动调整" />
                   </StackPanel>
-                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                       <Ellipse Width="8" Height="8" Fill="{StaticResource DownloadBrush}" />
                       <TextBlock x:Name="DownloadLegendText" Text="下载" FontSize="12" />
@@ -262,11 +260,11 @@
                     </StackPanel>
                   </StackPanel>
                 </Grid>
-                <local:SpeedChart x:Name="Chart" Height="250" />
+                <local:SpeedChart x:Name="Chart" Height="178" />
               </StackPanel>
             </Border>
 
-            <Grid ColumnSpacing="12">
+            <Grid ColumnSpacing="10">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="1.6*" />
                 <ColumnDefinition Width="*" />
@@ -279,11 +277,11 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                   </Grid.RowDefinitions>
-                  <StackPanel Margin="20,18,20,12" Spacing="3">
+                  <StackPanel Margin="16,12,16,8" Spacing="2">
                     <TextBlock x:Name="RecentTitleText" Style="{StaticResource SectionTitleStyle}" Text="最近 5 条采样" />
                     <TextBlock x:Name="RecentSubtitleText" Style="{StaticResource CaptionStyle}" Text="新记录显示在最上方" />
                   </StackPanel>
-                  <Grid Grid.Row="1" Padding="20,9" Background="{ThemeResource AppPaneBrush}" ColumnSpacing="12">
+                  <Grid Grid.Row="1" Padding="16,6" Background="{ThemeResource AppPaneBrush}" ColumnSpacing="10">
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="72" />
                       <ColumnDefinition Width="105" />
@@ -295,17 +293,17 @@
                     <TextBlock x:Name="RecentUploadHeader" Grid.Column="2" Text="上传 MB/s" Style="{StaticResource CaptionStyle}" />
                     <TextBlock x:Name="RecentAdapterHeader" Grid.Column="3" Text="网卡" Style="{StaticResource CaptionStyle}" />
                   </Grid>
-                  <ListView x:Name="RecentSamplesList" Grid.Row="2" MinHeight="210" MaxHeight="240"
+                  <ListView x:Name="RecentSamplesList" Grid.Row="2" MinHeight="156" MaxHeight="172"
                             SelectionMode="None" ItemsSource="{x:Bind RecentSamples}">
                     <ListView.ItemContainerStyle>
                       <Style TargetType="ListViewItem">
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                        <Setter Property="Padding" Value="20,10" />
+                        <Setter Property="Padding" Value="16,6" />
                       </Style>
                     </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
                       <DataTemplate x:DataType="local:SampleRow">
-                        <Grid ColumnSpacing="12">
+                        <Grid ColumnSpacing="10">
                           <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="72" />
                             <ColumnDefinition Width="105" />
@@ -324,27 +322,26 @@
               </Border>
 
               <Border Grid.Column="1" Style="{StaticResource CardStyle}">
-                <StackPanel Spacing="15">
-                  <StackPanel Spacing="3">
+                <StackPanel Spacing="9">
+                  <StackPanel Spacing="2">
                     <TextBlock x:Name="SummaryTitleText" Style="{StaticResource SectionTitleStyle}" Text="本次统计" />
                     <TextBlock x:Name="SummaryStateText" Style="{StaticResource CaptionStyle}"
                                Text="开始记录后显示统计结果" />
                   </StackPanel>
-                  <StackPanel Spacing="5">
+                  <StackPanel Spacing="2">
                     <TextBlock x:Name="SampleTrafficLabel" Style="{StaticResource CaptionStyle}" Text="样本与流量" />
                     <TextBlock x:Name="SampleCountText" Text="0 个样本" FontWeight="SemiBold" />
                     <TextBlock x:Name="TotalTrafficText" Text="下载 0 MB · 上传 0 MB" TextWrapping="Wrap" />
                   </StackPanel>
-                  <Rectangle Height="1" Fill="{ThemeResource CardBorderBrush}" />
-                  <StackPanel Spacing="5">
+                  <StackPanel Spacing="2">
                     <TextBlock x:Name="MinimumLabel" Style="{StaticResource CaptionStyle}" Text="最小速度" />
                     <TextBlock x:Name="MinimumSpeedText" Text="下载 — · 上传 —" TextWrapping="Wrap" />
                   </StackPanel>
-                  <StackPanel Spacing="5">
+                  <StackPanel Spacing="2">
                     <TextBlock x:Name="MaximumLabel" Style="{StaticResource CaptionStyle}" Text="最大速度" />
                     <TextBlock x:Name="MaximumSpeedText" Text="下载 — · 上传 —" TextWrapping="Wrap" />
                   </StackPanel>
-                  <StackPanel Spacing="5">
+                  <StackPanel Spacing="2">
                     <TextBlock x:Name="AverageLabel" Style="{StaticResource CaptionStyle}" Text="平均速度" />
                     <TextBlock x:Name="AverageSpeedText" Text="下载 — · 上传 —" TextWrapping="Wrap" />
                   </StackPanel>
