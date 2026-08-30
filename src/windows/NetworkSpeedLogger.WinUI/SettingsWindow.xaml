@@ -49,6 +49,26 @@
               </ComboBox>
             </Grid>
           </Border>
+
+          <Border Style="{StaticResource CardStyle}" Padding="14,9">
+            <Grid ColumnSpacing="16">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="230" />
+              </Grid.ColumnDefinitions>
+              <StackPanel VerticalAlignment="Center" Spacing="3">
+                <TextBlock x:Name="ThemeLabel" Text="应用外观" FontWeight="SemiBold" />
+                <TextBlock x:Name="ThemeDescription" Text="默认跟随 Windows 浅色或深色模式"
+                           Style="{StaticResource CaptionStyle}" />
+              </StackPanel>
+              <ComboBox x:Name="ThemeCombo" Grid.Column="1" HorizontalAlignment="Stretch"
+                        SelectionChanged="ThemeCombo_SelectionChanged">
+                <ComboBoxItem x:Name="ThemeAutoItem" Tag="Auto" Content="跟随系统" />
+                <ComboBoxItem x:Name="ThemeLightItem" Tag="Light" Content="浅色" />
+                <ComboBoxItem x:Name="ThemeDarkItem" Tag="Dark" Content="深色" />
+              </ComboBox>
+            </Grid>
+          </Border>
         </StackPanel>
 
         <StackPanel Spacing="6">
@@ -145,7 +165,7 @@
               </Grid.ColumnDefinitions>
               <StackPanel VerticalAlignment="Center" Spacing="3">
                 <TextBlock Text="Network Speed Logger" FontWeight="SemiBold" />
-                <TextBlock x:Name="VersionText" Text="0.4.2" Style="{StaticResource CaptionStyle}" />
+                <TextBlock x:Name="VersionText" Text="0.4.3" Style="{StaticResource CaptionStyle}" />
               </StackPanel>
               <Button x:Name="RepositoryButton" Grid.Column="1" Click="RepositoryButton_Click">
                 <StackPanel Orientation="Horizontal" Spacing="8">

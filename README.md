@@ -13,7 +13,7 @@ For most users, the desktop applications are the easiest way to get started. Dow
 | Platform | File | Requirements |
 | --- | --- | --- |
 | macOS | `NetworkSpeedLogger.dmg` | macOS 13 or later; Apple silicon or Intel |
-| Windows | `NetworkSpeedLogger-Setup.exe` | Windows 10 or 11; .NET Framework 4.8 |
+| Windows | `NetworkSpeedLogger-Setup.exe` | x64 Windows 10 version 1809 or later |
 
 Neither application requires administrator privileges.
 
@@ -29,6 +29,7 @@ Both desktop applications provide:
 - Real-time MB/s or Mbps display, traffic totals, a 60-sample chart, recent samples, and session statistics.
 - Immediate CSV writes after every sample and a Markdown summary when the session ends.
 - Simplified Chinese and English, selected from the system language by default and switchable in the application.
+- Light and dark appearances that follow the system by default and can be selected manually.
 
 ## macOS application
 
@@ -63,7 +64,7 @@ The Windows client is installed per user with a standard setup and uninstall pro
 
 Use the Settings button to change the interface language, output folder, and launch defaults. Changes to duration, sample interval, and speed unit made directly in the main window apply only until the app is closed. Windows Settings can uninstall the application; uninstalling never removes CSV or Markdown files.
 
-It targets .NET Framework 4.8 and has no third-party runtime dependencies. The current Windows application and installer are not code-signed, so SmartScreen may identify the publisher as unknown.
+It uses WinUI 3 and ships the required .NET and Windows App SDK components in a self-contained installer, so no separate runtime installation is required. The current Windows application and installer are not code-signed, so SmartScreen may identify the publisher as unknown.
 
 Users of an earlier portable version can install the new version normally and then delete the old standalone EXE. The saved language preference is migrated automatically.
 
@@ -131,20 +132,21 @@ Each sample is flushed to the CSV immediately, so completed data remains availab
 Install the current Xcode command-line tools, then run on macOS:
 
 ```sh
-bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.7
+bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.4.3
 ```
 
 The script builds `arm64` and `x86_64`, combines them into a Universal application, generates the icon, applies an ad-hoc signature, and creates `dist/NetworkSpeedLogger.dmg`. You can also open `src/macos/NetworkSpeedLogger/Package.swift` as a Swift package.
 
 ### Windows
 
-Open `src/windows/NetworkSpeedLogger/NetworkSpeedLogger.csproj` in Visual Studio with the **.NET desktop development** workload, select Release, and build. To create the installer, install Inno Setup 6 and compile `installer/windows/NetworkSpeedLogger.iss` after the Release build finishes.
+Open `src/windows/NetworkSpeedLogger.WinUI/NetworkSpeedLogger.WinUI.csproj` in Visual Studio with the **.NET desktop development** workload, select Release, and build. To create the installer, install Inno Setup 6 and compile `installer/windows/NetworkSpeedLogger.iss` after the Release build finishes.
 
 ## Repository layout
 
 - `src/macos/NetworkSpeedLogger/` — native SwiftUI application and Universal DMG build scripts.
 - `macos/NetworkSpeedLogger.sh` — macOS terminal version.
-- `src/windows/NetworkSpeedLogger/` — Windows WPF application source and icon.
+- `src/windows/NetworkSpeedLogger.WinUI/` — Windows WinUI 3 application source.
+- `src/windows/NetworkSpeedLogger/` — shared Windows icon assets and archived earlier client source.
 - `installer/windows/` — Inno Setup definition for the Windows installer and uninstaller.
 - `windows/NetworkSpeedLogger.ps1` — Windows PowerShell version.
 - `.github/workflows/release.yml` — reproducible release workflow for the current release.

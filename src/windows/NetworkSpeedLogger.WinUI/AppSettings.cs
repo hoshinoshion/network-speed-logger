@@ -31,6 +31,9 @@ public sealed class AppSettingsData
     [JsonPropertyName("language")]
     public string Language { get; set; } = "Auto";
 
+    [JsonPropertyName("theme")]
+    public string Theme { get; set; } = "Auto";
+
     [JsonPropertyName("outputFolder")]
     public string OutputFolder { get; set; } = string.Empty;
 
@@ -41,6 +44,7 @@ public sealed class AppSettingsData
     {
         SchemaVersion = SchemaVersion,
         Language = Language,
+        Theme = Theme,
         OutputFolder = OutputFolder,
         Defaults = Defaults.Clone()
     };
@@ -148,6 +152,8 @@ public static class AppSettingsStore
 
     public static bool IsValidLanguage(string? value) => value is "Auto" or "zh-CN" or "en-US";
 
+    public static bool IsValidTheme(string? value) => value is "Auto" or "Light" or "Dark";
+
     public static bool IsValidSpeedUnit(string? value) => value is "MB/s" or "Mbps";
 
     public static bool IsValidDuration(double value) =>
@@ -162,6 +168,7 @@ public static class AppSettingsStore
         AppSettingsData builtIn = CreateDefaults();
         settings.SchemaVersion = 1;
         if (!IsValidLanguage(settings.Language)) settings.Language = builtIn.Language;
+        if (!IsValidTheme(settings.Theme)) settings.Theme = builtIn.Theme;
         settings.OutputFolder = (settings.OutputFolder ?? string.Empty).Trim();
         settings.Defaults ??= builtIn.Defaults;
         if (!IsValidDuration(settings.Defaults.DurationHours)) settings.Defaults.DurationHours = builtIn.Defaults.DurationHours;

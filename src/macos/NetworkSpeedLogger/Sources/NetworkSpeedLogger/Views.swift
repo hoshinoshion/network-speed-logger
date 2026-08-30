@@ -842,6 +842,12 @@ struct PreferencesView: View {
                     Text("English").tag(AppLanguage.english)
                     Text("简体中文").tag(AppLanguage.simplifiedChinese)
                 }
+
+                Picker(settings.text("Appearance", "外观"), selection: $settings.appearance) {
+                    Text(settings.text("Follow System", "跟随系统")).tag(AppearanceMode.automatic)
+                    Text(settings.text("Light", "浅色")).tag(AppearanceMode.light)
+                    Text(settings.text("Dark", "深色")).tag(AppearanceMode.dark)
+                }
             }
 
             Section(settings.text("Session Defaults", "记录默认配置")) {
@@ -891,7 +897,7 @@ struct PreferencesView: View {
             }
 
             Section {
-                LabeledContent(settings.text("Version", "版本"), value: "0.2.7")
+                LabeledContent(settings.text("Version", "版本"), value: "0.4.3")
             }
         }
         .formStyle(.grouped)

@@ -21,6 +21,7 @@ public sealed partial class MainWindow : Window
     private readonly DispatcherQueueTimer _sampleTimer;
     private readonly DispatcherQueueTimer _uiTimer;
     private readonly AppWindow _appWindow;
+    private readonly ThemeController _themeController;
     private readonly InputMethodSnapshot _startupInputMethod = InputMethodSnapshot.CaptureForeground();
     private AppSettingsData _settings;
     private MonitoringSession? _session;
@@ -57,14 +58,7 @@ public sealed partial class MainWindow : Window
         WindowSizing.ResizeAndCenter(_appWindow, windowId, windowHandle, 1480, 880);
         _appWindow.Closing += AppWindow_Closing;
         WindowIconService.Apply(windowHandle, _appWindow);
-        try
-        {
-            _appWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
-            _appWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
-        }
-        catch
-        {
-        }
+        _themeController = new ThemeController(RootGrid, _appWindow, DispatcherQueue, _settings.Theme);
 
         _sampleTimer = DispatcherQueue.CreateTimer();
         _sampleTimer.IsRepeating = true;
@@ -563,6 +557,7 @@ public sealed partial class MainWindow : Window
     {
         _settings = e.Settings.Clone();
         Localization.ApplyPreference(_settings.Language);
+        _themeController.ApplyPreference(_settings.Theme);
         OutputFolderText.Text = _settings.OutputFolder;
         if (e.ApplyDefaultsNow && _session?.IsRunning != true) ApplyDefaultsToCurrentSession();
         ApplyLanguage();
@@ -585,6 +580,7 @@ public sealed partial class MainWindow : Window
     {
         if (_allowClose || _session?.IsRunning != true)
         {
+            _themeController.Dispose();
             _session?.Dispose();
             return;
         }

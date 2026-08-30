@@ -8,6 +8,14 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum AppearanceMode: String, CaseIterable, Identifiable {
+    case automatic
+    case light
+    case dark
+
+    var id: String { rawValue }
+}
+
 enum SpeedUnit: String, CaseIterable, Identifiable {
     case megabytesPerSecond
     case megabitsPerSecond

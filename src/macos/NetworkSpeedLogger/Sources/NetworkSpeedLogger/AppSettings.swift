@@ -1,10 +1,12 @@
 import AppKit
 import Foundation
+import SwiftUI
 
 @MainActor
 final class AppSettings: ObservableObject {
     private enum Key {
         static let language = "language"
+        static let appearance = "appearance"
         static let defaultSpeedUnit = "defaultSpeedUnit.v2"
         static let interfaceMode = "interfaceMode"
         static let selectedInterfaces = "selectedInterfaces"
@@ -18,6 +20,10 @@ final class AppSettings: ObservableObject {
 
     @Published var language: AppLanguage {
         didSet { defaults.set(language.rawValue, forKey: Key.language) }
+    }
+
+    @Published var appearance: AppearanceMode {
+        didSet { defaults.set(appearance.rawValue, forKey: Key.appearance) }
     }
 
     @Published var speedUnit: SpeedUnit
@@ -59,6 +65,7 @@ final class AppSettings: ObservableObject {
         ) ?? .megabytesPerSecond
 
         language = AppLanguage(rawValue: defaults.string(forKey: Key.language) ?? "") ?? .automatic
+        appearance = AppearanceMode(rawValue: defaults.string(forKey: Key.appearance) ?? "") ?? .automatic
         interfaceMode = InterfaceSelectionMode(rawValue: defaults.string(forKey: Key.interfaceMode) ?? "") ?? .automatic
         selectedInterfaceNames = Set(defaults.stringArray(forKey: Key.selectedInterfaces) ?? [])
         defaultDurationHours = storedDefaultDuration
@@ -80,6 +87,14 @@ final class AppSettings: ObservableObject {
         case .automatic:
             guard let preferred = Locale.preferredLanguages.first?.lowercased() else { return false }
             return preferred.hasPrefix("zh-hans") || preferred.hasPrefix("zh-cn") || preferred.hasPrefix("zh-sg")
+        }
+    }
+
+    var preferredColorScheme: ColorScheme? {
+        switch appearance {
+        case .automatic: return nil
+        case .light: return .light
+        case .dark: return .dark
         }
     }
 

@@ -22,9 +22,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <Version>0.4.2</Version>
-    <AssemblyVersion>0.4.2.0</AssemblyVersion>
-    <FileVersion>0.4.2.0</FileVersion>
+    <Version>0.4.3</Version>
+    <AssemblyVersion>0.4.3.0</AssemblyVersion>
+    <FileVersion>0.4.3.0</FileVersion>
     <AssemblyTitle>Network Speed Logger</AssemblyTitle>
     <Description>Bilingual Windows network speed logger / 双语 Windows 网速记录工具</Description>
     <Product>Network Speed Logger</Product>

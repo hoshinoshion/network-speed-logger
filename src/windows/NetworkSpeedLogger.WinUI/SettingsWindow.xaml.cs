@@ -31,6 +31,7 @@ public sealed partial class SettingsWindow : Window
 {
     private readonly AppWindow _appWindow;
     private readonly nint _ownerHandle;
+    private readonly ThemeController _themeController;
     private AppSettingsData _settings;
     private bool _initialFocusSet;
 
@@ -61,14 +62,14 @@ public sealed partial class SettingsWindow : Window
         WindowIconService.Apply(windowHandle, _appWindow);
         try
         {
-            _appWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
-            _appWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
             if (_ownerHandle != 0) NativeMethods.SetOwner(windowHandle, _ownerHandle);
         }
         catch
         {
         }
 
+        _themeController = new ThemeController(RootGrid, _appWindow, DispatcherQueue, _settings.Theme);
+        Closed += (_, _) => _themeController.Dispose();
         LoadSettings();
         ApplyLanguage();
     }
@@ -95,12 +96,13 @@ public sealed partial class SettingsWindow : Window
     private void LoadSettings()
     {
         SelectComboByTag(LanguageCombo, _settings.Language);
+        SelectComboByTag(ThemeCombo, _settings.Theme);
         DefaultDurationNumber.Value = _settings.Defaults.DurationHours;
         DefaultIntervalNumber.Value = _settings.Defaults.SampleIntervalSeconds;
         SelectComboByTag(DefaultUnitCombo, _settings.Defaults.SpeedUnit);
         OutputFolderText.Text = _settings.OutputFolder;
         OpenFolderButton.IsEnabled = Directory.Exists(_settings.OutputFolder);
-        string version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.4.2";
+        string version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.4.3";
         VersionText.Text = T("版本 ", "Version ") + version + " · WinUI 3";
     }
 
@@ -114,6 +116,11 @@ public sealed partial class SettingsWindow : Window
         LanguageLabel.Text = T("界面语言", "App language");
         LanguageDescription.Text = T("默认根据 Windows 显示语言自动选择", "By default, follows the Windows display language");
         LanguageAutoItem.Content = T("跟随系统", "Follow system");
+        ThemeLabel.Text = T("应用外观", "App appearance");
+        ThemeDescription.Text = T("默认跟随 Windows 浅色或深色模式", "By default, follows the Windows light or dark mode");
+        ThemeAutoItem.Content = T("跟随系统", "Follow system");
+        ThemeLightItem.Content = T("浅色", "Light");
+        ThemeDarkItem.Content = T("深色", "Dark");
         DefaultsSectionText.Text = T("启动默认值", "Launch defaults");
         DefaultsDescriptionText.Text = T("主窗口中的临时修改不会覆盖这些值", "Temporary changes in the main window do not overwrite these values");
         DefaultDurationLabel.Text = T("运行时长", "Duration");
@@ -185,6 +192,11 @@ public sealed partial class SettingsWindow : Window
 
     private void CancelButton_Click(object sender, RoutedEventArgs e) => Close();
 
+    private void ThemeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        _themeController?.ApplyPreference(ReadComboTag(ThemeCombo, "Auto"));
+    }
+
     private void SaveButton_Click(object sender, RoutedEventArgs e) => Save(false);
 
     private void ApplyDefaultsButton_Click(object sender, RoutedEventArgs e) => Save(true);
@@ -213,6 +225,7 @@ public sealed partial class SettingsWindow : Window
 
         AppSettingsData candidate = _settings.Clone();
         candidate.Language = ReadComboTag(LanguageCombo, "Auto");
+        candidate.Theme = ReadComboTag(ThemeCombo, "Auto");
         candidate.OutputFolder = FolderService.NormalizePath(OutputFolderText.Text);
         candidate.Defaults.DurationHours = duration;
         candidate.Defaults.SampleIntervalSeconds = (int)intervalValue;

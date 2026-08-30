@@ -1,17 +1,16 @@
-name: Pre-release v0.4.2
+name: Pre-release v0.4.3
 
 on:
   push:
     branches:
       - main
-      - feature/windows-winui3
   workflow_dispatch:
 
 permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.4.2
+  APP_VERSION: 0.4.3
 
 jobs:
   release-check:
@@ -20,16 +19,48 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.4.2 already exists
+      - name: Check whether v0.4.3 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.4.2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.4.3 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
+
+  build-macos:
+    needs: release-check
+    if: needs.release-check.outputs.exists != 'true'
+    runs-on: macos-26
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build Universal macOS application and DMG
+        run: bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh "$APP_VERSION"
+
+      - name: Verify macOS artifact
+        run: |
+          lipo dist/NetworkSpeedLogger.app/Contents/MacOS/NetworkSpeedLogger -verify_arch arm64 x86_64
+          actual_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' dist/NetworkSpeedLogger.app/Contents/Info.plist)
+          if [[ "$actual_version" != "$APP_VERSION" ]]; then
+            echo "Unexpected application version: $actual_version" >&2
+            exit 1
+          fi
+          if [[ ! -s dist/NetworkSpeedLogger.dmg ]]; then
+            echo "The DMG is missing or empty." >&2
+            exit 1
+          fi
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-release
+          path: dist/NetworkSpeedLogger.dmg
+          if-no-files-found: error
 
   build-windows:
     needs: release-check
@@ -162,14 +193,21 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [release-check, build-windows]
+    needs: [release-check, build-macos, build-windows]
     if: >-
       github.ref == 'refs/heads/main' &&
       needs.release-check.outputs.exists != 'true' &&
+      needs.build-macos.result == 'success' &&
       needs.build-windows.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-release
+          path: artifacts
+
       - name: Download Windows installer
         uses: actions/download-artifact@v4
         with:
@@ -181,22 +219,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.4.2 Windows pre-release
+          Network Speed Logger 0.4.3 pre-release
 
-          - Prevented blank clicks in the main sidebar from focusing the duration field
-          - Preserved the keyboard layout and IME state that were active before launch
-          - Kept reliable input-field focus release in both the main and settings windows
-          - Retained the updated settings-button placement and application icons
-          - Retains the compact WinUI 3 dashboard, Windows 11 Fluent/Mica styling, adapter monitoring, CSV logs, and Markdown summaries
-          - Ships as a self-contained per-user installer for x64 Windows 10 version 1809 and later
+          - Added Follow System, Light, and Dark appearance options to both the macOS and Windows clients
+          - Follow System adapts automatically when the operating-system appearance changes
+          - Manual appearance choices are remembered across launches
+          - Windows title-bar controls and Mica surfaces stay consistent with the selected appearance
+          - Includes the Universal macOS DMG and the self-contained Windows x64 installer
 
-          This pre-release contains the Windows installer only. The application and installer are not code-signed, so Windows SmartScreen may identify the publisher as unknown. The self-contained installer is larger than previous releases because it includes the required .NET and Windows App SDK components.
+          The macOS application is not signed with an Apple Developer ID and is not notarized. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown. Follow the README instructions if macOS Gatekeeper blocks the first launch.
           EOF
           )
-          gh release create v0.4.2 \
+          gh release create v0.4.3 \
+            artifacts/NetworkSpeedLogger.dmg \
             artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.4.2" \
+            --title "v0.4.3" \
             --prerelease \
             --notes "$notes"

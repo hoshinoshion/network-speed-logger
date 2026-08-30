@@ -13,7 +13,7 @@ Network Speed Logger 是一款适用于 Windows 与 macOS 的轻量级开源网�
 | 平台 | 文件 | 运行要求 |
 | --- | --- | --- |
 | macOS | `NetworkSpeedLogger.dmg` | macOS 13 或更高版本；Apple 芯片或 Intel Mac |
-| Windows | `NetworkSpeedLogger-Setup.exe` | Windows 10 或 11；.NET Framework 4.8 |
+| Windows | `NetworkSpeedLogger-Setup.exe` | x64 Windows 10 版本 1809 或更高版本 |
 
 两个客户端都不需要管理员权限。
 
@@ -29,6 +29,7 @@ Network Speed Logger 是一款适用于 Windows 与 macOS 的轻量级开源网�
 - 使用 MB/s 或 Mbps 显示实时速度、累计流量、最近 60 个采样点曲线、最近采样和本次记录统计。
 - 每次采样后立即写入 CSV，并在记录结束时生成 Markdown 汇总。
 - 简体中文和英语界面；默认跟随系统语言，也可以在应用中手动切换。
+- 浅色和深色外观；默认跟随系统，也可以手动切换。
 
 ## macOS 客户端
 
@@ -63,7 +64,7 @@ Windows 客户端采用当前用户安装方式，具有标准的安装和卸载
 
 通过“设置”可以更改界面语言、输出文件夹以及每次启动时载入的默认配置。直接在主窗口修改记录时长、采样间隔和速度单位，只在关闭应用前有效。可以从 Windows“设置”中卸载应用，卸载不会删除 CSV 或 Markdown 记录文件。
 
-客户端以 .NET Framework 4.8 为目标框架，不依赖第三方运行库。当前 Windows 客户端和安装器没有代码签名，因此 SmartScreen 可能将发布者显示为未知。
+客户端使用 WinUI 3，并在安装包中自带所需的 .NET 和 Windows App SDK 组件，无需另外安装运行库。当前 Windows 客户端和安装器没有代码签名，因此 SmartScreen 可能将发布者显示为未知。
 
 旧版单体 EXE 用户可以直接安装新版，然后手动删除原来的 EXE；旧版保存的语言选择会自动迁移。
 
@@ -131,20 +132,21 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\NetworkSpeedLo
 安装当前版本的 Xcode 命令行工具，然后在 macOS 上运行：
 
 ```sh
-bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.2.7
+bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.4.3
 ```
 
 脚本会分别编译 `arm64` 和 `x86_64`、合并为 Universal 应用、生成图标、应用临时签名，并创建 `dist/NetworkSpeedLogger.dmg`。也可以通过 `src/macos/NetworkSpeedLogger/Package.swift` 将源代码作为 Swift Package 打开。
 
 ### Windows
 
-在安装了“.NET 桌面开发”工作负载的 Visual Studio 中打开 `src/windows/NetworkSpeedLogger/NetworkSpeedLogger.csproj`，选择 Release 配置并生成。若要创建安装器，请安装 Inno Setup 6，并在 Release 构建完成后编译 `installer/windows/NetworkSpeedLogger.iss`。
+在安装了“.NET 桌面开发”工作负载的 Visual Studio 中打开 `src/windows/NetworkSpeedLogger.WinUI/NetworkSpeedLogger.WinUI.csproj`，选择 Release 配置并生成。若要创建安装器，请安装 Inno Setup 6，并在 Release 构建完成后编译 `installer/windows/NetworkSpeedLogger.iss`。
 
 ## 仓库结构
 
 - `src/macos/NetworkSpeedLogger/`：原生 SwiftUI 客户端和 Universal DMG 构建脚本。
 - `macos/NetworkSpeedLogger.sh`：macOS 终端版本。
-- `src/windows/NetworkSpeedLogger/`：Windows WPF 客户端源代码和图标。
+- `src/windows/NetworkSpeedLogger.WinUI/`：Windows WinUI 3 客户端源代码。
+- `src/windows/NetworkSpeedLogger/`：Windows 共用图标资源和归档的早期客户端源代码。
 - `installer/windows/`：Windows 安装器和卸载程序的 Inno Setup 配置。
 - `windows/NetworkSpeedLogger.ps1`：Windows PowerShell 版本。
 - `.github/workflows/release.yml`：当前版本使用的可复现 Release 工作流。

@@ -9,11 +9,19 @@ build_dir="$project_dir/.build/release-universal"
 dist_dir="$repository_root/dist"
 app_path="$dist_dir/NetworkSpeedLogger.app"
 dmg_path="$dist_dir/NetworkSpeedLogger.dmg"
-version=${1:-0.2.7}
+version=${1:-0.4.3}
+build_number=${2:-14}
 
 case "$version" in
     *[!0-9.]*|'')
         echo "Version must contain only digits and dots." >&2
+        exit 2
+        ;;
+esac
+
+case "$build_number" in
+    *[!0-9]*|'')
+        echo "Build number must contain only digits." >&2
         exit 2
         ;;
 esac
@@ -57,6 +65,7 @@ chmod 755 "$app_path/Contents/MacOS/NetworkSpeedLogger"
 
 cp "$project_dir/Resources/Info.plist" "$app_path/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $version" "$app_path/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $build_number" "$app_path/Contents/Info.plist"
 while IFS= read -r -d '' localization_directory; do
     cp -R "$localization_directory" "$app_path/Contents/Resources/"
 done < <(find "$project_dir/Resources" -maxdepth 1 -type d -name '*.lproj' -print0)
