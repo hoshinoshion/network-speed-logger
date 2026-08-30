@@ -186,14 +186,14 @@
 
       <Border Grid.Column="1" Background="Transparent">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel Padding="22,16,22,18" Spacing="10">
+          <StackPanel Padding="20,12,20,12" Spacing="8">
             <Grid>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
               </Grid.ColumnDefinitions>
               <StackPanel Spacing="2">
-                <TextBlock x:Name="MainTitleText" Text="网络流量监控" FontSize="24" FontWeight="SemiBold" />
+                <TextBlock x:Name="MainTitleText" Text="网络流量监控" FontSize="22" FontWeight="SemiBold" />
                 <TextBlock x:Name="MainSubtitleText" Style="{StaticResource CaptionStyle}"
                            Text="记录电脑实际发送与接收的流量" />
               </StackPanel>
@@ -217,7 +217,7 @@
                   <TextBlock x:Name="CurrentDownloadLabel" Style="{StaticResource CaptionStyle}" Text="当前下载" />
                   <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xE896;" Foreground="{StaticResource DownloadBrush}" FontSize="18" />
-                    <TextBlock x:Name="CurrentDownloadText" Text="0.000" FontSize="24" FontWeight="SemiBold" />
+                    <TextBlock x:Name="CurrentDownloadText" Text="0.000" FontSize="22" FontWeight="SemiBold" />
                   </StackPanel>
                   <TextBlock x:Name="DownloadUnitText" Text="MB/s" Style="{StaticResource CaptionStyle}" />
                 </StackPanel>
@@ -227,7 +227,7 @@
                   <TextBlock x:Name="CurrentUploadLabel" Style="{StaticResource CaptionStyle}" Text="当前上传" />
                   <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xE898;" Foreground="{StaticResource UploadBrush}" FontSize="18" />
-                    <TextBlock x:Name="CurrentUploadText" Text="0.000" FontSize="24" FontWeight="SemiBold" />
+                    <TextBlock x:Name="CurrentUploadText" Text="0.000" FontSize="22" FontWeight="SemiBold" />
                   </StackPanel>
                   <TextBlock x:Name="UploadUnitText" Text="MB/s" Style="{StaticResource CaptionStyle}" />
                 </StackPanel>
@@ -235,14 +235,14 @@
               <Border Grid.Column="2" Style="{StaticResource CardStyle}">
                 <StackPanel Spacing="5">
                   <TextBlock x:Name="ElapsedLabel" Style="{StaticResource CaptionStyle}" Text="已运行" />
-                  <TextBlock x:Name="ElapsedText" Text="00:00:00" FontSize="24" FontWeight="SemiBold" />
+                  <TextBlock x:Name="ElapsedText" Text="00:00:00" FontSize="22" FontWeight="SemiBold" />
                   <TextBlock x:Name="RemainingText" Text="尚未开始" Style="{StaticResource CaptionStyle}" />
                 </StackPanel>
               </Border>
             </Grid>
 
-            <Border Style="{StaticResource CardStyle}" Padding="16,12,16,10">
-              <StackPanel Spacing="8">
+            <Border Style="{StaticResource CardStyle}" Padding="14,10,14,8">
+              <StackPanel Spacing="6">
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -264,7 +264,7 @@
                     </StackPanel>
                   </StackPanel>
                 </Grid>
-                <local:SpeedChart x:Name="Chart" Height="178" />
+                <local:SpeedChart x:Name="Chart" Height="160" />
               </StackPanel>
             </Border>
 
@@ -281,11 +281,11 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                   </Grid.RowDefinitions>
-                  <StackPanel Margin="16,12,16,8" Spacing="2">
+                  <StackPanel Margin="14,10,14,6" Spacing="2">
                     <TextBlock x:Name="RecentTitleText" Style="{StaticResource SectionTitleStyle}" Text="最近 5 条采样" />
                     <TextBlock x:Name="RecentSubtitleText" Style="{StaticResource CaptionStyle}" Text="新记录显示在最上方" />
                   </StackPanel>
-                  <Grid Grid.Row="1" Padding="16,6" Background="{ThemeResource AppPaneBrush}" ColumnSpacing="10">
+                  <Grid Grid.Row="1" Padding="14,5" Background="{ThemeResource AppPaneBrush}" ColumnSpacing="10">
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="72" />
                       <ColumnDefinition Width="105" />
@@ -297,12 +297,12 @@
                     <TextBlock x:Name="RecentUploadHeader" Grid.Column="2" Text="上传 MB/s" Style="{StaticResource CaptionStyle}" />
                     <TextBlock x:Name="RecentAdapterHeader" Grid.Column="3" Text="网卡" Style="{StaticResource CaptionStyle}" />
                   </Grid>
-                  <ListView x:Name="RecentSamplesList" Grid.Row="2" MinHeight="156" MaxHeight="172"
+                  <ListView x:Name="RecentSamplesList" Grid.Row="2" MinHeight="140" MaxHeight="154"
                             SelectionMode="None" ItemsSource="{x:Bind RecentSamples}">
                     <ListView.ItemContainerStyle>
                       <Style TargetType="ListViewItem">
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                        <Setter Property="Padding" Value="16,6" />
+                        <Setter Property="Padding" Value="14,5" />
                       </Style>
                     </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
@@ -326,7 +326,7 @@
               </Border>
 
               <Border Grid.Column="1" Style="{StaticResource CardStyle}">
-                <StackPanel Spacing="9">
+                <StackPanel Spacing="8">
                   <StackPanel Spacing="2">
                     <TextBlock x:Name="SummaryTitleText" Style="{StaticResource SectionTitleStyle}" Text="本次统计" />
                     <TextBlock x:Name="SummaryStateText" Style="{StaticResource CaptionStyle}"

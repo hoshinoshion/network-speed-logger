@@ -9,18 +9,18 @@
         <ResourceDictionary>
           <ResourceDictionary.ThemeDictionaries>
             <ResourceDictionary x:Key="Light">
-              <SolidColorBrush x:Key="AppPaneBrush" Color="#B8F3F3F3" />
-              <SolidColorBrush x:Key="AppContentBrush" Color="#88F9F9F9" />
-              <SolidColorBrush x:Key="CardBackgroundBrush" Color="#BFFFFFFF" />
-              <SolidColorBrush x:Key="CardBorderBrush" Color="#24000000" />
+              <SolidColorBrush x:Key="AppPaneBrush" Color="#70F3F3F3" />
+              <SolidColorBrush x:Key="AppContentBrush" Color="#30F9F9F9" />
+              <SolidColorBrush x:Key="CardBackgroundBrush" Color="#B0FFFFFF" />
+              <SolidColorBrush x:Key="CardBorderBrush" Color="#18000000" />
               <SolidColorBrush x:Key="SubtleTextBrush" Color="#9E000000" />
               <SolidColorBrush x:Key="ChartGridBrush" Color="#12000000" />
             </ResourceDictionary>
             <ResourceDictionary x:Key="Dark">
-              <SolidColorBrush x:Key="AppPaneBrush" Color="#B8202020" />
-              <SolidColorBrush x:Key="AppContentBrush" Color="#88272727" />
-              <SolidColorBrush x:Key="CardBackgroundBrush" Color="#B32D2D2D" />
-              <SolidColorBrush x:Key="CardBorderBrush" Color="#26FFFFFF" />
+              <SolidColorBrush x:Key="AppPaneBrush" Color="#70202020" />
+              <SolidColorBrush x:Key="AppContentBrush" Color="#40272727" />
+              <SolidColorBrush x:Key="CardBackgroundBrush" Color="#A52D2D2D" />
+              <SolidColorBrush x:Key="CardBorderBrush" Color="#22FFFFFF" />
               <SolidColorBrush x:Key="SubtleTextBrush" Color="#9EFFFFFF" />
               <SolidColorBrush x:Key="ChartGridBrush" Color="#16FFFFFF" />
             </ResourceDictionary>
@@ -45,7 +45,7 @@
         <Setter Property="BorderBrush" Value="{ThemeResource CardBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="Padding" Value="14" />
+        <Setter Property="Padding" Value="12" />
       </Style>
 
       <Style x:Key="SectionTitleStyle" TargetType="TextBlock">

@@ -355,7 +355,7 @@ public sealed partial class MainWindow : Window
             : T("CSV 已保存，但 Markdown 汇总生成失败", "CSV was saved, but the Markdown summary failed");
         SessionInfoBar.Severity = summaryError is null ? InfoBarSeverity.Success : InfoBarSeverity.Error;
         SessionInfoBar.Message = summaryError is null
-            ? reason + T("。CSV：", ". CSV: ") + _session.CsvPath + T("　汇总：", "  Summary: ") + _session.SummaryPath
+            ? reason + T("。CSV 和 Markdown 汇总已保存到结果文件夹。", ". CSV and Markdown summary saved to the output folder.")
             : reason + T("。CSV 已保存，但汇总失败：", ". CSV was saved, but the summary failed: ") + summaryError;
         OpenResultsButton.Visibility = Visibility.Visible;
         ElapsedText.Text = MonitoringSession.FormatDuration(_session.ElapsedSeconds, Localization.IsChinese);
