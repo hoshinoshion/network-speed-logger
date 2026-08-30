@@ -5,6 +5,7 @@ import SwiftUI
 struct RootView: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject var monitor: NetworkMonitor
+    @ObservedObject var updateChecker: UpdateChecker
 
     var body: some View {
         Group {
@@ -18,6 +19,36 @@ struct RootView: View {
         .task(id: settings.language) {
             try? await Task.sleep(nanoseconds: 100_000_000)
             MenuBarLocalizer.apply(usesChinese: settings.usesChinese)
+        }
+        .task {
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            guard !Task.isCancelled, settings.automaticallyChecksForUpdates else { return }
+            await updateChecker.checkAutomaticallyIfNeeded()
+        }
+        .alert(
+            settings.text("Update Available", "发现新版本"),
+            isPresented: Binding(
+                get: { updateChecker.presentedRelease != nil },
+                set: { isPresented in
+                    if !isPresented { updateChecker.deferPresentedRelease() }
+                }
+            ),
+            presenting: updateChecker.presentedRelease
+        ) { _ in
+            Button(settings.text("View Release", "查看并下载")) {
+                updateChecker.openPresentedRelease()
+            }
+            Button(settings.text("Skip This Version", "跳过此版本")) {
+                updateChecker.skipPresentedRelease()
+            }
+            Button(settings.text("Later", "稍后"), role: .cancel) {
+                updateChecker.deferPresentedRelease()
+            }
+        } message: { release in
+            Text(settings.text(
+                "Network Speed Logger \(release.version) is available. You are using \(UpdateChecker.displayedCurrentVersion).",
+                "Network Speed Logger \(release.version) 已发布，当前版本为 \(UpdateChecker.displayedCurrentVersion)。"
+            ))
         }
     }
 }
@@ -833,6 +864,7 @@ private struct MetricCard: View {
 struct PreferencesView: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject var monitor: NetworkMonitor
+    @ObservedObject var updateChecker: UpdateChecker
 
     var body: some View {
         Form {
@@ -896,13 +928,70 @@ struct PreferencesView: View {
                 }
             }
 
-            Section {
-                LabeledContent(settings.text("Version", "版本"), value: "0.5.0")
+            Section(settings.text("Updates", "更新")) {
+                Toggle(
+                    settings.text("Automatically check for updates", "自动检查更新"),
+                    isOn: $settings.automaticallyChecksForUpdates
+                )
+
+                LabeledContent(
+                    settings.text("Current version", "当前版本"),
+                    value: UpdateChecker.displayedCurrentVersion
+                )
+
+                HStack(spacing: 10) {
+                    Button(settings.text("Check for Updates…", "检查更新…")) {
+                        Task {
+                            await updateChecker.checkForUpdates(
+                                manual: true,
+                                presentWhenAvailable: false
+                            )
+                        }
+                    }
+                    .disabled(updateChecker.status == .checking)
+
+                    if updateChecker.status == .checking {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+
+                    if updateChecker.status == .updateAvailable {
+                        Button(settings.text("View Release", "查看并下载")) {
+                            updateChecker.openAvailableRelease()
+                        }
+                    }
+                }
+
+                if let statusText = updateStatusText {
+                    Text(statusText)
+                        .font(.caption)
+                        .foregroundStyle(updateChecker.status == .failed ? Color.red : Color.secondary)
+                }
             }
         }
         .formStyle(.grouped)
         .onDisappear {
             settings.normalizeDefaultValues()
+        }
+    }
+
+    private var updateStatusText: String? {
+        switch updateChecker.status {
+        case .idle, .checking:
+            return nil
+        case .upToDate:
+            return settings.text("You’re up to date.", "当前已是最新正式版。")
+        case .updateAvailable:
+            guard let release = updateChecker.availableRelease else { return nil }
+            return settings.text(
+                "Version \(release.version) is available.",
+                "发现新版本 \(release.version)。"
+            )
+        case .failed:
+            return settings.text(
+                "Unable to check for updates. Try again later.",
+                "无法检查更新，请稍后重试。"
+            )
         }
     }
 }

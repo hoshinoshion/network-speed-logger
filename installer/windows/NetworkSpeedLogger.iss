@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.5.0"
+  #define AppVersion "0.5.1"
 #endif
 
 #define AppName "Network Speed Logger"
@@ -73,4 +73,6 @@ Type: files; Name: "{localappdata}\NetworkSpeedLogger\settings.json"
 Type: files; Name: "{localappdata}\NetworkSpeedLogger\settings.json.tmp"
 Type: files; Name: "{localappdata}\NetworkSpeedLogger\settings.json.bak"
 Type: files; Name: "{localappdata}\NetworkSpeedLogger\language.txt"
+Type: files; Name: "{localappdata}\NetworkSpeedLogger\update-state.json"
+Type: files; Name: "{localappdata}\NetworkSpeedLogger\update-state.json.tmp"
 Type: dirifempty; Name: "{localappdata}\NetworkSpeedLogger"

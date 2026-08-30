@@ -26,7 +26,7 @@ public sealed class SessionDefaults
 public sealed class AppSettingsData
 {
     [JsonPropertyName("schemaVersion")]
-    public int SchemaVersion { get; set; } = 1;
+    public int SchemaVersion { get; set; } = 2;
 
     [JsonPropertyName("language")]
     public string Language { get; set; } = "Auto";
@@ -37,6 +37,9 @@ public sealed class AppSettingsData
     [JsonPropertyName("outputFolder")]
     public string OutputFolder { get; set; } = string.Empty;
 
+    [JsonPropertyName("automaticallyCheckForUpdates")]
+    public bool AutomaticallyCheckForUpdates { get; set; } = true;
+
     [JsonPropertyName("defaults")]
     public SessionDefaults Defaults { get; set; } = new();
 
@@ -46,6 +49,7 @@ public sealed class AppSettingsData
         Language = Language,
         Theme = Theme,
         OutputFolder = OutputFolder,
+        AutomaticallyCheckForUpdates = AutomaticallyCheckForUpdates,
         Defaults = Defaults.Clone()
     };
 }
@@ -166,7 +170,7 @@ public static class AppSettingsStore
     private static void Normalize(AppSettingsData settings)
     {
         AppSettingsData builtIn = CreateDefaults();
-        settings.SchemaVersion = 1;
+        settings.SchemaVersion = 2;
         if (!IsValidLanguage(settings.Language)) settings.Language = builtIn.Language;
         if (!IsValidTheme(settings.Theme)) settings.Theme = builtIn.Theme;
         settings.OutputFolder = (settings.OutputFolder ?? string.Empty).Trim();

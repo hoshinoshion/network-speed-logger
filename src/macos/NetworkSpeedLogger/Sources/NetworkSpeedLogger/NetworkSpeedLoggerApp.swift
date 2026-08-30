@@ -5,10 +5,11 @@ import SwiftUI
 struct NetworkSpeedLoggerApp: App {
     @StateObject private var settings = AppSettings()
     @StateObject private var monitor = NetworkMonitor()
+    @StateObject private var updateChecker = UpdateChecker()
 
     var body: some Scene {
         WindowGroup {
-            RootView(settings: settings, monitor: monitor)
+            RootView(settings: settings, monitor: monitor, updateChecker: updateChecker)
                 .frame(minWidth: 1_040, minHeight: 700)
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
                     monitor.stop(reason: .applicationQuit)
@@ -17,6 +18,13 @@ struct NetworkSpeedLoggerApp: App {
         .defaultSize(width: 1_180, height: 780)
         .windowStyle(.titleBar)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button(settings.text("Check for Updates…", "检查更新…")) {
+                    Task { await updateChecker.checkForUpdates(manual: true) }
+                }
+                .disabled(updateChecker.status == .checking)
+            }
+
             CommandMenu(settings.text("Session", "记录")) {
                 if monitor.state.isRunning {
                     Button(settings.text("Stop Logging", "结束记录")) {
@@ -41,7 +49,7 @@ struct NetworkSpeedLoggerApp: App {
         }
 
         Settings {
-            PreferencesView(settings: settings, monitor: monitor)
+            PreferencesView(settings: settings, monitor: monitor, updateChecker: updateChecker)
                 .frame(width: 520)
                 .padding(24)
         }

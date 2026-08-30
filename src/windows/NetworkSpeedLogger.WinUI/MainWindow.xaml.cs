@@ -22,6 +22,8 @@ public sealed partial class MainWindow : Window
     private readonly DispatcherQueueTimer _uiTimer;
     private readonly AppWindow _appWindow;
     private readonly ThemeController _themeController;
+    private readonly UpdateService _updateService = new();
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly InputMethodSnapshot _startupInputMethod = InputMethodSnapshot.CaptureForeground();
     private AppSettingsData _settings;
     private MonitoringSession? _session;
@@ -29,6 +31,7 @@ public sealed partial class MainWindow : Window
     private bool _allowClose;
     private bool _hasCompletedSession;
     private bool _initialFocusSet;
+    private UpdateReleaseInfo? _availableUpdate;
 
     public ObservableCollection<AdapterChoice> AdapterChoices { get; } = [];
     public ObservableCollection<SampleRow> RecentSamples { get; } = [];
@@ -109,6 +112,8 @@ public sealed partial class MainWindow : Window
             IntervalNumber.IsTabStop = true;
             _startupInputMethod.Restore(WindowNative.GetWindowHandle(this));
         });
+
+        _ = CheckForUpdatesAfterLaunchAsync();
     }
 
     private void ApplyLanguage()
@@ -154,6 +159,8 @@ public sealed partial class MainWindow : Window
         RecentTimeHeader.Text = T("时间", "Time");
         RecentAdapterHeader.Text = T("网卡", "Adapter");
         Chart.SetLanguage(Localization.IsChinese);
+        ViewUpdateButtonText.Text = T("查看更新", "View update");
+        RefreshUpdateInfoBarText();
         UpdateAdapterModeUi();
         UpdateUnitUi(false);
         UpdateOutputFolderState();
@@ -564,6 +571,58 @@ public sealed partial class MainWindow : Window
         RefreshAdapters(false);
     }
 
+    private async Task CheckForUpdatesAfterLaunchAsync()
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(10), _lifetimeCancellation.Token);
+            if (!_settings.AutomaticallyCheckForUpdates) return;
+
+            UpdateCheckResult? result = await _updateService.CheckAsync(
+                manual: false,
+                _lifetimeCancellation.Token);
+            if (result?.Status == UpdateCheckStatus.UpdateAvailable &&
+                result.Release is not null &&
+                _updateService.ShouldPresentAutomatically(result.Release))
+            {
+                _availableUpdate = result.Release;
+                _updateService.MarkReminded(result.Release);
+                RefreshUpdateInfoBarText();
+                UpdateInfoBar.IsOpen = true;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private void RefreshUpdateInfoBarText()
+    {
+        if (_availableUpdate is null) return;
+        UpdateInfoBar.Title = T(
+            $"发现新版本 {_availableUpdate.Version}",
+            $"Version {_availableUpdate.Version} is available");
+        UpdateInfoBar.Message = T(
+            $"当前版本为 {UpdateService.CurrentVersionText}。可前往 GitHub 查看更新内容并下载安装程序。",
+            $"You are using {UpdateService.CurrentVersionText}. View the release on GitHub and download the installer.");
+    }
+
+    private void OpenUpdateReleaseButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_availableUpdate is null) return;
+        try
+        {
+            _updateService.MarkReminded(_availableUpdate);
+            Process.Start(new ProcessStartInfo(_availableUpdate.ReleasePage.AbsoluteUri)
+            {
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+        }
+    }
+
     private void RefreshAdaptersButton_Click(object sender, RoutedEventArgs e) => RefreshAdapters(true);
 
     private void AdapterMode_Changed(object sender, RoutedEventArgs e)
@@ -580,6 +639,7 @@ public sealed partial class MainWindow : Window
     {
         if (_allowClose || _session?.IsRunning != true)
         {
+            _lifetimeCancellation.Cancel();
             _themeController.Dispose();
             _session?.Dispose();
             return;
@@ -593,6 +653,7 @@ public sealed partial class MainWindow : Window
         if (!confirmed) return;
         await StopSessionAsync(T("关闭程序", "Application closed"), true);
         _allowClose = true;
+        _lifetimeCancellation.Cancel();
         Close();
     }
 

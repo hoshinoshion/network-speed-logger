@@ -156,6 +156,55 @@
         </StackPanel>
 
         <StackPanel Spacing="6">
+          <TextBlock x:Name="UpdatesSectionText" Text="更新" Style="{StaticResource SectionTitleStyle}" />
+          <Border Style="{StaticResource CardStyle}" Padding="14,9">
+            <Grid ColumnSpacing="16">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel VerticalAlignment="Center" Spacing="3">
+                <TextBlock x:Name="AutomaticUpdatesLabel" Text="自动检查更新" FontWeight="SemiBold" />
+                <TextBlock x:Name="AutomaticUpdatesDescription" Text="应用启动后每天最多检查一次正式版"
+                           Style="{StaticResource CaptionStyle}" />
+              </StackPanel>
+              <ToggleSwitch x:Name="AutomaticUpdatesToggle" Grid.Column="1" IsOn="True"
+                            VerticalAlignment="Center" />
+            </Grid>
+          </Border>
+
+          <Border Style="{StaticResource CardStyle}" Padding="14,9">
+            <Grid ColumnSpacing="16">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel VerticalAlignment="Center" Spacing="3">
+                <TextBlock x:Name="CurrentVersionLabel" Text="当前版本" FontWeight="SemiBold" />
+                <TextBlock x:Name="UpdateStatusText" Text="—"
+                           Style="{StaticResource CaptionStyle}" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <ProgressRing x:Name="UpdateProgressRing" Width="18" Height="18"
+                              IsActive="False" Visibility="Collapsed" />
+                <Button x:Name="CheckUpdateButton" Click="CheckUpdateButton_Click">
+                  <TextBlock x:Name="CheckUpdateButtonText" Text="检查更新" />
+                </Button>
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <InfoBar x:Name="UpdateResultInfoBar" IsOpen="False" IsClosable="True">
+            <InfoBar.ActionButton>
+              <Button x:Name="ViewUpdateButton" Click="OpenUpdateReleaseButton_Click"
+                      Visibility="Collapsed">
+                <TextBlock x:Name="ViewUpdateButtonText" Text="查看更新" />
+              </Button>
+            </InfoBar.ActionButton>
+          </InfoBar>
+        </StackPanel>
+
+        <StackPanel Spacing="6">
           <TextBlock x:Name="AboutSectionText" Text="关于" Style="{StaticResource SectionTitleStyle}" />
           <Border Style="{StaticResource CardStyle}" Padding="14,9">
             <Grid ColumnSpacing="16">
@@ -165,7 +214,7 @@
               </Grid.ColumnDefinitions>
               <StackPanel VerticalAlignment="Center" Spacing="3">
                 <TextBlock Text="Network Speed Logger" FontWeight="SemiBold" />
-                <TextBlock x:Name="VersionText" Text="0.5.0" Style="{StaticResource CaptionStyle}" />
+                <TextBlock x:Name="VersionText" Text="—" Style="{StaticResource CaptionStyle}" />
               </StackPanel>
               <Button x:Name="RepositoryButton" Grid.Column="1" Click="RepositoryButton_Click">
                 <StackPanel Orientation="Horizontal" Spacing="8">

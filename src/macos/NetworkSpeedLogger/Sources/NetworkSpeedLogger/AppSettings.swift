@@ -13,6 +13,7 @@ final class AppSettings: ObservableObject {
         static let defaultDurationHours = "defaultDurationHours.v2"
         static let defaultSampleInterval = "defaultSampleInterval.v2"
         static let outputFolderBookmark = "outputFolderBookmark"
+        static let automaticallyChecksForUpdates = "automaticallyChecksForUpdates"
     }
 
     private let defaults: UserDefaults
@@ -55,6 +56,10 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(defaultSampleIntervalSeconds, forKey: Key.defaultSampleInterval) }
     }
 
+    @Published var automaticallyChecksForUpdates: Bool {
+        didSet { defaults.set(automaticallyChecksForUpdates, forKey: Key.automaticallyChecksForUpdates) }
+    }
+
     @Published private(set) var outputFolderURL: URL?
 
     init(defaults: UserDefaults = .standard) {
@@ -77,6 +82,7 @@ final class AppSettings: ObservableObject {
         durationHours = storedDefaultDuration
         sampleIntervalSeconds = storedDefaultInterval
         speedUnit = storedDefaultSpeedUnit
+        automaticallyChecksForUpdates = (defaults.object(forKey: Key.automaticallyChecksForUpdates) as? Bool) ?? true
 
         restoreOutputFolder()
         applyAppearance()

@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using Microsoft.UI;
 using Microsoft.UI.Composition.SystemBackdrops;
@@ -32,8 +31,12 @@ public sealed partial class SettingsWindow : Window
     private readonly AppWindow _appWindow;
     private readonly nint _ownerHandle;
     private readonly ThemeController _themeController;
+    private readonly UpdateService _updateService = new();
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
     private AppSettingsData _settings;
     private bool _initialFocusSet;
+    private bool _isClosed;
+    private UpdateReleaseInfo? _availableUpdate;
 
     public event EventHandler<SettingsSavedEventArgs>? SettingsSaved;
 
@@ -69,7 +72,12 @@ public sealed partial class SettingsWindow : Window
         }
 
         _themeController = new ThemeController(RootGrid, _appWindow, DispatcherQueue, _settings.Theme);
-        Closed += (_, _) => _themeController.Dispose();
+        Closed += (_, _) =>
+        {
+            _isClosed = true;
+            _lifetimeCancellation.Cancel();
+            _themeController.Dispose();
+        };
         LoadSettings();
         ApplyLanguage();
     }
@@ -102,8 +110,10 @@ public sealed partial class SettingsWindow : Window
         SelectComboByTag(DefaultUnitCombo, _settings.Defaults.SpeedUnit);
         OutputFolderText.Text = _settings.OutputFolder;
         OpenFolderButton.IsEnabled = Directory.Exists(_settings.OutputFolder);
-        string version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.5.0";
+        AutomaticUpdatesToggle.IsOn = _settings.AutomaticallyCheckForUpdates;
+        string version = UpdateService.CurrentVersionText;
         VersionText.Text = T("版本 ", "Version ") + version + " · WinUI 3";
+        UpdateStatusText.Text = version + " · WinUI 3";
     }
 
     private void ApplyLanguage()
@@ -136,6 +146,14 @@ public sealed partial class SettingsWindow : Window
         OutputFolderDescription.Text = T("CSV 和 Markdown 汇总都会保存到此文件夹", "CSV logs and Markdown summaries are saved here");
         OpenFolderButtonText.Text = T("打开", "Open");
         BrowseButtonText.Text = T("更改", "Change");
+        UpdatesSectionText.Text = T("更新", "Updates");
+        AutomaticUpdatesLabel.Text = T("自动检查更新", "Automatically check for updates");
+        AutomaticUpdatesDescription.Text = T(
+            "应用启动后每天最多检查一次正式版",
+            "Checks for a stable release at most once a day after launch");
+        CurrentVersionLabel.Text = T("当前版本", "Current version");
+        CheckUpdateButtonText.Text = T("检查更新", "Check for updates");
+        ViewUpdateButtonText.Text = T("查看更新", "View update");
         AboutSectionText.Text = T("关于", "About");
         RepositoryButtonText.Text = T("GitHub 仓库", "GitHub repository");
         SaveHintText.Text = T("保存后将在下次启动时使用", "Saved values are used at the next launch");
@@ -190,6 +208,90 @@ public sealed partial class SettingsWindow : Window
         }
     }
 
+    private async void CheckUpdateButton_Click(object sender, RoutedEventArgs e)
+    {
+        CheckUpdateButton.IsEnabled = false;
+        UpdateProgressRing.IsActive = true;
+        UpdateProgressRing.Visibility = Visibility.Visible;
+        UpdateResultInfoBar.IsOpen = false;
+        UpdateStatusText.Text = T("正在检查…", "Checking…");
+
+        try
+        {
+            UpdateCheckResult? result = await _updateService.CheckAsync(
+                manual: true,
+                _lifetimeCancellation.Token);
+            if (result is null) return;
+
+            switch (result.Status)
+            {
+                case UpdateCheckStatus.UpToDate:
+                    _availableUpdate = null;
+                    ViewUpdateButton.Visibility = Visibility.Collapsed;
+                    UpdateResultInfoBar.Severity = InfoBarSeverity.Success;
+                    UpdateResultInfoBar.Title = T("当前已是最新正式版", "You’re up to date");
+                    UpdateResultInfoBar.Message = T(
+                        $"当前版本为 {UpdateService.CurrentVersionText}。",
+                        $"You are using version {UpdateService.CurrentVersionText}.");
+                    UpdateResultInfoBar.IsOpen = true;
+                    break;
+
+                case UpdateCheckStatus.UpdateAvailable when result.Release is not null:
+                    _availableUpdate = result.Release;
+                    _updateService.MarkReminded(result.Release);
+                    ViewUpdateButton.Visibility = Visibility.Visible;
+                    UpdateResultInfoBar.Severity = InfoBarSeverity.Informational;
+                    UpdateResultInfoBar.Title = T(
+                        $"发现新版本 {result.Release.Version}",
+                        $"Version {result.Release.Version} is available");
+                    UpdateResultInfoBar.Message = T(
+                        "可前往 GitHub 查看更新内容并下载安装程序。",
+                        "View the release on GitHub and download the installer.");
+                    UpdateResultInfoBar.IsOpen = true;
+                    break;
+
+                default:
+                    _availableUpdate = null;
+                    ViewUpdateButton.Visibility = Visibility.Collapsed;
+                    UpdateResultInfoBar.Severity = InfoBarSeverity.Error;
+                    UpdateResultInfoBar.Title = T("无法检查更新", "Unable to check for updates");
+                    UpdateResultInfoBar.Message = T("请稍后重试。", "Try again later.");
+                    UpdateResultInfoBar.IsOpen = true;
+                    break;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            if (!_isClosed)
+            {
+                UpdateStatusText.Text = UpdateService.CurrentVersionText + " · WinUI 3";
+                UpdateProgressRing.IsActive = false;
+                UpdateProgressRing.Visibility = Visibility.Collapsed;
+                CheckUpdateButton.IsEnabled = true;
+            }
+        }
+    }
+
+    private void OpenUpdateReleaseButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_availableUpdate is null) return;
+        try
+        {
+            _updateService.MarkReminded(_availableUpdate);
+            Process.Start(new ProcessStartInfo(_availableUpdate.ReleasePage.AbsoluteUri)
+            {
+                UseShellExecute = true
+            });
+        }
+        catch (Exception exception)
+        {
+            ShowValidation(T("打开失败", "Open failed"), exception.Message);
+        }
+    }
+
     private void CancelButton_Click(object sender, RoutedEventArgs e) => Close();
 
     private void ThemeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -227,6 +329,7 @@ public sealed partial class SettingsWindow : Window
         candidate.Language = ReadComboTag(LanguageCombo, "Auto");
         candidate.Theme = ReadComboTag(ThemeCombo, "Auto");
         candidate.OutputFolder = FolderService.NormalizePath(OutputFolderText.Text);
+        candidate.AutomaticallyCheckForUpdates = AutomaticUpdatesToggle.IsOn;
         candidate.Defaults.DurationHours = duration;
         candidate.Defaults.SampleIntervalSeconds = (int)intervalValue;
         candidate.Defaults.SpeedUnit = ReadComboTag(DefaultUnitCombo, "MB/s");

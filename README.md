@@ -30,6 +30,7 @@ Both desktop applications provide:
 - Immediate CSV writes after every sample and a Markdown summary when the session ends.
 - Simplified Chinese and English, selected from the system language by default and switchable in the application.
 - Light and dark appearances that follow the system by default and can be selected manually.
+- Optional daily checks for stable GitHub Releases, with an in-app notice and a manual check in Settings.
 
 ## macOS application
 
@@ -132,7 +133,7 @@ Each sample is flushed to the CSV immediately, so completed data remains availab
 Install the current Xcode command-line tools, then run on macOS:
 
 ```sh
-bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.5.0
+bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.5.1 17
 ```
 
 The script builds `arm64` and `x86_64`, combines them into a Universal application, generates the icon, applies an ad-hoc signature, and creates `dist/NetworkSpeedLogger.dmg`. You can also open `src/macos/NetworkSpeedLogger/Package.swift` as a Swift package.

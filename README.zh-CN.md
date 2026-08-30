@@ -30,6 +30,7 @@ Network Speed Logger 是一款适用于 Windows 与 macOS 的轻量级开源网�
 - 每次采样后立即写入 CSV，并在记录结束时生成 Markdown 汇总。
 - 简体中文和英语界面；默认跟随系统语言，也可以在应用中手动切换。
 - 浅色和深色外观；默认跟随系统，也可以手动切换。
+- 可选每天检查一次 GitHub 正式 Release；发现新版本时在应用内提醒，也可以从设置中手动检查。
 
 ## macOS 客户端
 
@@ -132,7 +133,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\NetworkSpeedLo
 安装当前版本的 Xcode 命令行工具，然后在 macOS 上运行：
 
 ```sh
-bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.5.0
+bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.5.1 17
 ```
 
 脚本会分别编译 `arm64` 和 `x86_64`、合并为 Universal 应用、生成图标、应用临时签名，并创建 `dist/NetworkSpeedLogger.dmg`。也可以通过 `src/macos/NetworkSpeedLogger/Package.swift` 将源代码作为 Swift Package 打开。
