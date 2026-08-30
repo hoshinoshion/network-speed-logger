@@ -268,8 +268,6 @@ public sealed partial class MainWindow : Window
             SidebarStatusText.Text = T("正在记录 · ", "Recording · ") + string.Join(Localization.IsChinese ? "、" : ", ", activeAdapters);
             SessionInfoBar.Severity = InfoBarSeverity.Informational;
             SessionInfoBar.Message = T("正在写入：", "Writing: ") + Path.GetFileName(_session.CsvPath) + T("。每次采样后都会立即保存。", ". Data is flushed after every sample.");
-            RunProgress.IsIndeterminate = _session.TargetSeconds <= 0;
-
             _sampleTimer.Interval = TimeSpan.FromSeconds(options.SampleIntervalSeconds);
             _sampleTimer.Start();
             _uiTimer.Start();
@@ -284,7 +282,7 @@ public sealed partial class MainWindow : Window
     }
 
     private async void StopButton_Click(object sender, RoutedEventArgs e) =>
-        await StopSessionAsync(T("用户手动停止", "Stopped by user"), true, false);
+        await StopSessionAsync(T("用户手动停止", "Stopped by user"), true);
 
     private async void SampleTimer_Tick(DispatcherQueueTimer sender, object args)
     {
@@ -296,7 +294,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            await StopSessionAsync(T("发生错误：", "Error: ") + exception.Message, false, false);
+            await StopSessionAsync(T("发生错误：", "Error: ") + exception.Message, false);
             await ShowMessageAsync(T("记录已停止", "Recording stopped"), T("采样时发生错误，记录已停止。", "A sampling error occurred and recording was stopped.") + "\n\n" + exception.Message);
         }
     }
@@ -306,7 +304,7 @@ public sealed partial class MainWindow : Window
         if (_session?.IsRunning != true) return;
         UpdateRuntimeUi();
         if (_session.TargetSeconds > 0 && _session.ElapsedSeconds >= _session.TargetSeconds)
-            await StopSessionAsync(T("达到设定时长", "Duration reached"), true, true);
+            await StopSessionAsync(T("达到设定时长", "Duration reached"), true);
     }
 
     private void ApplySample(SessionSample sample)
@@ -329,7 +327,7 @@ public sealed partial class MainWindow : Window
                                  T(" · 上传 ", " · Upload ") + MonitoringSession.FormatRateValue(sample.UploadValue) + " " + _session.Unit;
     }
 
-    private async Task StopSessionAsync(string reason, bool takeFinalSample, bool durationReached)
+    private async Task StopSessionAsync(string reason, bool takeFinalSample)
     {
         if (_session?.IsRunning != true) return;
         _sampleTimer.Stop();
@@ -348,8 +346,6 @@ public sealed partial class MainWindow : Window
         _hasCompletedSession = true;
         SetConfigurationEnabled(true);
         RefreshAdapters(false);
-        RunProgress.IsIndeterminate = false;
-        if (_session.TargetSeconds > 0 && durationReached) RunProgress.Value = 100;
         StatusDot.Fill = summaryError is null ? ResolveBrush("DownloadBrush", Colors.DodgerBlue) : new SolidColorBrush(Colors.IndianRed);
         SidebarStatusDot.Fill = StatusDot.Fill;
         StatusText.Text = summaryError is null ? T("记录已结束", "Finished") : T("结束时出错", "Completion error");
@@ -384,7 +380,6 @@ public sealed partial class MainWindow : Window
         TotalTrafficText.Text = T("下载 0 MB · 上传 0 MB", "Download 0 MB · Upload 0 MB");
         SetEmptyStatistics();
         OpenResultsButton.Visibility = Visibility.Collapsed;
-        RunProgress.Value = 0;
     }
 
     private void UpdateRuntimeUi()
@@ -396,13 +391,10 @@ public sealed partial class MainWindow : Window
         {
             double remaining = Math.Max(0, _session.TargetSeconds - elapsed);
             RemainingText.Text = T("剩余 ", "Remaining ") + MonitoringSession.FormatDuration(remaining, Localization.IsChinese);
-            RunProgress.IsIndeterminate = false;
-            RunProgress.Value = Math.Min(100, elapsed / _session.TargetSeconds * 100.0);
         }
         else
         {
             RemainingText.Text = T("不限时运行", "No time limit");
-            RunProgress.IsIndeterminate = true;
         }
     }
 
@@ -564,7 +556,7 @@ public sealed partial class MainWindow : Window
             T("当前仍在记录网速。是否结束记录并退出？", "Recording is still in progress. Stop and exit?"),
             T("结束并退出", "Stop and exit"));
         if (!confirmed) return;
-        await StopSessionAsync(T("关闭程序", "Application closed"), true, false);
+        await StopSessionAsync(T("关闭程序", "Application closed"), true);
         _allowClose = true;
         Close();
     }

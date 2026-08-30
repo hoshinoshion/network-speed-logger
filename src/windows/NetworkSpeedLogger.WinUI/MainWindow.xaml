@@ -7,7 +7,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-  <Grid x:Name="RootGrid" Background="Transparent">
+  <Grid x:Name="RootGrid" Background="{ThemeResource AppContentBrush}">
     <Grid.RowDefinitions>
       <RowDefinition Height="48" />
       <RowDefinition Height="*" />
@@ -32,7 +32,7 @@
         <ColumnDefinition Width="*" />
       </Grid.ColumnDefinitions>
 
-      <Border Grid.Column="0" Background="{ThemeResource AppContentBrush}">
+      <Border Grid.Column="0" Background="Transparent">
         <Grid>
           <Grid.RowDefinitions>
             <RowDefinition Height="*" />
@@ -162,14 +162,20 @@
           <Border Grid.Row="1" Padding="18,8">
             <Grid ColumnSpacing="10">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
               </Grid.ColumnDefinitions>
-              <Ellipse x:Name="SidebarStatusDot" Width="8" Height="8" Fill="{ThemeResource SubtleTextBrush}" />
-              <TextBlock x:Name="SidebarStatusText" Grid.Column="1" Style="{StaticResource CaptionStyle}"
-                         Text="准备就绪" TextTrimming="CharacterEllipsis" MaxLines="2" />
-              <Button x:Name="SettingsButton" Grid.Column="2" Width="32" Height="28" Padding="0"
+              <Grid ColumnSpacing="10" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Ellipse x:Name="SidebarStatusDot" Width="8" Height="8" VerticalAlignment="Center"
+                         Fill="{ThemeResource SubtleTextBrush}" />
+                <TextBlock x:Name="SidebarStatusText" Grid.Column="1" Style="{StaticResource CaptionStyle}"
+                           VerticalAlignment="Center" Text="准备就绪" TextTrimming="CharacterEllipsis" MaxLines="2" />
+              </Grid>
+              <Button x:Name="SettingsButton" Grid.Column="1" Width="32" Height="28" Padding="0"
                       VerticalAlignment="Center" ToolTipService.ToolTip="Settings" Click="SettingsButton_Click">
                 <FontIcon Glyph="&#xE713;" FontSize="14" />
               </Button>
@@ -178,7 +184,7 @@
         </Grid>
       </Border>
 
-      <Border Grid.Column="1" Background="{ThemeResource AppContentBrush}">
+      <Border Grid.Column="1" Background="Transparent">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <StackPanel Padding="22,16,22,18" Spacing="10">
             <Grid>
@@ -234,8 +240,6 @@
                 </StackPanel>
               </Border>
             </Grid>
-
-            <ProgressBar x:Name="RunProgress" Minimum="0" Maximum="100" Value="0" />
 
             <Border Style="{StaticResource CardStyle}" Padding="16,12,16,10">
               <StackPanel Spacing="8">
