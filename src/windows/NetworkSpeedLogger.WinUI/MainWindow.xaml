@@ -38,7 +38,7 @@
           </Grid.RowDefinitions>
 
           <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                        IsTabStop="False" AllowFocusOnInteraction="False">
+                        IsTabStop="False">
             <StackPanel x:Name="ConfigurationPanel" Padding="18,14,18,10" Spacing="10">
               <StackPanel Spacing="2">
                 <TextBlock x:Name="CurrentSessionTitle" Text="本次记录" FontSize="18" FontWeight="SemiBold" />
