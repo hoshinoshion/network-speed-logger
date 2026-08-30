@@ -21,6 +21,7 @@ public sealed partial class MainWindow : Window
     private readonly DispatcherQueueTimer _sampleTimer;
     private readonly DispatcherQueueTimer _uiTimer;
     private readonly AppWindow _appWindow;
+    private readonly InputMethodSnapshot _startupInputMethod = InputMethodSnapshot.CaptureForeground();
     private AppSettingsData _settings;
     private MonitoringSession? _session;
     private SettingsWindow? _settingsWindow;
@@ -34,7 +35,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(RootGrid_PointerPressed), true);
+        MainContentGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(RootGrid_PointerPressed), true);
         RootGrid.Loaded += RootGrid_Loaded;
 
         _settings = AppSettingsStore.Load();
@@ -84,8 +85,17 @@ public sealed partial class MainWindow : Window
 
     private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (InputFocusHelper.ShouldClearFocus(RootGrid.XamlRoot, e.OriginalSource as DependencyObject))
-            SettingsButton.Focus(FocusState.Programmatic);
+        if (InputFocusHelper.IsNonInteractivePointerTarget(e.OriginalSource as DependencyObject))
+        {
+            // ScrollViewer performs its own focus navigation after PointerPressed.
+            // Capture before it can alter focus, then restore after routed input.
+            InputMethodSnapshot inputMethod = InputMethodSnapshot.CaptureForeground();
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                SettingsButton.Focus(FocusState.Programmatic);
+                inputMethod.Restore(WindowNative.GetWindowHandle(this));
+            });
+        }
     }
 
     private void RootGrid_Loaded(object sender, RoutedEventArgs e)
@@ -94,9 +104,17 @@ public sealed partial class MainWindow : Window
         _initialFocusSet = true;
         RootGrid.Loaded -= RootGrid_Loaded;
 
-        // NumberBox is the first input in visual order. Giving a neutral button
-        // initial focus prevents its numeric editor from changing the active IME.
-        DispatcherQueue.TryEnqueue(() => SettingsButton.Focus(FocusState.Programmatic));
+        // NumberBox starts outside tab navigation in XAML so it cannot become the
+        // automatic launch target. Restore normal keyboard navigation only after
+        // a neutral control owns focus and the original IME state is restored.
+        SettingsButton.Focus(FocusState.Programmatic);
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+        {
+            SettingsButton.Focus(FocusState.Programmatic);
+            DurationNumber.IsTabStop = true;
+            IntervalNumber.IsTabStop = true;
+            _startupInputMethod.Restore(WindowNative.GetWindowHandle(this));
+        });
     }
 
     private void ApplyLanguage()

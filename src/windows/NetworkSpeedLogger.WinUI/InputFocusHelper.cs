@@ -14,6 +14,9 @@ internal static class InputFocusHelper
         return IsWithinInput(focused) && !IsWithinInteractiveControl(pointerSource);
     }
 
+    public static bool IsNonInteractivePointerTarget(DependencyObject? pointerSource) =>
+        !IsWithinInteractiveControl(pointerSource);
+
     private static bool IsWithinInput(DependencyObject? element)
     {
         while (element is not null)

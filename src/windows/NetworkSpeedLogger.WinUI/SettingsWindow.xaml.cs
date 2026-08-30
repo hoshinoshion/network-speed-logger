@@ -100,7 +100,7 @@ public sealed partial class SettingsWindow : Window
         SelectComboByTag(DefaultUnitCombo, _settings.Defaults.SpeedUnit);
         OutputFolderText.Text = _settings.OutputFolder;
         OpenFolderButton.IsEnabled = Directory.Exists(_settings.OutputFolder);
-        string version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.4.1";
+        string version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.4.2";
         VersionText.Text = T("版本 ", "Version ") + version + " · WinUI 3";
     }
 
