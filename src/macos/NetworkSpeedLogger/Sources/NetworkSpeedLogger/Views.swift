@@ -897,7 +897,7 @@ struct PreferencesView: View {
             }
 
             Section {
-                LabeledContent(settings.text("Version", "版本"), value: "0.4.4")
+                LabeledContent(settings.text("Version", "版本"), value: "0.5.0")
             }
         }
         .formStyle(.grouped)

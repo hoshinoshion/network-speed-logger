@@ -132,7 +132,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\NetworkSpeedLo
 安装当前版本的 Xcode 命令行工具，然后在 macOS 上运行：
 
 ```sh
-bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.4.4
+bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.5.0
 ```
 
 脚本会分别编译 `arm64` 和 `x86_64`、合并为 Universal 应用、生成图标、应用临时签名，并创建 `dist/NetworkSpeedLogger.dmg`。也可以通过 `src/macos/NetworkSpeedLogger/Package.swift` 将源代码作为 Swift Package 打开。
