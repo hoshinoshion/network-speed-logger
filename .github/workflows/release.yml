@@ -1,4 +1,4 @@
-name: Pre-release v0.4.3
+name: Pre-release v0.4.4
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.4.3
+  APP_VERSION: 0.4.4
 
 jobs:
   release-check:
@@ -19,12 +19,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.4.3 already exists
+      - name: Check whether v0.4.4 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.4.3 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.4.4 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -219,22 +219,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.4.3 pre-release
+          Network Speed Logger 0.4.4 pre-release
 
-          - Added Follow System, Light, and Dark appearance options to both the macOS and Windows clients
-          - Follow System adapts automatically when the operating-system appearance changes
-          - Manual appearance choices are remembered across launches
-          - Windows title-bar controls and Mica surfaces stay consistent with the selected appearance
+          - Fixed unreadable chart-axis and empty-state text in Windows dark mode
+          - Fixed stale macOS toolbar and sidebar-toggle icon colors after switching appearance
+          - Narrowed the default macOS sidebar while preserving the existing window size
+          - Retains Follow System, Light, and Dark appearance options on both platforms
           - Includes the Universal macOS DMG and the self-contained Windows x64 installer
 
           The macOS application is not signed with an Apple Developer ID and is not notarized. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown. Follow the README instructions if macOS Gatekeeper blocks the first launch.
           EOF
           )
-          gh release create v0.4.3 \
+          gh release create v0.4.4 \
             artifacts/NetworkSpeedLogger.dmg \
             artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.4.3" \
+            --title "v0.4.4" \
             --prerelease \
             --notes "$notes"

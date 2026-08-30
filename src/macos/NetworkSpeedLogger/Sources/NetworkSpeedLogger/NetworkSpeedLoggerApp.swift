@@ -10,7 +10,6 @@ struct NetworkSpeedLoggerApp: App {
         WindowGroup {
             RootView(settings: settings, monitor: monitor)
                 .frame(minWidth: 1_040, minHeight: 700)
-                .preferredColorScheme(settings.preferredColorScheme)
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
                     monitor.stop(reason: .applicationQuit)
                 }
@@ -45,7 +44,6 @@ struct NetworkSpeedLoggerApp: App {
             PreferencesView(settings: settings, monitor: monitor)
                 .frame(width: 520)
                 .padding(24)
-                .preferredColorScheme(settings.preferredColorScheme)
         }
     }
 }

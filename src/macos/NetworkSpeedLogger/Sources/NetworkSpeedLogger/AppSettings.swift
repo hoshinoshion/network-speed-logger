@@ -23,7 +23,10 @@ final class AppSettings: ObservableObject {
     }
 
     @Published var appearance: AppearanceMode {
-        didSet { defaults.set(appearance.rawValue, forKey: Key.appearance) }
+        didSet {
+            defaults.set(appearance.rawValue, forKey: Key.appearance)
+            applyAppearance()
+        }
     }
 
     @Published var speedUnit: SpeedUnit
@@ -76,6 +79,7 @@ final class AppSettings: ObservableObject {
         speedUnit = storedDefaultSpeedUnit
 
         restoreOutputFolder()
+        applyAppearance()
     }
 
     var usesChinese: Bool {
@@ -90,16 +94,27 @@ final class AppSettings: ObservableObject {
         }
     }
 
-    var preferredColorScheme: ColorScheme? {
-        switch appearance {
-        case .automatic: return nil
-        case .light: return .light
-        case .dark: return .dark
-        }
-    }
-
     func text(_ english: String, _ chinese: String) -> String {
         usesChinese ? chinese : english
+    }
+
+    private func applyAppearance() {
+        let appKitAppearance: NSAppearance?
+        switch appearance {
+        case .automatic:
+            appKitAppearance = nil
+        case .light:
+            appKitAppearance = NSAppearance(named: .aqua)
+        case .dark:
+            appKitAppearance = NSAppearance(named: .darkAqua)
+        }
+
+        NSApp.appearance = appKitAppearance
+        for window in NSApp.windows {
+            window.appearance = appKitAppearance
+            window.toolbar?.validateVisibleItems()
+            window.contentView?.needsDisplay = true
+        }
     }
 
     @discardableResult

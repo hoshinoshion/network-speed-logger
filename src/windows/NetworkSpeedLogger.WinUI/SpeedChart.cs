@@ -54,8 +54,10 @@ public sealed class SpeedChart : Canvas
         double plotWidth = width - left - right;
         double plotHeight = height - top - bottom;
 
-        Brush gridBrush = ResolveBrush("ChartGridBrush", ColorHelper.FromArgb(24, 128, 128, 128));
-        Brush labelBrush = ResolveBrush("SubtleTextBrush", ColorHelper.FromArgb(180, 96, 96, 96));
+        bool dark = ActualTheme == ElementTheme.Dark;
+        Brush gridBrush = new SolidColorBrush(dark
+            ? ColorHelper.FromArgb(0x16, 0xFF, 0xFF, 0xFF)
+            : ColorHelper.FromArgb(0x12, 0x00, 0x00, 0x00));
         Brush downloadBrush = ResolveBrush("DownloadBrush", Colors.DodgerBlue);
         Brush uploadBrush = ResolveBrush("UploadBrush", Colors.SeaGreen);
 
@@ -76,18 +78,18 @@ public sealed class SpeedChart : Canvas
                 Stroke = gridBrush,
                 StrokeThickness = 1
             });
-            AddLabel(FormatAxis(maximum * (1.0 - ratio)), 4, y - 8, labelBrush);
+            AddLabel(FormatAxis(maximum * (1.0 - ratio)), 4, y - 8);
         }
 
-        AddLabel(_unit, 5, height - 22, labelBrush);
+        AddLabel(_unit, 5, height - 22);
 
         if (_points.Count == 0)
         {
             var emptyText = new TextBlock
             {
                 Text = _isChinese ? "等待第一个采样点…" : "Waiting for the first sample…",
-                Foreground = labelBrush,
-                FontSize = 12
+                FontSize = 12,
+                Opacity = 0.68
             };
             Children.Add(emptyText);
             emptyText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
@@ -127,9 +129,9 @@ public sealed class SpeedChart : Canvas
         SetTop(marker, lastY - 3.5);
     }
 
-    private void AddLabel(string text, double x, double y, Brush brush)
+    private void AddLabel(string text, double x, double y)
     {
-        var label = new TextBlock { Text = text, FontSize = 10, Foreground = brush };
+        var label = new TextBlock { Text = text, FontSize = 10, Opacity = 0.68 };
         Children.Add(label);
         SetLeft(label, x);
         SetTop(label, y);

@@ -85,7 +85,7 @@ private struct MainView: View {
     var body: some View {
         NavigationSplitView {
             ControlsSidebar(settings: settings, monitor: monitor)
-                .navigationSplitViewColumnWidth(min: 300, ideal: 330, max: 380)
+                .navigationSplitViewColumnWidth(min: 270, ideal: 290, max: 340)
         } detail: {
             DashboardView(settings: settings, monitor: monitor)
                 .navigationTitle("Network Speed Logger")
@@ -897,7 +897,7 @@ struct PreferencesView: View {
             }
 
             Section {
-                LabeledContent(settings.text("Version", "版本"), value: "0.4.3")
+                LabeledContent(settings.text("Version", "版本"), value: "0.4.4")
             }
         }
         .formStyle(.grouped)
