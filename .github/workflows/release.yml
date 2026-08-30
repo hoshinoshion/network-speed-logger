@@ -1,4 +1,4 @@
-name: Release v0.6.0
+name: Pre-release v0.6.1 (Windows)
 
 on:
   push:
@@ -10,8 +10,7 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.6.0
-  APP_BUILD_NUMBER: 18
+  APP_VERSION: 0.6.1
 
 jobs:
   release-check:
@@ -20,53 +19,16 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.6.0 already exists
+      - name: Check whether v0.6.1 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.6.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.6.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
-
-  build-macos:
-    needs: release-check
-    if: needs.release-check.outputs.exists != 'true'
-    runs-on: macos-26
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Build Universal macOS application and DMG
-        run: bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh "$APP_VERSION" "$APP_BUILD_NUMBER"
-
-      - name: Verify macOS artifact
-        run: |
-          lipo dist/NetworkSpeedLogger.app/Contents/MacOS/NetworkSpeedLogger -verify_arch arm64 x86_64
-          actual_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' dist/NetworkSpeedLogger.app/Contents/Info.plist)
-          actual_build=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' dist/NetworkSpeedLogger.app/Contents/Info.plist)
-          if [[ "$actual_version" != "$APP_VERSION" ]]; then
-            echo "Unexpected application version: $actual_version" >&2
-            exit 1
-          fi
-          if [[ "$actual_build" != "$APP_BUILD_NUMBER" ]]; then
-            echo "Unexpected application build number: $actual_build" >&2
-            exit 1
-          fi
-          if [[ ! -s dist/NetworkSpeedLogger.dmg ]]; then
-            echo "The DMG is missing or empty." >&2
-            exit 1
-          fi
-
-      - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-release
-          path: dist/NetworkSpeedLogger.dmg
-          if-no-files-found: error
 
   build-windows:
     needs: release-check
@@ -199,21 +161,14 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [release-check, build-macos, build-windows]
+    needs: [release-check, build-windows]
     if: >-
       github.ref == 'refs/heads/main' &&
       needs.release-check.outputs.exists != 'true' &&
-      needs.build-macos.result == 'success' &&
       needs.build-windows.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download macOS artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-release
-          path: artifacts
-
       - name: Download Windows installer
         uses: actions/download-artifact@v4
         with:
@@ -225,42 +180,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.6.0
+          Network Speed Logger 0.6.1 Windows pre-release
 
-          - Adds optional automatic checks for the latest stable GitHub Release on macOS and Windows
-          - Adds manual update checks to both Settings interfaces and the macOS application menu
-          - Uses a native macOS alert and a non-blocking Windows InfoBar when a new stable version is available
-          - Validates the platform-specific DMG or installer before presenting an update
-          - Aligns the Windows automatic-update toggle consistently at the far right of its settings card
-          - Includes the Universal macOS DMG and the self-contained Windows x64 installer
+          - Aligns the visible Windows automatic-update toggle and its state text at the far right of the settings card
+          - Removes the ToggleSwitch template's excess minimum-width reservation from this setting
+          - Includes the self-contained Windows x64 installer
 
-          The macOS application is not signed with an Apple Developer ID and is not notarized. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown. Follow the README instructions if macOS Gatekeeper blocks the first launch.
+          This pre-release contains the Windows client only. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown.
           EOF
           )
-          gh release create v0.6.0 \
-            artifacts/NetworkSpeedLogger.dmg \
+          gh release create v0.6.1 \
             artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.6.0" \
-            --latest \
+            --title "v0.6.1" \
+            --prerelease \
             --notes "$notes"
-
-  cleanup-pre-releases:
-    needs: [release-check, publish]
-    if: >-
-      always() &&
-      github.ref == 'refs/heads/main' &&
-      (needs.publish.result == 'success' || needs.release-check.outputs.exists == 'true')
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Remove previous pre-releases
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          release_ids=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-            --jq '.[] | select(.prerelease == true) | .id')
-          for release_id in $release_ids; do
-            gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/$release_id"
-          done
