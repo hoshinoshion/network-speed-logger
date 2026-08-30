@@ -1,4 +1,4 @@
-name: Pre-release v0.4.0
+name: Pre-release v0.4.1
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.4.0
+  APP_VERSION: 0.4.1
 
 jobs:
   release-check:
@@ -20,12 +20,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.4.0 already exists
+      - name: Check whether v0.4.1 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.4.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.4.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -113,6 +113,7 @@ jobs:
             "NetworkSpeedLogger.exe",
             "NetworkSpeedLogger.dll",
             "NetworkSpeedLogger.pri",
+            "NetworkSpeedLogger.ico",
             "Microsoft.ui.xaml.dll",
             "Microsoft.WindowsAppRuntime.dll"
           )
@@ -180,23 +181,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.4.0 Windows pre-release
+          Network Speed Logger 0.4.1 Windows pre-release
 
-          - Rebuilt the Windows client with WinUI 3 and the stable Windows App SDK
-          - Added a Windows 11 Fluent visual design with Mica, native controls, light and dark themes, and an integrated title bar
-          - Preserved the task-focused layout with session controls on the left and live monitoring cards on the right
-          - Preserved automatic physical-adapter detection, multi-adapter aggregation, live interface switching, and manual selection
-          - Preserved compatible settings, launch defaults, remembered output folders, CSV logs, and Markdown summaries
-          - Replaced the WPF chart and sample grid with native WinUI implementations
+          - Moved the settings button to the left of the sidebar status indicator
+          - Fixed input fields retaining focus after clicking non-interactive areas in both windows
+          - Prevented startup focus from switching the current Windows input method to English
+          - Refreshed the running-window, taskbar, Start menu, and desktop shortcut icons
+          - Retains the compact WinUI 3 dashboard, Windows 11 Fluent/Mica styling, adapter monitoring, CSV logs, and Markdown summaries
           - Ships as a self-contained per-user installer for x64 Windows 10 version 1809 and later
 
           This pre-release contains the Windows installer only. The application and installer are not code-signed, so Windows SmartScreen may identify the publisher as unknown. The self-contained installer is larger than previous releases because it includes the required .NET and Windows App SDK components.
           EOF
           )
-          gh release create v0.4.0 \
+          gh release create v0.4.1 \
             artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.4.0" \
+            --title "v0.4.1" \
             --prerelease \
             --notes "$notes"

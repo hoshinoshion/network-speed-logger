@@ -32,6 +32,7 @@ public sealed partial class SettingsWindow : Window
     private readonly AppWindow _appWindow;
     private readonly nint _ownerHandle;
     private AppSettingsData _settings;
+    private bool _initialFocusSet;
 
     public event EventHandler<SettingsSavedEventArgs>? SettingsSaved;
 
@@ -39,6 +40,7 @@ public sealed partial class SettingsWindow : Window
     {
         InitializeComponent();
         RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(RootGrid_PointerPressed), true);
+        RootGrid.Loaded += RootGrid_Loaded;
         _settings = settings;
         _ownerHandle = ownerHandle;
 
@@ -56,9 +58,9 @@ public sealed partial class SettingsWindow : Window
         WindowId windowId = Win32Interop.GetWindowIdFromWindow(windowHandle);
         _appWindow = AppWindow.GetFromWindowId(windowId);
         WindowSizing.ResizeAndCenter(_appWindow, windowId, windowHandle, 900, 760);
+        WindowIconService.Apply(windowHandle, _appWindow);
         try
         {
-            _appWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Icon.ico"));
             _appWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
             _appWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
             if (_ownerHandle != 0) NativeMethods.SetOwner(windowHandle, _ownerHandle);
@@ -76,7 +78,18 @@ public sealed partial class SettingsWindow : Window
     private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
         if (InputFocusHelper.ShouldClearFocus(RootGrid.XamlRoot, e.OriginalSource as DependencyObject))
-            FocusSink.Focus(FocusState.Programmatic);
+            CancelButton.Focus(FocusState.Programmatic);
+    }
+
+    private void RootGrid_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (_initialFocusSet) return;
+        _initialFocusSet = true;
+        RootGrid.Loaded -= RootGrid_Loaded;
+
+        // Keep startup focus away from NumberBox so opening this window does not
+        // ask the text input framework to select a numeric/English input mode.
+        DispatcherQueue.TryEnqueue(() => CancelButton.Focus(FocusState.Programmatic));
     }
 
     private void LoadSettings()
@@ -87,7 +100,7 @@ public sealed partial class SettingsWindow : Window
         SelectComboByTag(DefaultUnitCombo, _settings.Defaults.SpeedUnit);
         OutputFolderText.Text = _settings.OutputFolder;
         OpenFolderButton.IsEnabled = Directory.Exists(_settings.OutputFolder);
-        string version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.4.0";
+        string version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.4.1";
         VersionText.Text = T("版本 ", "Version ") + version + " · WinUI 3";
     }
 

@@ -26,6 +26,7 @@ public sealed partial class MainWindow : Window
     private SettingsWindow? _settingsWindow;
     private bool _allowClose;
     private bool _hasCompletedSession;
+    private bool _initialFocusSet;
 
     public ObservableCollection<AdapterChoice> AdapterChoices { get; } = [];
     public ObservableCollection<SampleRow> RecentSamples { get; } = [];
@@ -34,6 +35,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(RootGrid_PointerPressed), true);
+        RootGrid.Loaded += RootGrid_Loaded;
 
         _settings = AppSettingsStore.Load();
         Localization.ApplyPreference(_settings.Language);
@@ -53,9 +55,9 @@ public sealed partial class MainWindow : Window
         _appWindow = AppWindow.GetFromWindowId(windowId);
         WindowSizing.ResizeAndCenter(_appWindow, windowId, windowHandle, 1480, 880);
         _appWindow.Closing += AppWindow_Closing;
+        WindowIconService.Apply(windowHandle, _appWindow);
         try
         {
-            _appWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Icon.ico"));
             _appWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
             _appWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
         }
@@ -83,7 +85,18 @@ public sealed partial class MainWindow : Window
     private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
         if (InputFocusHelper.ShouldClearFocus(RootGrid.XamlRoot, e.OriginalSource as DependencyObject))
-            FocusSink.Focus(FocusState.Programmatic);
+            SettingsButton.Focus(FocusState.Programmatic);
+    }
+
+    private void RootGrid_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (_initialFocusSet) return;
+        _initialFocusSet = true;
+        RootGrid.Loaded -= RootGrid_Loaded;
+
+        // NumberBox is the first input in visual order. Giving a neutral button
+        // initial focus prevents its numeric editor from changing the active IME.
+        DispatcherQueue.TryEnqueue(() => SettingsButton.Focus(FocusState.Programmatic));
     }
 
     private void ApplyLanguage()

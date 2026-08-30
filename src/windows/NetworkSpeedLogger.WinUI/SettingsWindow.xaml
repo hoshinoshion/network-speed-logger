@@ -145,7 +145,7 @@
               </Grid.ColumnDefinitions>
               <StackPanel VerticalAlignment="Center" Spacing="3">
                 <TextBlock Text="Network Speed Logger" FontWeight="SemiBold" />
-                <TextBlock x:Name="VersionText" Text="0.4.0" Style="{StaticResource CaptionStyle}" />
+                <TextBlock x:Name="VersionText" Text="0.4.1" Style="{StaticResource CaptionStyle}" />
               </StackPanel>
               <Button x:Name="RepositoryButton" Grid.Column="1" Click="RepositoryButton_Click">
                 <StackPanel Orientation="Horizontal" Spacing="8">
@@ -171,14 +171,12 @@
         </Grid.ColumnDefinitions>
         <TextBlock x:Name="SaveHintText" VerticalAlignment="Center" Style="{StaticResource CaptionStyle}"
                    Text="保存后将在下次启动时使用" />
-        <Button x:Name="CancelButton" Grid.Column="1" Content="取消" Click="CancelButton_Click" />
+        <Button x:Name="CancelButton" Grid.Column="1" Content="取消" TabIndex="0" Click="CancelButton_Click" />
         <Button x:Name="SaveButton" Grid.Column="2" Content="保存" Click="SaveButton_Click" />
         <Button x:Name="ApplyDefaultsButton" Grid.Column="3" Content="保存并立即应用"
                 Style="{StaticResource AccentButtonStyle}" Click="ApplyDefaultsButton_Click" />
       </Grid>
     </Border>
 
-    <Button x:Name="FocusSink" Grid.RowSpan="3" Width="1" Height="1" Opacity="0"
-            IsHitTestVisible="False" IsTabStop="False" HorizontalAlignment="Left" VerticalAlignment="Top" />
   </Grid>
 </Window>
