@@ -9,8 +9,8 @@ build_dir="$project_dir/.build/release-universal"
 dist_dir="$repository_root/dist"
 app_path="$dist_dir/NetworkSpeedLogger.app"
 dmg_path="$dist_dir/NetworkSpeedLogger.dmg"
-version=${1:-0.6.0}
-build_number=${2:-18}
+version=${1:-0.6.3}
+build_number=${2:-19}
 
 case "$version" in
     *[!0-9.]*|'')
@@ -71,7 +71,7 @@ while IFS= read -r -d '' localization_directory; do
 done < <(find "$project_dir/Resources" -maxdepth 1 -type d -name '*.lproj' -print0)
 
 iconset_path="$build_dir/AppIcon.iconset"
-xcrun swift "$project_dir/Scripts/render-icon.swift" "$iconset_path"
+xcrun swift "$project_dir/Scripts/render-icon.swift" "$project_dir/Resources/AppIcon.png" "$iconset_path"
 iconutil -c icns "$iconset_path" -o "$app_path/Contents/Resources/AppIcon.icns"
 
 # An ad-hoc signature is not a Developer ID signature. It keeps the Universal

@@ -1,13 +1,19 @@
 import AppKit
 import Foundation
 
-guard CommandLine.arguments.count == 2 else {
-    fputs("Usage: render-icon.swift <iconset-directory>\n", stderr)
+guard CommandLine.arguments.count == 3 else {
+    fputs("Usage: render-icon.swift <source-image> <iconset-directory>\n", stderr)
     exit(2)
 }
 
-let outputDirectory = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
+let sourceURL = URL(fileURLWithPath: CommandLine.arguments[1])
+let outputDirectory = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
 try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+
+guard let sourceImage = NSImage(contentsOf: sourceURL), sourceImage.isValid else {
+    fputs("Unable to load source image: \(sourceURL.path)\n", stderr)
+    exit(1)
+}
 
 let variants: [(String, Int)] = [
     ("icon_16x16.png", 16),
@@ -43,58 +49,22 @@ func renderIcon(pixelSize: Int, to url: URL) throws {
         throw NSError(domain: "NetworkSpeedLogger.Icon", code: 2)
     }
 
-    let size = CGFloat(pixelSize)
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = context
     context.imageInterpolation = .high
 
+    let size = CGFloat(pixelSize)
     NSColor.clear.setFill()
     NSRect(x: 0, y: 0, width: size, height: size).fill()
 
-    let inset = size * 0.055
-    let tileRect = NSRect(x: inset, y: inset, width: size - inset * 2, height: size - inset * 2)
-    let tile = NSBezierPath(roundedRect: tileRect, xRadius: size * 0.215, yRadius: size * 0.215)
-    let gradient = NSGradient(
-        starting: NSColor(calibratedRed: 0.08, green: 0.35, blue: 0.98, alpha: 1),
-        ending: NSColor(calibratedRed: 0.16, green: 0.72, blue: 0.96, alpha: 1)
-    )!
-    gradient.draw(in: tile, angle: -55)
-
-    NSColor.white.withAlphaComponent(0.12).setStroke()
-    tile.lineWidth = max(1, size * 0.012)
-    tile.stroke()
-
-    let graph = NSBezierPath()
-    graph.move(to: NSPoint(x: size * 0.20, y: size * 0.40))
-    graph.curve(
-        to: NSPoint(x: size * 0.43, y: size * 0.48),
-        controlPoint1: NSPoint(x: size * 0.29, y: size * 0.40),
-        controlPoint2: NSPoint(x: size * 0.34, y: size * 0.50)
+    sourceImage.draw(
+        in: NSRect(x: 0, y: 0, width: size, height: size),
+        from: NSRect(origin: .zero, size: sourceImage.size),
+        operation: .sourceOver,
+        fraction: 1,
+        respectFlipped: false,
+        hints: [.interpolation: NSImageInterpolation.high]
     )
-    graph.curve(
-        to: NSPoint(x: size * 0.61, y: size * 0.69),
-        controlPoint1: NSPoint(x: size * 0.50, y: size * 0.46),
-        controlPoint2: NSPoint(x: size * 0.52, y: size * 0.67)
-    )
-    graph.curve(
-        to: NSPoint(x: size * 0.80, y: size * 0.62),
-        controlPoint1: NSPoint(x: size * 0.69, y: size * 0.72),
-        controlPoint2: NSPoint(x: size * 0.72, y: size * 0.62)
-    )
-    graph.lineCapStyle = .round
-    graph.lineJoinStyle = .round
-    graph.lineWidth = max(1.5, size * 0.072)
-    NSColor.white.setStroke()
-    graph.stroke()
-
-    let arrow = NSBezierPath()
-    arrow.move(to: NSPoint(x: size * 0.66, y: size * 0.77))
-    arrow.line(to: NSPoint(x: size * 0.81, y: size * 0.77))
-    arrow.line(to: NSPoint(x: size * 0.81, y: size * 0.62))
-    arrow.lineCapStyle = .round
-    arrow.lineJoinStyle = .round
-    arrow.lineWidth = max(1.2, size * 0.045)
-    arrow.stroke()
 
     NSGraphicsContext.restoreGraphicsState()
 

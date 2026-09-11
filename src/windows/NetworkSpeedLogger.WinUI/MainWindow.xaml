@@ -26,7 +26,7 @@
 
     <Grid x:Name="MainContentGrid" Grid.Row="1">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="330" />
+        <ColumnDefinition Width="410" />
         <ColumnDefinition Width="*" />
       </Grid.ColumnDefinitions>
 
@@ -158,8 +158,8 @@
             </StackPanel>
           </ScrollViewer>
 
-          <Border Grid.Row="1" Padding="18,8">
-            <Grid ColumnSpacing="10">
+          <Border Grid.Row="1" Padding="14,8">
+            <Grid ColumnSpacing="8">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -168,7 +168,7 @@
                       VerticalAlignment="Center" ToolTipService.ToolTip="Settings" Click="SettingsButton_Click">
                 <FontIcon Glyph="&#xE713;" FontSize="14" />
               </Button>
-              <Grid Grid.Column="1" ColumnSpacing="10" VerticalAlignment="Center">
+              <Grid Grid.Column="1" ColumnSpacing="8" VerticalAlignment="Center">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="Auto" />
                   <ColumnDefinition Width="*" />
@@ -176,7 +176,8 @@
                 <Ellipse x:Name="SidebarStatusDot" Width="8" Height="8" VerticalAlignment="Center"
                          Fill="{ThemeResource SubtleTextBrush}" />
                 <TextBlock x:Name="SidebarStatusText" Grid.Column="1" Style="{StaticResource CaptionStyle}"
-                           VerticalAlignment="Center" Text="准备就绪" TextTrimming="CharacterEllipsis" MaxLines="2" />
+                           VerticalAlignment="Center" Text="准备就绪" TextWrapping="NoWrap"
+                           TextTrimming="CharacterEllipsis" MaxLines="1" />
               </Grid>
             </Grid>
           </Border>
