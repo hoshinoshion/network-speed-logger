@@ -22,34 +22,53 @@ let variants: [(String, Int)] = [
     ("icon_512x512@2x.png", 1_024)
 ]
 
+func roundedPolygon(points: [NSPoint], radius: CGFloat) -> NSBezierPath {
+    precondition(points.count >= 3)
+
+    let path = NSBezierPath()
+    path.move(to: points[points.count - 1])
+    for index in points.indices {
+        path.appendArc(
+            from: points[index],
+            to: points[(index + 1) % points.count],
+            radius: radius
+        )
+    }
+    path.close()
+    return path
+}
+
 func drawArrow(center: NSPoint, width: CGFloat, height: CGFloat, pointsUp: Bool, canvasSize: CGFloat) {
     let halfWidth = width / 2
     let halfHeight = height / 2
     let shaftHalfWidth = width * 0.17
     let top = center.y + halfHeight
     let bottom = center.y - halfHeight
-    let headBase = pointsUp ? top - height * 0.38 : bottom + height * 0.38
+    let headBase = pointsUp ? top - height * 0.47 : bottom + height * 0.47
 
-    let arrow = NSBezierPath()
+    let points: [NSPoint]
     if pointsUp {
-        arrow.move(to: NSPoint(x: center.x - shaftHalfWidth, y: bottom))
-        arrow.line(to: NSPoint(x: center.x + shaftHalfWidth, y: bottom))
-        arrow.line(to: NSPoint(x: center.x + shaftHalfWidth, y: headBase))
-        arrow.line(to: NSPoint(x: center.x + halfWidth, y: headBase))
-        arrow.line(to: NSPoint(x: center.x, y: top))
-        arrow.line(to: NSPoint(x: center.x - halfWidth, y: headBase))
-        arrow.line(to: NSPoint(x: center.x - shaftHalfWidth, y: headBase))
+        points = [
+            NSPoint(x: center.x - shaftHalfWidth, y: bottom),
+            NSPoint(x: center.x + shaftHalfWidth, y: bottom),
+            NSPoint(x: center.x + shaftHalfWidth, y: headBase),
+            NSPoint(x: center.x + halfWidth, y: headBase),
+            NSPoint(x: center.x, y: top),
+            NSPoint(x: center.x - halfWidth, y: headBase),
+            NSPoint(x: center.x - shaftHalfWidth, y: headBase)
+        ]
     } else {
-        arrow.move(to: NSPoint(x: center.x - shaftHalfWidth, y: top))
-        arrow.line(to: NSPoint(x: center.x + shaftHalfWidth, y: top))
-        arrow.line(to: NSPoint(x: center.x + shaftHalfWidth, y: headBase))
-        arrow.line(to: NSPoint(x: center.x + halfWidth, y: headBase))
-        arrow.line(to: NSPoint(x: center.x, y: bottom))
-        arrow.line(to: NSPoint(x: center.x - halfWidth, y: headBase))
-        arrow.line(to: NSPoint(x: center.x - shaftHalfWidth, y: headBase))
+        points = [
+            NSPoint(x: center.x - shaftHalfWidth, y: top),
+            NSPoint(x: center.x + shaftHalfWidth, y: top),
+            NSPoint(x: center.x + shaftHalfWidth, y: headBase),
+            NSPoint(x: center.x + halfWidth, y: headBase),
+            NSPoint(x: center.x, y: bottom),
+            NSPoint(x: center.x - halfWidth, y: headBase),
+            NSPoint(x: center.x - shaftHalfWidth, y: headBase)
+        ]
     }
-    arrow.close()
-    arrow.lineJoinStyle = .round
+    let arrow = roundedPolygon(points: points, radius: canvasSize * 0.022)
 
     NSGraphicsContext.saveGraphicsState()
     let shadow = NSShadow()
@@ -189,15 +208,15 @@ func renderIcon(pixelSize: Int, to url: URL) throws {
 
     drawArrow(
         center: NSPoint(x: size * 0.35, y: size * 0.65),
-        width: size * 0.27,
-        height: size * 0.32,
+        width: size * 0.265,
+        height: size * 0.285,
         pointsUp: true,
         canvasSize: size
     )
     drawArrow(
         center: NSPoint(x: size * 0.66, y: size * 0.35),
-        width: size * 0.27,
-        height: size * 0.32,
+        width: size * 0.265,
+        height: size * 0.285,
         pointsUp: false,
         canvasSize: size
     )
