@@ -150,6 +150,7 @@ public sealed partial class MainWindow : Window
         RefreshAdaptersText.Text = T("刷新网卡列表", "Refresh adapters");
         BrowseButtonText.Text = T("更改", "Change");
         OpenFolderButtonText.Text = T("打开", "Open");
+        ClearFolderButtonText.Text = T("清理", "Clear");
         ChooseFolderButton.Content = T("选择文件夹", "Choose folder");
         StartButtonText.Text = T("开始记录", "Start");
         StopButtonText.Text = T("结束记录", "Stop");
@@ -250,6 +251,7 @@ public sealed partial class MainWindow : Window
             ? string.Empty
             : T("每个采样会立即写入这里，应用会记住这个文件夹。", "Every sample is written here immediately, and the app remembers this folder.");
         OpenFolderButton.IsEnabled = available;
+        ClearFolderButton.IsEnabled = available && _session?.IsRunning != true;
         if (_session?.IsRunning != true) StartButton.IsEnabled = available;
     }
 
@@ -470,6 +472,7 @@ public sealed partial class MainWindow : Window
         ManualModeRadio.IsEnabled = enabled;
         RefreshAdaptersButton.IsEnabled = enabled;
         BrowseButton.IsEnabled = enabled;
+        ClearFolderButton.IsEnabled = enabled && Directory.Exists(_settings.OutputFolder);
         ChooseFolderButton.IsEnabled = enabled;
         SettingsButton.IsEnabled = enabled;
         AdapterList.IsHitTestVisible = enabled && ManualModeRadio.IsChecked == true;
@@ -515,6 +518,45 @@ public sealed partial class MainWindow : Window
 
     private async void OpenFolderButton_Click(object sender, RoutedEventArgs e) =>
         await OpenFolderAsync(_settings.OutputFolder);
+
+    private async void ClearFolderButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_session?.IsRunning == true) return;
+        if (!FolderService.TryValidate(_settings.OutputFolder, out string? validationError))
+        {
+            await ShowMessageAsync(
+                T("文件夹不可用", "Folder unavailable"),
+                validationError ?? string.Empty);
+            UpdateOutputFolderState();
+            return;
+        }
+
+        bool confirmed = await ShowConfirmationAsync(
+            T("清理保存位置", "Clear output folder"),
+            T(
+                "将以下保存位置中的所有文件和文件夹移入回收站吗？保存位置本身会保留。",
+                "Move every file and folder in the output folder below to the Recycle Bin? The output folder itself will be kept.") +
+                "\n\n" + _settings.OutputFolder,
+            T("清理", "Clear"));
+        if (!confirmed) return;
+
+        try
+        {
+            int movedItemCount = FolderService.MoveContentsToRecycleBin(_settings.OutputFolder);
+            SidebarStatusText.Text = movedItemCount == 0
+                ? T("保存位置已经是空的", "The output folder is already empty")
+                : Localization.IsChinese
+                    ? $"已将 {movedItemCount} 项移入回收站"
+                    : $"Moved {movedItemCount} {(movedItemCount == 1 ? "item" : "items")} to the Recycle Bin";
+        }
+        catch (Exception exception)
+        {
+            await ShowMessageAsync(
+                T("清理失败", "Unable to clear folder"),
+                T("无法将保存位置中的所有内容移入回收站。", "Not all output-folder contents could be moved to the Recycle Bin.") +
+                "\n\n" + exception.Message);
+        }
+    }
 
     private async void OpenResultsButton_Click(object sender, RoutedEventArgs e)
     {

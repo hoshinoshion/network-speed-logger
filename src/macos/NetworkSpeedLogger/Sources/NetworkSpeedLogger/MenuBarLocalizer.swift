@@ -52,7 +52,7 @@ enum MenuBarLocalizer {
         Translation("Bring All to Front", "前置全部窗口"),
         Translation("Start Logging", "开始记录"),
         Translation("Stop Logging", "结束记录"),
-        Translation("Reveal Output Folder", "在访达中显示保存目录")
+        Translation("Open Output Folder", "打开输出目录", alternatives: ["Reveal Output Folder", "在访达中显示保存目录"])
     ]
 
     static func apply(usesChinese: Bool) {

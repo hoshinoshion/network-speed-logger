@@ -271,4 +271,31 @@ public static class FolderService
             return false;
         }
     }
+
+    public static int MoveContentsToRecycleBin(string folder)
+    {
+        string selected = NormalizePath(folder);
+        if (!Directory.Exists(selected)) throw new DirectoryNotFoundException(selected);
+
+        string[] entries = Directory.GetFileSystemEntries(selected);
+        foreach (string entry in entries)
+        {
+            if (Directory.Exists(entry))
+            {
+                Microsoft.VisualBasic.FileIO.FileSystem.DeleteDirectory(
+                    entry,
+                    Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
+                    Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
+            }
+            else
+            {
+                Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(
+                    entry,
+                    Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
+                    Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
+            }
+        }
+
+        return entries.Length;
+    }
 }

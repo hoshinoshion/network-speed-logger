@@ -142,9 +142,23 @@ final class AppSettings: ObservableObject {
         return storeOutputFolder(url)
     }
 
-    func revealOutputFolder() {
+    func openOutputFolder() {
         guard let outputFolderURL else { return }
-        NSWorkspace.shared.activateFileViewerSelecting([outputFolderURL])
+        NSWorkspace.shared.open(outputFolderURL)
+    }
+
+    @discardableResult
+    func moveOutputFolderContentsToTrash() throws -> Int {
+        guard let outputFolderURL else { return 0 }
+        let contents = try FileManager.default.contentsOfDirectory(
+            at: outputFolderURL,
+            includingPropertiesForKeys: nil
+        )
+
+        for itemURL in contents {
+            try FileManager.default.trashItem(at: itemURL, resultingItemURL: nil)
+        }
+        return contents.count
     }
 
     func toggleInterface(_ name: String, enabled: Bool) {

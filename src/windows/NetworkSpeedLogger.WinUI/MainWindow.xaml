@@ -114,6 +114,7 @@
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
                   <Button x:Name="BrowseButton" HorizontalAlignment="Stretch" Click="BrowseButton_Click">
                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -125,6 +126,12 @@
                     <StackPanel Orientation="Horizontal" Spacing="8">
                       <FontIcon Glyph="&#xE8B7;" FontSize="13" />
                       <TextBlock x:Name="OpenFolderButtonText" Text="打开" />
+                    </StackPanel>
+                  </Button>
+                  <Button x:Name="ClearFolderButton" Grid.Column="2" HorizontalAlignment="Stretch" Click="ClearFolderButton_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <FontIcon Glyph="&#xE74D;" FontSize="13" />
+                      <TextBlock x:Name="ClearFolderButtonText" Text="清理" />
                     </StackPanel>
                   </Button>
                 </Grid>

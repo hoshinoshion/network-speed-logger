@@ -41,8 +41,8 @@ struct NetworkSpeedLoggerApp: App {
 
                 Divider()
 
-                Button(settings.text("Reveal Output Folder", "在访达中显示保存目录")) {
-                    settings.revealOutputFolder()
+                Button(settings.text("Open Output Folder", "打开输出目录")) {
+                    settings.openOutputFolder()
                 }
                 .disabled(settings.outputFolderURL == nil)
             }

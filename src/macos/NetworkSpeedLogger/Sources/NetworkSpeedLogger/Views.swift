@@ -145,9 +145,9 @@ private struct MainView: View {
 
                     ToolbarItemGroup(placement: .primaryAction) {
                         Button {
-                            settings.revealOutputFolder()
+                            settings.openOutputFolder()
                         } label: {
-                            Label(settings.text("Show Files", "显示文件"), systemImage: "folder")
+                            Label(settings.text("Open Folder", "打开文件夹"), systemImage: "folder")
                         }
 
                         if monitor.state.isRunning {
@@ -266,6 +266,7 @@ private struct FixedWidthSegmentedPicker<Value: Hashable>: NSViewRepresentable {
 private struct ControlsSidebar: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject var monitor: NetworkMonitor
+    @State private var outputFolderAlert: OutputFolderAlert?
 
     var body: some View {
         List {
@@ -373,15 +374,25 @@ private struct ControlsSidebar: View {
                         .disabled(monitor.state.isRunning)
 
                         Button {
-                            settings.revealOutputFolder()
+                            settings.openOutputFolder()
                         } label: {
-                            Text(settings.text("Reveal", "显示"))
+                            Text(settings.text("Open", "打开"))
                                 .frame(maxWidth: .infinity)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
                         }
+
+                        Button(role: .destructive) {
+                            outputFolderAlert = .confirmClear
+                        } label: {
+                            Text(settings.text("Clear", "清理"))
+                                .frame(maxWidth: .infinity)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                        .disabled(monitor.state.isRunning)
                     }
-                    .frame(width: SidebarMetrics.trailingControlWidth)
+                    .frame(width: 190)
                     .controlSize(.small)
                 }
                 .padding(.vertical, 2)
@@ -419,11 +430,46 @@ private struct ControlsSidebar: View {
             .padding([.horizontal, .bottom])
             .background(.bar)
         }
+        .alert(item: $outputFolderAlert) { alert in
+            switch alert {
+            case .confirmClear:
+                return Alert(
+                    title: Text(settings.text("Clear Output Folder", "清理输出目录")),
+                    message: Text(settings.text(
+                        "Move every file and folder in the output folder below to the Trash? The output folder itself will be kept.",
+                        "将以下输出目录中的所有文件和文件夹移到废纸篓吗？输出目录本身会保留。"
+                    ) + "\n\n" + (settings.outputFolderURL?.path ?? "—")),
+                    primaryButton: .destructive(Text(settings.text("Clear", "清理"))) {
+                        clearOutputFolder()
+                    },
+                    secondaryButton: .cancel(Text(settings.text("Cancel", "取消")))
+                )
+            case .clearFailed(let message):
+                return Alert(
+                    title: Text(settings.text("Unable to Clear Folder", "清理失败")),
+                    message: Text(message),
+                    dismissButton: .default(Text(settings.text("OK", "好")))
+                )
+            }
+        }
     }
 
     private var startIsDisabled: Bool {
         settings.outputFolderURL == nil
             || (settings.interfaceMode == .manual && settings.selectedInterfaceNames.isEmpty)
+    }
+
+    private func clearOutputFolder() {
+        do {
+            try settings.moveOutputFolderContentsToTrash()
+        } catch {
+            DispatchQueue.main.async {
+                outputFolderAlert = .clearFailed(settings.text(
+                    "Not all output-folder contents could be moved to the Trash.\n\n\(error.localizedDescription)",
+                    "无法将输出目录中的所有内容移到废纸篓。\n\n\(error.localizedDescription)"
+                ))
+            }
+        }
     }
 
     private var automaticInterfaceSummary: some View {
@@ -441,6 +487,20 @@ private struct ControlsSidebar: View {
         }
         .foregroundStyle(.secondary)
         .padding(.vertical, SidebarMetrics.rowVerticalPadding)
+    }
+}
+
+private enum OutputFolderAlert: Identifiable {
+    case confirmClear
+    case clearFailed(String)
+
+    var id: String {
+        switch self {
+        case .confirmClear:
+            return "confirmClear"
+        case .clearFailed(let message):
+            return "clearFailed-\(message)"
+        }
     }
 }
 
