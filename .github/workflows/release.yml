@@ -1,4 +1,4 @@
-name: Pre-release v0.6.4 (macOS)
+name: Pre-release v0.6.5 (macOS)
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.6.4
-  APP_BUILD_NUMBER: 20
+  APP_VERSION: 0.6.5
+  APP_BUILD_NUMBER: 21
 
 jobs:
   release-check:
@@ -20,12 +20,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.6.4 already exists
+      - name: Check whether v0.6.5 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.6.4 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.6.5 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -98,20 +98,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.6.4 macOS pre-release
+          Network Speed Logger 0.6.5 macOS pre-release
 
-          - Fixes the partially rendered macOS application icon from v0.6.3
-          - Replaces the damaged external PNG with deterministic vector drawing for every icon size
-          - Adds coverage and ICNS decoding checks to prevent incomplete icons from being released again
+          - Refines the macOS application icon to match the Windows icon language more closely
+          - Uses shorter upload and download arrows with fully rounded contours
+          - Retains deterministic vector rendering plus coverage and ICNS decoding checks
           - Includes the Universal macOS DMG
 
           This pre-release contains the macOS client only. The application is not signed with an Apple Developer ID and is not notarized. Follow the README instructions if macOS Gatekeeper blocks the first launch.
           EOF
           )
-          gh release create v0.6.4 \
+          gh release create v0.6.5 \
             artifacts/NetworkSpeedLogger.dmg \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.6.4" \
+            --title "v0.6.5" \
             --prerelease \
             --notes "$notes"
