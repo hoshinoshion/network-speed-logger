@@ -26,7 +26,7 @@
 
     <Grid x:Name="MainContentGrid" Grid.Row="1">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="300" />
+        <ColumnDefinition Width="330" />
         <ColumnDefinition Width="*" />
       </Grid.ColumnDefinitions>
 
