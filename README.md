@@ -66,6 +66,8 @@ The Windows client is installed per user with a standard setup and uninstall pro
 
 Use the Settings button to change the interface language, output folder, and launch defaults. Changes to duration, sample interval, and speed unit made directly in the main window apply only until the app is closed. Windows Settings can uninstall the application; uninstalling never removes CSV or Markdown files.
 
+Settings can also enable minimizing to the notification area. When enabled, the Close button hides the window without interrupting an active recording and briefly shows a Windows notification. Left-click the notification-area icon to reopen the window, or right-click it to start recording, stop recording, or exit the application.
+
 It uses WinUI 3 and ships the required .NET and Windows App SDK components in a self-contained installer, so no separate runtime installation is required. The current Windows application and installer are not code-signed, so SmartScreen may identify the publisher as unknown.
 
 Users of an earlier portable version can install the new version normally and then delete the old standalone EXE. The saved language preference is migrated automatically.

@@ -22,6 +22,7 @@ public sealed partial class MainWindow : Window
     private readonly DispatcherQueueTimer _uiTimer;
     private readonly AppWindow _appWindow;
     private readonly ThemeController _themeController;
+    private readonly TrayIconService _trayIcon;
     private readonly UpdateService _updateService = new();
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly InputMethodSnapshot _startupInputMethod = InputMethodSnapshot.CaptureForeground();
@@ -31,6 +32,8 @@ public sealed partial class MainWindow : Window
     private bool _allowClose;
     private bool _hasCompletedSession;
     private bool _initialFocusSet;
+    private bool _isShuttingDown;
+    private bool _trayExitInProgress;
     private UpdateReleaseInfo? _availableUpdate;
 
     public ObservableCollection<AdapterChoice> AdapterChoices { get; } = [];
@@ -62,6 +65,11 @@ public sealed partial class MainWindow : Window
         _appWindow.Closing += AppWindow_Closing;
         WindowIconService.Apply(windowHandle, _appWindow);
         _themeController = new ThemeController(RootGrid, _appWindow, DispatcherQueue, _settings.Theme);
+        _trayIcon = new TrayIconService(windowHandle, DispatcherQueue);
+        _trayIcon.OpenRequested += RestoreFromTray;
+        _trayIcon.StartRequested += TrayStartRequested;
+        _trayIcon.StopRequested += TrayStopRequested;
+        _trayIcon.ExitRequested += TrayExitRequested;
 
         _sampleTimer = DispatcherQueue.CreateTimer();
         _sampleTimer.IsRepeating = true;
@@ -160,6 +168,11 @@ public sealed partial class MainWindow : Window
         RecentTimeHeader.Text = T("时间", "Time");
         RecentAdapterHeader.Text = T("网卡", "Adapter");
         Chart.SetLanguage(Localization.IsChinese);
+        _trayIcon.UpdateText(
+            Title,
+            T("开始", "Start"),
+            T("停止", "Stop"),
+            T("退出", "Exit"));
         ViewUpdateButtonText.Text = T("查看更新", "View update");
         RefreshUpdateInfoBarText();
         UpdateAdapterModeUi();
@@ -255,25 +268,31 @@ public sealed partial class MainWindow : Window
         if (_session?.IsRunning != true) StartButton.IsEnabled = available;
     }
 
-    private async void StartButton_Click(object sender, RoutedEventArgs e)
+    private async void StartButton_Click(object sender, RoutedEventArgs e) =>
+        await StartSessionAsync(false);
+
+    private async Task StartSessionAsync(bool startedFromTray)
     {
         if (_session?.IsRunning == true) return;
         double duration = DurationNumber.Value;
         double intervalValue = IntervalNumber.Value;
         if (!AppSettingsStore.IsValidDuration(duration))
         {
+            if (startedFromTray) RestoreMainWindowFromTray();
             await ShowMessageAsync(T("参数有误", "Invalid setting"), T("运行时长必须是 0 到 8760 之间的数字；输入 0 表示不限时。", "Duration must be from 0 to 8760. Enter 0 for no time limit."));
             DurationNumber.Focus(FocusState.Programmatic);
             return;
         }
         if (double.IsNaN(intervalValue) || intervalValue != Math.Truncate(intervalValue) || !AppSettingsStore.IsValidSampleInterval((int)intervalValue))
         {
+            if (startedFromTray) RestoreMainWindowFromTray();
             await ShowMessageAsync(T("参数有误", "Invalid setting"), T("采样间隔必须是 1 到 3600 之间的整数秒。", "Sample interval must be an integer from 1 to 3600 seconds."));
             IntervalNumber.Focus(FocusState.Programmatic);
             return;
         }
         if (!FolderService.TryValidate(_settings.OutputFolder, out string? folderError))
         {
+            if (startedFromTray) RestoreMainWindowFromTray();
             await ShowMessageAsync(T("无法开始", "Unable to start"), T("结果保存位置不可用，请重新选择。", "The output folder is unavailable. Choose another folder.") + "\n\n" + folderError);
             UpdateOutputFolderState();
             return;
@@ -283,6 +302,7 @@ public sealed partial class MainWindow : Window
         string[] selectedIds = AdapterChoices.Where(item => item.IsSelected).Select(item => item.Id).ToArray();
         if (manual && selectedIds.Length == 0)
         {
+            if (startedFromTray) RestoreMainWindowFromTray();
             await ShowMessageAsync(T("无法开始", "Unable to start"), T("手动模式下请至少勾选一个网卡。", "Select at least one adapter in manual mode."));
             return;
         }
@@ -313,12 +333,15 @@ public sealed partial class MainWindow : Window
             _sampleTimer.Interval = TimeSpan.FromSeconds(options.SampleIntervalSeconds);
             _sampleTimer.Start();
             _uiTimer.Start();
+            _trayIcon.SetRecordingState(true);
             UpdateRuntimeUi();
         }
         catch (Exception exception)
         {
             _session?.Dispose();
             _session = null;
+            _trayIcon.SetRecordingState(false);
+            if (startedFromTray) RestoreMainWindowFromTray();
             await ShowMessageAsync(T("无法开始", "Unable to start"), exception.Message);
         }
     }
@@ -337,6 +360,7 @@ public sealed partial class MainWindow : Window
         catch (Exception exception)
         {
             await StopSessionAsync(T("发生错误：", "Error: ") + exception.Message, false);
+            if (_trayIcon.IsVisible) RestoreMainWindowFromTray();
             await ShowMessageAsync(T("记录已停止", "Recording stopped"), T("采样时发生错误，记录已停止。", "A sampling error occurred and recording was stopped.") + "\n\n" + exception.Message);
         }
     }
@@ -374,6 +398,7 @@ public sealed partial class MainWindow : Window
         if (_session?.IsRunning != true) return;
         _sampleTimer.Stop();
         _uiTimer.Stop();
+        _trayIcon.SetRecordingState(false);
 
         string? summaryError = null;
         try
@@ -592,7 +617,7 @@ public sealed partial class MainWindow : Window
     {
         if (_settingsWindow is not null)
         {
-            _settingsWindow.Activate();
+            _settingsWindow.ShowWithOwner();
             return;
         }
 
@@ -611,6 +636,73 @@ public sealed partial class MainWindow : Window
         if (e.ApplyDefaultsNow && _session?.IsRunning != true) ApplyDefaultsToCurrentSession();
         ApplyLanguage();
         RefreshAdapters(false);
+    }
+
+    private async void TrayStartRequested() => await StartSessionAsync(true);
+
+    private async void TrayStopRequested() =>
+        await StopSessionAsync(T("用户从托盘手动停止", "Stopped from the notification area"), true);
+
+    private async void TrayExitRequested()
+    {
+        if (_trayExitInProgress || _isShuttingDown) return;
+        _trayExitInProgress = true;
+        bool wasHidden = _trayIcon.IsVisible;
+
+        try
+        {
+            if (_session?.IsRunning == true)
+            {
+                RestoreMainWindowFromTray();
+                bool confirmed = await ShowConfirmationAsync(
+                    T("确认退出", "Confirm exit"),
+                    T("当前仍在记录网速。是否结束记录并退出？", "Recording is still in progress. Stop and exit?"),
+                    T("结束并退出", "Stop and exit"));
+                if (!confirmed)
+                {
+                    if (wasHidden) MinimizeToTray(false);
+                    return;
+                }
+
+                await StopSessionAsync(T("关闭程序", "Application closed"), true);
+            }
+
+            _allowClose = true;
+            Close();
+        }
+        finally
+        {
+            _trayExitInProgress = false;
+        }
+    }
+
+    private void MinimizeToTray(bool showNotification = true)
+    {
+        _trayIcon.SetRecordingState(_session?.IsRunning == true);
+        bool shown = showNotification
+            ? _trayIcon.Show(
+                T("网速记录工具仍在运行", "Network Speed Logger is still running"),
+                T("应用已最小化到系统托盘。", "The app has been minimized to the notification area."))
+            : _trayIcon.Show(string.Empty, string.Empty);
+
+        if (shown)
+        {
+            _settingsWindow?.HideWithOwner();
+            _appWindow.Hide();
+        }
+    }
+
+    private void RestoreFromTray()
+    {
+        _trayIcon.Hide();
+        _appWindow.Show(true);
+        _settingsWindow?.ShowWithOwner();
+    }
+
+    private void RestoreMainWindowFromTray()
+    {
+        _trayIcon.Hide();
+        _appWindow.Show(true);
     }
 
     private async Task CheckForUpdatesAfterLaunchAsync()
@@ -679,11 +771,22 @@ public sealed partial class MainWindow : Window
 
     private async void AppWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
     {
-        if (_allowClose || _session?.IsRunning != true)
+        if (_allowClose)
         {
-            _lifetimeCancellation.Cancel();
-            _themeController.Dispose();
-            _session?.Dispose();
+            CleanupForExit();
+            return;
+        }
+
+        if (_settings.MinimizeToTray)
+        {
+            args.Cancel = true;
+            MinimizeToTray();
+            return;
+        }
+
+        if (_session?.IsRunning != true)
+        {
+            CleanupForExit();
             return;
         }
 
@@ -697,6 +800,16 @@ public sealed partial class MainWindow : Window
         _allowClose = true;
         _lifetimeCancellation.Cancel();
         Close();
+    }
+
+    private void CleanupForExit()
+    {
+        if (_isShuttingDown) return;
+        _isShuttingDown = true;
+        _lifetimeCancellation.Cancel();
+        _trayIcon.Dispose();
+        _themeController.Dispose();
+        _session?.Dispose();
     }
 
     private async Task ShowMessageAsync(string title, string message)
