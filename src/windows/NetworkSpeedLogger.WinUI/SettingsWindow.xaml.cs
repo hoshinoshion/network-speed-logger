@@ -40,6 +40,10 @@ public sealed partial class SettingsWindow : Window
 
     public event EventHandler<SettingsSavedEventArgs>? SettingsSaved;
 
+    public void HideWithOwner() => _appWindow.Hide();
+
+    public void ShowWithOwner() => _appWindow.Show(true);
+
     public SettingsWindow(AppSettingsData settings, nint ownerHandle)
     {
         InitializeComponent();
@@ -111,6 +115,7 @@ public sealed partial class SettingsWindow : Window
         OutputFolderText.Text = _settings.OutputFolder;
         OpenFolderButton.IsEnabled = Directory.Exists(_settings.OutputFolder);
         AutomaticUpdatesToggle.IsOn = _settings.AutomaticallyCheckForUpdates;
+        MinimizeToTrayToggle.IsOn = _settings.MinimizeToTray;
         string version = UpdateService.CurrentVersionText;
         VersionText.Text = T("版本 ", "Version ") + version + " · WinUI 3";
         UpdateStatusText.Text = version + " · WinUI 3";
@@ -131,6 +136,10 @@ public sealed partial class SettingsWindow : Window
         ThemeAutoItem.Content = T("跟随系统", "Follow system");
         ThemeLightItem.Content = T("浅色", "Light");
         ThemeDarkItem.Content = T("深色", "Dark");
+        MinimizeToTrayLabel.Text = T("最小化到托盘", "Minimize to notification area");
+        MinimizeToTrayDescription.Text = T(
+            "开启后，点击关闭按钮会让应用继续在后台运行",
+            "When enabled, the Close button keeps the app running in the background");
         DefaultsSectionText.Text = T("启动默认值", "Launch defaults");
         DefaultsDescriptionText.Text = T("主窗口中的临时修改不会覆盖这些值", "Temporary changes in the main window do not overwrite these values");
         DefaultDurationLabel.Text = T("运行时长", "Duration");
@@ -330,6 +339,7 @@ public sealed partial class SettingsWindow : Window
         candidate.Theme = ReadComboTag(ThemeCombo, "Auto");
         candidate.OutputFolder = FolderService.NormalizePath(OutputFolderText.Text);
         candidate.AutomaticallyCheckForUpdates = AutomaticUpdatesToggle.IsOn;
+        candidate.MinimizeToTray = MinimizeToTrayToggle.IsOn;
         candidate.Defaults.DurationHours = duration;
         candidate.Defaults.SampleIntervalSeconds = (int)intervalValue;
         candidate.Defaults.SpeedUnit = ReadComboTag(DefaultUnitCombo, "MB/s");

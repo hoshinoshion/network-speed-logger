@@ -69,6 +69,22 @@
               </ComboBox>
             </Grid>
           </Border>
+
+          <Border Style="{StaticResource CardStyle}" Padding="14,9">
+            <Grid ColumnSpacing="16">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel VerticalAlignment="Center" Spacing="3">
+                <TextBlock x:Name="MinimizeToTrayLabel" Text="最小化到托盘" FontWeight="SemiBold" />
+                <TextBlock x:Name="MinimizeToTrayDescription" Text="开启后，点击关闭按钮会让应用继续在后台运行"
+                           Style="{StaticResource CaptionStyle}" />
+              </StackPanel>
+              <ToggleSwitch x:Name="MinimizeToTrayToggle" Grid.Column="1"
+                            MinWidth="0" HorizontalAlignment="Right" VerticalAlignment="Center" />
+            </Grid>
+          </Border>
         </StackPanel>
 
         <StackPanel Spacing="6">
