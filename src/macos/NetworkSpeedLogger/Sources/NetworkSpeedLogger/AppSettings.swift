@@ -14,6 +14,7 @@ final class AppSettings: ObservableObject {
         static let defaultSampleInterval = "defaultSampleInterval.v2"
         static let outputFolderBookmark = "outputFolderBookmark"
         static let automaticallyChecksForUpdates = "automaticallyChecksForUpdates"
+        static let keepsRunningInMenuBar = "keepsRunningInMenuBar"
     }
 
     private let defaults: UserDefaults
@@ -60,6 +61,10 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(automaticallyChecksForUpdates, forKey: Key.automaticallyChecksForUpdates) }
     }
 
+    @Published var keepsRunningInMenuBar: Bool {
+        didSet { defaults.set(keepsRunningInMenuBar, forKey: Key.keepsRunningInMenuBar) }
+    }
+
     @Published private(set) var outputFolderURL: URL?
 
     init(defaults: UserDefaults = .standard) {
@@ -83,6 +88,7 @@ final class AppSettings: ObservableObject {
         sampleIntervalSeconds = storedDefaultInterval
         speedUnit = storedDefaultSpeedUnit
         automaticallyChecksForUpdates = (defaults.object(forKey: Key.automaticallyChecksForUpdates) as? Bool) ?? true
+        keepsRunningInMenuBar = (defaults.object(forKey: Key.keepsRunningInMenuBar) as? Bool) ?? false
 
         restoreOutputFolder()
         applyAppearance()

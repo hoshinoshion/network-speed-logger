@@ -37,6 +37,8 @@ Both desktop applications provide:
 
 The macOS client is a native SwiftUI application designed around standard macOS controls and behavior. The Release build is a Universal application containing both `arm64` and `x86_64` code. It also safely re-baselines after sleep, wake, system-clock discontinuities, and interface counter resets to prevent false speed spikes.
 
+Settings can enable keeping the application in the menu bar after its window is closed with the Close button or `Command-W`. While it is running there, the Dock icon is hidden and active recordings continue uninterrupted. Left-click the two-arrow menu-bar icon to reopen the window, or right-click it to start recording, stop recording, or quit. `Command-Q` always quits the application normally.
+
 ### Install
 
 1. Open `NetworkSpeedLogger.dmg`.
@@ -136,7 +138,7 @@ Each sample is flushed to the CSV immediately, so completed data remains availab
 Install the current Xcode command-line tools, then run on macOS:
 
 ```sh
-bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.7.0 23
+bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.7.2 24
 ```
 
 The script builds `arm64` and `x86_64`, combines them into a Universal application, generates the icon, applies an ad-hoc signature, and creates `dist/NetworkSpeedLogger.dmg`. You can also open `src/macos/NetworkSpeedLogger/Package.swift` as a Swift package.

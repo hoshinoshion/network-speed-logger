@@ -3,13 +3,30 @@ import SwiftUI
 
 @main
 struct NetworkSpeedLoggerApp: App {
-    @StateObject private var settings = AppSettings()
-    @StateObject private var monitor = NetworkMonitor()
-    @StateObject private var updateChecker = UpdateChecker()
+    @StateObject private var settings: AppSettings
+    @StateObject private var monitor: NetworkMonitor
+    @StateObject private var updateChecker: UpdateChecker
+    @StateObject private var statusBarController: StatusBarController
+
+    init() {
+        let settings = AppSettings()
+        let monitor = NetworkMonitor()
+        _settings = StateObject(wrappedValue: settings)
+        _monitor = StateObject(wrappedValue: monitor)
+        _updateChecker = StateObject(wrappedValue: UpdateChecker())
+        _statusBarController = StateObject(
+            wrappedValue: StatusBarController(settings: settings, monitor: monitor)
+        )
+    }
 
     var body: some Scene {
         WindowGroup {
-            RootView(settings: settings, monitor: monitor, updateChecker: updateChecker)
+            RootView(
+                settings: settings,
+                monitor: monitor,
+                updateChecker: updateChecker,
+                statusBarController: statusBarController
+            )
                 .frame(minWidth: 1_040, minHeight: 700)
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
                     monitor.stop(reason: .applicationQuit)

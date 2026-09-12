@@ -6,6 +6,7 @@ struct RootView: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject var monitor: NetworkMonitor
     @ObservedObject var updateChecker: UpdateChecker
+    @ObservedObject var statusBarController: StatusBarController
 
     var body: some View {
         Group {
@@ -15,6 +16,7 @@ struct RootView: View {
                 MainView(settings: settings, monitor: monitor)
             }
         }
+        .background(MainWindowBridge(controller: statusBarController))
         .animation(.easeInOut(duration: 0.2), value: settings.outputFolderURL)
         .task(id: settings.language) {
             try? await Task.sleep(nanoseconds: 100_000_000)
@@ -940,6 +942,14 @@ struct PreferencesView: View {
                     Text(settings.text("Light", "浅色")).tag(AppearanceMode.light)
                     Text(settings.text("Dark", "深色")).tag(AppearanceMode.dark)
                 }
+
+                Toggle(
+                    settings.text(
+                        "Keep running in the menu bar when the window closes",
+                        "关闭窗口后在状态栏运行"
+                    ),
+                    isOn: $settings.keepsRunningInMenuBar
+                )
             }
 
             Section(settings.text("Session Defaults", "记录默认配置")) {

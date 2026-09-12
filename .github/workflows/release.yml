@@ -1,16 +1,18 @@
-name: Pre-release v0.7.1 (Windows)
+name: Pre-release v0.7.2 (macOS)
 
 on:
   push:
     branches:
       - main
+      - macos-status-item-0.7.2
   workflow_dispatch:
 
 permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.7.1
+  APP_VERSION: 0.7.2
+  APP_BUILD_NUMBER: 24
 
 jobs:
   release-check:
@@ -19,160 +21,77 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.7.1 already exists
+      - name: Check whether v0.7.2 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.7.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.7.2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-  build-windows:
+  build-macos:
     needs: release-check
     if: needs.release-check.outputs.exists != 'true'
-    runs-on: windows-latest
+    runs-on: macos-26
 
     steps:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
+      - name: Build Universal macOS application and DMG
+        run: bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh "$APP_VERSION" "$APP_BUILD_NUMBER"
 
-      - name: Build Windows application
-        shell: pwsh
+      - name: Verify macOS artifact and icon
         run: |
-          $ErrorActionPreference = "Stop"
-          dotnet publish src\windows\NetworkSpeedLogger.WinUI\NetworkSpeedLogger.WinUI.csproj `
-            --configuration Release `
-            --runtime win-x64 `
-            --self-contained true `
-            -p:Platform=x64 `
-            -p:WindowsAppSDKSelfContained=true `
-            -p:Version=$env:APP_VERSION `
-            -p:AssemblyVersion=${env:APP_VERSION}.0 `
-            -p:FileVersion=${env:APP_VERSION}.0
-          if ($LASTEXITCODE -ne 0) {
-            throw "dotnet publish failed with exit code $LASTEXITCODE."
-          }
+          lipo dist/NetworkSpeedLogger.app/Contents/MacOS/NetworkSpeedLogger -verify_arch arm64 x86_64
+          actual_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' dist/NetworkSpeedLogger.app/Contents/Info.plist)
+          actual_build=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' dist/NetworkSpeedLogger.app/Contents/Info.plist)
+          if [[ "$actual_version" != "$APP_VERSION" ]]; then
+            echo "Unexpected application version: $actual_version" >&2
+            exit 1
+          fi
+          if [[ "$actual_build" != "$APP_BUILD_NUMBER" ]]; then
+            echo "Unexpected application build number: $actual_build" >&2
+            exit 1
+          fi
+          icon_path=dist/NetworkSpeedLogger.app/Contents/Resources/AppIcon.icns
+          if [[ ! -s "$icon_path" ]]; then
+            echo "The application icon is missing or empty." >&2
+            exit 1
+          fi
+          iconutil -c iconset "$icon_path" -o dist/VerifiedAppIcon.iconset
+          if [[ ! -s dist/VerifiedAppIcon.iconset/icon_512x512@2x.png ]]; then
+            echo "The 1024-pixel icon representation could not be decoded." >&2
+            exit 1
+          fi
+          if [[ ! -s dist/NetworkSpeedLogger.dmg ]]; then
+            echo "The DMG is missing or empty." >&2
+            exit 1
+          fi
 
-          $app = Get-Item src\windows\NetworkSpeedLogger.WinUI\bin\x64\Release\net10.0-windows10.0.17763.0\win-x64\publish\NetworkSpeedLogger.exe
-          if (-not $app.VersionInfo.FileVersion.StartsWith($env:APP_VERSION)) {
-            throw "Unexpected application file version: $($app.VersionInfo.FileVersion)"
-          }
-
-      - name: Install Inno Setup
-        shell: pwsh
-        run: choco install innosetup --yes --no-progress
-
-      - name: Build installer
-        shell: pwsh
-        run: |
-          $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
-          $iscc = if ($null -ne $command) {
-            $command.Source
-          } else {
-            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          }
-
-          if (-not (Test-Path $iscc)) {
-            throw "ISCC.exe was not found."
-          }
-
-          & $iscc "/DAppVersion=$env:APP_VERSION" installer\windows\NetworkSpeedLogger.iss
-          if ($LASTEXITCODE -ne 0) {
-            throw "Inno Setup failed with exit code $LASTEXITCODE."
-          }
-
-          $installer = Get-Item dist\NetworkSpeedLogger-Setup.exe
-          if ($installer.Length -lt 10MB) {
-            throw "The installer is unexpectedly small."
-          }
-
-      - name: Smoke-test installer
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $installer = (Resolve-Path dist\NetworkSpeedLogger-Setup.exe).Path
-          $installDir = Join-Path $env:RUNNER_TEMP "NetworkSpeedLogger-smoke"
-
-          $installProcess = Start-Process $installer `
-            -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$installDir") `
-            -Wait -PassThru
-          if ($installProcess.ExitCode -ne 0) {
-            throw "Silent installation failed with exit code $($installProcess.ExitCode)."
-          }
-
-          $requiredFiles = @(
-            "NetworkSpeedLogger.exe",
-            "NetworkSpeedLogger.dll",
-            "NetworkSpeedLogger.pri",
-            "NetworkSpeedLogger.ico",
-            "Microsoft.ui.xaml.dll",
-            "Microsoft.WindowsAppRuntime.dll"
-          )
-          foreach ($file in $requiredFiles) {
-            if (-not (Test-Path (Join-Path $installDir $file))) {
-              throw "Installed payload is missing $file."
-            }
-          }
-
-          $app = Get-Item (Join-Path $installDir "NetworkSpeedLogger.exe")
-          if (-not $app.VersionInfo.FileVersion.StartsWith($env:APP_VERSION)) {
-            throw "Unexpected installed application file version: $($app.VersionInfo.FileVersion)"
-          }
-
-          $process = Start-Process $app.FullName -PassThru
-          Start-Sleep -Seconds 8
-          if ($process.HasExited) {
-            $crashLog = Join-Path $env:LOCALAPPDATA "NetworkSpeedLogger\crash.log"
-            if (Test-Path $crashLog) {
-              Write-Host "Application crash log:"
-              Get-Content $crashLog
-            }
-            Write-Host "Recent Windows application events:"
-            Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = (Get-Date).AddMinutes(-3) } `
-              -ErrorAction SilentlyContinue |
-              Where-Object { $_.Message -match "NetworkSpeedLogger" } |
-              Select-Object -First 10 TimeCreated, Id, ProviderName, LevelDisplayName, Message |
-              Format-List | Out-String | Write-Host
-            throw "The installed application exited during the startup smoke test with code $($process.ExitCode)."
-          }
-          Stop-Process -Id $process.Id -Force
-
-          $uninstaller = Join-Path $installDir "unins000.exe"
-          $uninstallProcess = Start-Process $uninstaller `
-            -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART") `
-            -Wait -PassThru
-          if ($uninstallProcess.ExitCode -ne 0) {
-            throw "Silent uninstall failed with exit code $($uninstallProcess.ExitCode)."
-          }
-
-      - name: Upload Windows installer
+      - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-installer
-          path: dist/NetworkSpeedLogger-Setup.exe
+          name: macos-release
+          path: dist/NetworkSpeedLogger.dmg
           if-no-files-found: error
 
   publish:
-    needs: [release-check, build-windows]
+    needs: [release-check, build-macos]
     if: >-
       github.ref == 'refs/heads/main' &&
       needs.release-check.outputs.exists != 'true' &&
-      needs.build-windows.result == 'success'
+      needs.build-macos.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download Windows installer
+      - name: Download macOS artifact
         uses: actions/download-artifact@v4
         with:
-          name: windows-installer
+          name: macos-release
           path: artifacts
 
       - name: Create GitHub release
@@ -180,21 +99,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.7.1 Windows pre-release
+          Network Speed Logger 0.7.2 macOS pre-release
 
-          - Adds an optional setting to minimize the Windows client to the notification area when the Close button is selected
-          - Keeps active recordings running in the background
-          - Shows a brief native Windows notification when the app is minimized
-          - Adds a notification-area icon: left-click reopens the app; right-click provides Start, Stop, and Exit
-          - Includes the self-contained Windows x64 installer
+          - Adds an optional setting to keep the macOS client running in the menu bar when its window is closed
+          - Supports both the Close button and Command-W while Command-Q continues to quit the application
+          - Removes the Dock icon while the application is running in the menu bar
+          - Adds an adaptive two-arrow menu-bar icon: left-click reopens the window; right-click provides Start, Stop, and Quit
+          - Includes the Universal macOS DMG for Apple silicon and Intel Macs
 
-          This pre-release contains the Windows client only. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown.
+          This pre-release contains the macOS client only. The application is ad-hoc signed, is not notarized, and may require Open Anyway in System Settings > Privacy & Security on first launch.
           EOF
           )
-          gh release create v0.7.1 \
-            artifacts/NetworkSpeedLogger-Setup.exe \
+          gh release create v0.7.2 \
+            artifacts/NetworkSpeedLogger.dmg \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.7.1" \
+            --title "v0.7.2" \
             --prerelease \
             --notes "$notes"

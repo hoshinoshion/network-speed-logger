@@ -37,6 +37,8 @@ Network Speed Logger 是一款适用于 Windows 与 macOS 的轻量级开源网�
 
 macOS 客户端是遵循系统控件和交互习惯设计的原生 SwiftUI 应用。Release 中提供的是同时包含 `arm64` 与 `x86_64` 的 Universal 通用程序。应用还会在 Mac 睡眠、唤醒、系统时间跳变或接口计数器重置后安全重建基线，避免产生错误的速度峰值。
 
+可以在“设置”中开启关闭窗口后在状态栏运行。开启后，点击关闭按钮或按下 `Command-W` 会隐藏窗口并继续运行，Dock 图标也会随之隐藏，正在进行的记录不会中断。左键点击状态栏中的双箭头图标可重新打开窗口；右键菜单可以开始记录、停止记录或退出应用。`Command-Q` 始终会正常退出应用。
+
 ### 安装方法
 
 1. 打开 `NetworkSpeedLogger.dmg`。
@@ -136,7 +138,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\NetworkSpeedLo
 安装当前版本的 Xcode 命令行工具，然后在 macOS 上运行：
 
 ```sh
-bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.7.0 23
+bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.7.2 24
 ```
 
 脚本会分别编译 `arm64` 和 `x86_64`、合并为 Universal 应用、生成图标、应用临时签名，并创建 `dist/NetworkSpeedLogger.dmg`。也可以通过 `src/macos/NetworkSpeedLogger/Package.swift` 将源代码作为 Swift Package 打开。
