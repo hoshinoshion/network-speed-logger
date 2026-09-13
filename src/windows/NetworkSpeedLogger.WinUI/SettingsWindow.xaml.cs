@@ -236,7 +236,8 @@ public sealed partial class SettingsWindow : Window
         if (TaskbarOptionsPanel is null || TaskbarAdapterList is null) return;
         bool enabled = TaskbarEnabledToggle.IsOn;
         bool manual = TaskbarManualModeRadio.IsChecked == true;
-        TaskbarOptionsPanel.IsEnabled = enabled;
+        TaskbarOptionsPanel.IsHitTestVisible = enabled;
+        TaskbarOptionsPanel.Opacity = enabled ? 1.0 : 0.56;
         TaskbarAdapterList.IsHitTestVisible = enabled && manual;
         TaskbarAdapterList.Opacity = manual ? 1.0 : 0.72;
         TaskbarAdapterModeHint.Text = manual
