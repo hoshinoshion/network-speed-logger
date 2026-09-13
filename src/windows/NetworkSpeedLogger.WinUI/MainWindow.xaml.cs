@@ -23,6 +23,7 @@ public sealed partial class MainWindow : Window
     private readonly AppWindow _appWindow;
     private readonly ThemeController _themeController;
     private readonly TrayIconService _trayIcon;
+    private readonly TaskbarSpeedService _taskbarSpeed;
     private readonly UpdateService _updateService = new();
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly InputMethodSnapshot _startupInputMethod = InputMethodSnapshot.CaptureForeground();
@@ -70,6 +71,7 @@ public sealed partial class MainWindow : Window
         _trayIcon.StartRequested += TrayStartRequested;
         _trayIcon.StopRequested += TrayStopRequested;
         _trayIcon.ExitRequested += TrayExitRequested;
+        _taskbarSpeed = new TaskbarSpeedService(DispatcherQueue, _adapterService);
 
         _sampleTimer = DispatcherQueue.CreateTimer();
         _sampleTimer.IsRepeating = true;
@@ -84,6 +86,7 @@ public sealed partial class MainWindow : Window
         ApplyLanguage();
         RefreshAdapters(false);
         UpdateOutputFolderState();
+        _taskbarSpeed.ApplySettings(_settings.TaskbarSpeed);
     }
 
     private string T(string chinese, string english) => Localization.T(chinese, english);
@@ -632,6 +635,7 @@ public sealed partial class MainWindow : Window
         _settings = e.Settings.Clone();
         Localization.ApplyPreference(_settings.Language);
         _themeController.ApplyPreference(_settings.Theme);
+        _taskbarSpeed.ApplySettings(_settings.TaskbarSpeed);
         OutputFolderText.Text = _settings.OutputFolder;
         if (e.ApplyDefaultsNow && _session?.IsRunning != true) ApplyDefaultsToCurrentSession();
         ApplyLanguage();
@@ -807,6 +811,7 @@ public sealed partial class MainWindow : Window
         if (_isShuttingDown) return;
         _isShuttingDown = true;
         _lifetimeCancellation.Cancel();
+        _taskbarSpeed.Dispose();
         _trayIcon.Dispose();
         _themeController.Dispose();
         _session?.Dispose();

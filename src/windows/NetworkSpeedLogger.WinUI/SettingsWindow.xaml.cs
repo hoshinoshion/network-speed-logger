@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.UI;
@@ -30,6 +31,7 @@ public sealed partial class SettingsWindow : Window
 {
     private readonly AppWindow _appWindow;
     private readonly nint _ownerHandle;
+    private readonly NetworkAdapterService _taskbarAdapterService = new();
     private readonly ThemeController _themeController;
     private readonly UpdateService _updateService = new();
     private readonly CancellationTokenSource _lifetimeCancellation = new();
@@ -37,6 +39,8 @@ public sealed partial class SettingsWindow : Window
     private bool _initialFocusSet;
     private bool _isClosed;
     private UpdateReleaseInfo? _availableUpdate;
+
+    public ObservableCollection<AdapterChoice> TaskbarAdapterChoices { get; } = [];
 
     public event EventHandler<SettingsSavedEventArgs>? SettingsSaved;
 
@@ -112,6 +116,13 @@ public sealed partial class SettingsWindow : Window
         DefaultDurationNumber.Value = _settings.Defaults.DurationHours;
         DefaultIntervalNumber.Value = _settings.Defaults.SampleIntervalSeconds;
         SelectComboByTag(DefaultUnitCombo, _settings.Defaults.SpeedUnit);
+        TaskbarIntervalNumber.Value = _settings.TaskbarSpeed.SampleIntervalSeconds;
+        SelectComboByTag(TaskbarUnitCombo, _settings.TaskbarSpeed.SpeedUnit);
+        TaskbarAutoModeRadio.IsChecked = !_settings.TaskbarSpeed.ManualMode;
+        TaskbarManualModeRadio.IsChecked = _settings.TaskbarSpeed.ManualMode;
+        RefreshTaskbarAdapters(false);
+        TaskbarEnabledToggle.IsOn = _settings.TaskbarSpeed.Enabled;
+        UpdateTaskbarOptionsUi();
         OutputFolderText.Text = _settings.OutputFolder;
         OpenFolderButton.IsEnabled = Directory.Exists(_settings.OutputFolder);
         AutomaticUpdatesToggle.IsOn = _settings.AutomaticallyCheckForUpdates;
@@ -140,6 +151,27 @@ public sealed partial class SettingsWindow : Window
         MinimizeToTrayDescription.Text = T(
             "开启后，点击关闭按钮会让应用继续在后台运行",
             "When enabled, the Close button keeps the app running in the background");
+        TaskbarSectionText.Text = T("任务栏网速", "Taskbar speed");
+        TaskbarSectionDescription.Text = T(
+            "在主任务栏上持续显示独立采样的实时下载和上传速度",
+            "Continuously show independently sampled download and upload speeds on the primary taskbar");
+        TaskbarEnabledLabel.Text = T("显示任务栏网速", "Show taskbar speed");
+        TaskbarEnabledDescription.Text = T(
+            "应用运行期间显示；内容不会响应点击",
+            "Shown while the app is running; the display does not respond to clicks");
+        TaskbarIntervalLabel.Text = T("采样频率", "Sample interval");
+        TaskbarIntervalDescription.Text = T("1 到 3600 秒；默认为 1 秒", "1 to 3600 seconds; default is 1 second");
+        TaskbarUnitLabel.Text = T("速度单位", "Speed unit");
+        TaskbarUnitDescription.Text = T(
+            "K、M、G 等前缀会根据实时速度自动变化",
+            "K, M, and G prefixes change automatically with the current speed");
+        TaskbarUnitByteItem.Content = T("Byte（B/s、KB/s、MB/s）", "Byte (B/s, KB/s, MB/s)");
+        TaskbarUnitBitItem.Content = T("bit（bps、Kbps、Mbps）", "bit (bps, Kbps, Mbps)");
+        TaskbarAdapterModeLabel.Text = T("网卡模式", "Adapter mode");
+        TaskbarAdapterModeDescription.Text = T("与网速记录功能分开设置", "Configured separately from traffic logging");
+        TaskbarAutoModeRadio.Content = T("自动（推荐）", "Auto (recommended)");
+        TaskbarManualModeRadio.Content = T("手动", "Manual");
+        TaskbarRefreshAdaptersText.Text = T("刷新网卡列表", "Refresh adapters");
         DefaultsSectionText.Text = T("启动默认值", "Launch defaults");
         DefaultsDescriptionText.Text = T("主窗口中的临时修改不会覆盖这些值", "Temporary changes in the main window do not overwrite these values");
         DefaultDurationLabel.Text = T("运行时长", "Duration");
@@ -169,6 +201,55 @@ public sealed partial class SettingsWindow : Window
         CancelButton.Content = T("取消", "Cancel");
         SaveButton.Content = T("保存", "Save");
         ApplyDefaultsButton.Content = T("保存并立即应用", "Save and apply now");
+        UpdateTaskbarOptionsUi();
+    }
+
+    private void TaskbarEnabledToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (TaskbarOptionsPanel is not null) UpdateTaskbarOptionsUi();
+    }
+
+    private void TaskbarAdapterMode_Changed(object sender, RoutedEventArgs e)
+    {
+        if (TaskbarAdapterList is not null) UpdateTaskbarOptionsUi();
+    }
+
+    private void TaskbarRefreshAdaptersButton_Click(object sender, RoutedEventArgs e) =>
+        RefreshTaskbarAdapters(true);
+
+    private void RefreshTaskbarAdapters(bool preserveCurrentSelection)
+    {
+        var selectedIds = new HashSet<string>(
+            preserveCurrentSelection
+                ? TaskbarAdapterChoices.Where(item => item.IsSelected).Select(item => item.Id)
+                : _settings.TaskbarSpeed.SelectedAdapterIds,
+            StringComparer.OrdinalIgnoreCase);
+        IReadOnlySet<string>? previousSelection = selectedIds.Count > 0 ? selectedIds : null;
+        IReadOnlyList<AdapterChoice> choices = _taskbarAdapterService.GetChoices(previousSelection);
+        TaskbarAdapterChoices.Clear();
+        foreach (AdapterChoice choice in choices) TaskbarAdapterChoices.Add(choice);
+        UpdateTaskbarOptionsUi();
+    }
+
+    private void UpdateTaskbarOptionsUi()
+    {
+        if (TaskbarOptionsPanel is null || TaskbarAdapterList is null) return;
+        bool enabled = TaskbarEnabledToggle.IsOn;
+        bool manual = TaskbarManualModeRadio.IsChecked == true;
+        TaskbarOptionsPanel.IsEnabled = enabled;
+        TaskbarAdapterList.IsHitTestVisible = enabled && manual;
+        TaskbarAdapterList.Opacity = manual ? 1.0 : 0.72;
+        TaskbarAdapterModeHint.Text = manual
+            ? T(
+                "勾选一个或多个网卡；选择虚拟网卡可能导致 VPN 流量重复计算。",
+                "Select one or more adapters. Virtual adapters may double-count VPN traffic.")
+            : _taskbarAdapterService.PhysicalDetectionFallback
+                ? T(
+                    "自动合并已连接网卡；当前系统使用兼容筛选规则识别物理网卡。",
+                    "Combines connected adapters automatically; compatibility rules identify physical hardware.")
+                : T(
+                    "自动合并所有已连接的物理网卡，并排除虚拟网卡。",
+                    "Combines all connected physical adapters and excludes virtual adapters.");
     }
 
     private async void BrowseButton_Click(object sender, RoutedEventArgs e)
@@ -316,6 +397,7 @@ public sealed partial class SettingsWindow : Window
     {
         double duration = DefaultDurationNumber.Value;
         double intervalValue = DefaultIntervalNumber.Value;
+        double taskbarIntervalValue = TaskbarIntervalNumber.Value;
         if (!AppSettingsStore.IsValidDuration(duration))
         {
             ShowValidation(T("参数有误", "Invalid setting"), T("运行时长必须是 0 到 8760 之间的数字。", "Duration must be from 0 to 8760."));
@@ -326,6 +408,27 @@ public sealed partial class SettingsWindow : Window
         {
             ShowValidation(T("参数有误", "Invalid setting"), T("采样间隔必须是 1 到 3600 之间的整数秒。", "Sample interval must be an integer from 1 to 3600 seconds."));
             DefaultIntervalNumber.Focus(FocusState.Programmatic);
+            return;
+        }
+        if (double.IsNaN(taskbarIntervalValue) ||
+            taskbarIntervalValue != Math.Truncate(taskbarIntervalValue) ||
+            !AppSettingsStore.IsValidSampleInterval((int)taskbarIntervalValue))
+        {
+            ShowValidation(
+                T("参数有误", "Invalid setting"),
+                T("任务栏网速的采样频率必须是 1 到 3600 之间的整数秒。", "The taskbar sample interval must be an integer from 1 to 3600 seconds."));
+            TaskbarIntervalNumber.Focus(FocusState.Programmatic);
+            return;
+        }
+        string[] taskbarSelectedAdapterIds = TaskbarAdapterChoices
+            .Where(item => item.IsSelected)
+            .Select(item => item.Id)
+            .ToArray();
+        if (TaskbarEnabledToggle.IsOn && TaskbarManualModeRadio.IsChecked == true && taskbarSelectedAdapterIds.Length == 0)
+        {
+            ShowValidation(
+                T("无法开启任务栏网速", "Unable to enable taskbar speed"),
+                T("手动模式下请至少勾选一个网卡。", "Select at least one adapter in manual mode."));
             return;
         }
         if (!FolderService.TryValidate(OutputFolderText.Text, out string? folderError))
@@ -340,6 +443,11 @@ public sealed partial class SettingsWindow : Window
         candidate.OutputFolder = FolderService.NormalizePath(OutputFolderText.Text);
         candidate.AutomaticallyCheckForUpdates = AutomaticUpdatesToggle.IsOn;
         candidate.MinimizeToTray = MinimizeToTrayToggle.IsOn;
+        candidate.TaskbarSpeed.Enabled = TaskbarEnabledToggle.IsOn;
+        candidate.TaskbarSpeed.SampleIntervalSeconds = (int)taskbarIntervalValue;
+        candidate.TaskbarSpeed.SpeedUnit = ReadComboTag(TaskbarUnitCombo, "Byte");
+        candidate.TaskbarSpeed.ManualMode = TaskbarManualModeRadio.IsChecked == true;
+        candidate.TaskbarSpeed.SelectedAdapterIds = taskbarSelectedAdapterIds;
         candidate.Defaults.DurationHours = duration;
         candidate.Defaults.SampleIntervalSeconds = (int)intervalValue;
         candidate.Defaults.SpeedUnit = ReadComboTag(DefaultUnitCombo, "MB/s");

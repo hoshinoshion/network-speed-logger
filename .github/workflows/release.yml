@@ -1,4 +1,4 @@
-name: Release v0.8.0
+name: Pre-release v0.8.1 (Windows)
 
 on:
   push:
@@ -10,8 +10,7 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.8.0
-  APP_BUILD_NUMBER: 28
+  APP_VERSION: 0.8.1
 
 jobs:
   release-check:
@@ -20,109 +19,16 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.8.0 already exists
+      - name: Check whether v0.8.1 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.8.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.8.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
-
-  build-macos:
-    needs: release-check
-    if: needs.release-check.outputs.exists != 'true'
-    runs-on: macos-26
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Build Universal macOS application and DMG
-        run: bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh "$APP_VERSION" "$APP_BUILD_NUMBER"
-
-      - name: Verify macOS artifact and icon
-        run: |
-          lipo dist/NetworkSpeedLogger.app/Contents/MacOS/NetworkSpeedLogger -verify_arch arm64 x86_64
-          actual_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' dist/NetworkSpeedLogger.app/Contents/Info.plist)
-          actual_build=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' dist/NetworkSpeedLogger.app/Contents/Info.plist)
-          if [[ "$actual_version" != "$APP_VERSION" ]]; then
-            echo "Unexpected application version: $actual_version" >&2
-            exit 1
-          fi
-          if [[ "$actual_build" != "$APP_BUILD_NUMBER" ]]; then
-            echo "Unexpected application build number: $actual_build" >&2
-            exit 1
-          fi
-          icon_path=dist/NetworkSpeedLogger.app/Contents/Resources/AppIcon.icns
-          if [[ ! -s "$icon_path" ]]; then
-            echo "The application icon is missing or empty." >&2
-            exit 1
-          fi
-          iconutil -c iconset "$icon_path" -o dist/VerifiedAppIcon.iconset
-          if [[ ! -s dist/VerifiedAppIcon.iconset/icon_512x512@2x.png ]]; then
-            echo "The 1024-pixel icon representation could not be decoded." >&2
-            exit 1
-          fi
-          if [[ ! -s dist/NetworkSpeedLogger.dmg ]]; then
-            echo "The DMG is missing or empty." >&2
-            exit 1
-          fi
-
-      - name: Smoke-test macOS application startup
-        run: |
-          app_path="dist/NetworkSpeedLogger.app"
-          executable="dist/NetworkSpeedLogger.app/Contents/MacOS/NetworkSpeedLogger"
-          log_path="$RUNNER_TEMP/network-speed-logger-startup.log"
-          "$executable" >"$log_path" 2>&1 &
-          app_pid=$!
-
-          cleanup() {
-            if kill -0 "$app_pid" >/dev/null 2>&1; then
-              kill -TERM "$app_pid" >/dev/null 2>&1 || true
-            fi
-            wait "$app_pid" >/dev/null 2>&1 || true
-          }
-          trap cleanup EXIT
-
-          for _ in {1..5}; do
-            sleep 1
-            if ! kill -0 "$app_pid" >/dev/null 2>&1; then
-              set +e
-              wait "$app_pid"
-              exit_code=$?
-              set -e
-              cat "$log_path"
-              echo "The macOS application exited during the startup smoke test with code $exit_code." >&2
-              exit 1
-            fi
-          done
-
-          /usr/bin/open "$app_path"
-          for _ in {1..3}; do
-            sleep 1
-            if ! kill -0 "$app_pid" >/dev/null 2>&1; then
-              set +e
-              wait "$app_pid"
-              exit_code=$?
-              set -e
-              cat "$log_path"
-              echo "The macOS application exited after a system reopen request with code $exit_code." >&2
-              exit 1
-            fi
-          done
-
-          cleanup
-          trap - EXIT
-
-      - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-release
-          path: dist/NetworkSpeedLogger.dmg
-          if-no-files-found: error
 
   build-windows:
     needs: release-check
@@ -221,6 +127,29 @@ jobs:
             throw "Unexpected installed application file version: $($app.VersionInfo.FileVersion)"
           }
 
+          $settingsDir = Join-Path $env:LOCALAPPDATA "NetworkSpeedLogger"
+          New-Item -ItemType Directory -Force -Path $settingsDir | Out-Null
+          @{
+            schemaVersion = 4
+            language = "en-US"
+            theme = "Auto"
+            outputFolder = $env:RUNNER_TEMP
+            automaticallyCheckForUpdates = $false
+            minimizeToTray = $false
+            taskbarSpeed = @{
+              enabled = $true
+              sampleIntervalSeconds = 1
+              speedUnit = "Byte"
+              manualMode = $false
+              selectedAdapterIds = @()
+            }
+            defaults = @{
+              durationHours = 24
+              sampleIntervalSeconds = 15
+              speedUnit = "MB/s"
+            }
+          } | ConvertTo-Json -Depth 4 | Set-Content (Join-Path $settingsDir "settings.json") -Encoding utf8
+
           $process = Start-Process $app.FullName -PassThru
           Start-Sleep -Seconds 8
           if ($process.HasExited) {
@@ -236,6 +165,20 @@ jobs:
               Select-Object -First 10 TimeCreated, Id, ProviderName, LevelDisplayName, Message |
               Format-List | Out-String | Write-Host
             throw "The installed application exited during the startup smoke test with code $($process.ExitCode)."
+          }
+
+          Add-Type @"
+          using System;
+          using System.Runtime.InteropServices;
+          public static class NativeWindowLookup
+          {
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+              public static extern IntPtr FindWindow(string className, string windowName);
+          }
+          "@
+          $overlayWindow = [NativeWindowLookup]::FindWindow("NetworkSpeedLogger.TaskbarSpeed.$($process.Id)", $null)
+          if ($overlayWindow -eq [IntPtr]::Zero) {
+            throw "The taskbar speed overlay window was not created."
           }
           Stop-Process -Id $process.Id -Force
 
@@ -255,21 +198,14 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [release-check, build-macos, build-windows]
+    needs: [release-check, build-windows]
     if: >-
       github.ref == 'refs/heads/main' &&
       needs.release-check.outputs.exists != 'true' &&
-      needs.build-macos.result == 'success' &&
       needs.build-windows.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download macOS artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-release
-          path: artifacts
-
       - name: Download Windows installer
         uses: actions/download-artifact@v4
         with:
@@ -281,35 +217,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.8.0
+          Network Speed Logger 0.8.1 Windows pre-release
 
-          - Adds optional Windows notification-area mode with background recording, a brief system notification, and Start, Stop, and Exit controls
-          - Adds optional macOS menu-bar mode with background recording, an adaptive two-arrow icon, and Start, Stop, and Quit controls
-          - Preserves correct Dock, menu-bar, Close, Command-W, and system reopen behavior across repeated macOS window cycles
-          - Includes the Universal macOS DMG for Apple silicon and Intel Macs and the self-contained Windows x64 installer
+          - Adds an optional, non-interactive real-time download and upload speed display on the primary Windows taskbar
+          - Uses independent automatic or manual adapter selection and an independent sampling interval, defaulting to one second
+          - Supports Byte or bit units and automatically changes between B/K/M/G/T prefixes for readability
+          - Places the display on the left for centered taskbar buttons and on the right for left-aligned taskbar buttons
+          - Adapts text contrast to Windows light, dark, and high-contrast themes and avoids covering full-screen applications
+          - Includes the self-contained Windows x64 installer
 
-          The macOS application is ad-hoc signed and is not notarized. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown. Follow the README instructions if macOS Gatekeeper blocks the first launch.
+          This pre-release contains the Windows client only. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown.
           EOF
           )
-          gh release create v0.8.0 \
-            artifacts/NetworkSpeedLogger.dmg \
+          gh release create v0.8.1 \
             artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.8.0" \
+            --title "v0.8.1" \
+            --prerelease \
             --notes "$notes"
-
-      - name: Delete previous pre-releases
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-            --jq '.[] | select(.prerelease == true) | .tag_name' |
-          while IFS= read -r tag; do
-            if [[ -n "$tag" ]]; then
-              gh release delete "$tag" \
-                --repo "$GITHUB_REPOSITORY" \
-                --cleanup-tag \
-                --yes
-            fi
-          done

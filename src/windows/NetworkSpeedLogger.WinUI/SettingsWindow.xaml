@@ -1,7 +1,8 @@
 <Window
     x:Class="NetworkSpeedLogger.SettingsWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:NetworkSpeedLogger">
 
   <Grid x:Name="RootGrid" Background="{ThemeResource AppContentBrush}">
     <Grid.RowDefinitions>
@@ -27,6 +28,118 @@
           <TextBlock x:Name="PageTitleText" Text="设置" FontSize="24" FontWeight="SemiBold" />
           <TextBlock x:Name="PageSubtitleText" Text="管理每次启动时使用的默认值和文件保存位置"
                      Style="{StaticResource CaptionStyle}" />
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+          <TextBlock x:Name="TaskbarSectionText" Text="任务栏网速" Style="{StaticResource SectionTitleStyle}" />
+          <TextBlock x:Name="TaskbarSectionDescription" Text="在主任务栏上持续显示独立采样的实时下载和上传速度"
+                     Style="{StaticResource CaptionStyle}" />
+
+          <Border Style="{StaticResource CardStyle}" Padding="14,9">
+            <Grid ColumnSpacing="16">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel VerticalAlignment="Center" Spacing="3">
+                <TextBlock x:Name="TaskbarEnabledLabel" Text="显示任务栏网速" FontWeight="SemiBold" />
+                <TextBlock x:Name="TaskbarEnabledDescription" Text="应用运行期间显示；内容不会响应点击"
+                           Style="{StaticResource CaptionStyle}" />
+              </StackPanel>
+              <ToggleSwitch x:Name="TaskbarEnabledToggle" Grid.Column="1"
+                            MinWidth="0" HorizontalAlignment="Right" VerticalAlignment="Center"
+                            Toggled="TaskbarEnabledToggle_Toggled" />
+            </Grid>
+          </Border>
+
+          <StackPanel x:Name="TaskbarOptionsPanel" Spacing="6">
+            <Border Style="{StaticResource CardStyle}" Padding="14,9">
+              <Grid ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="230" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center" Spacing="3">
+                  <TextBlock x:Name="TaskbarIntervalLabel" Text="采样频率" FontWeight="SemiBold" />
+                  <TextBlock x:Name="TaskbarIntervalDescription" Text="1 到 3600 秒；默认为 1 秒"
+                             Style="{StaticResource CaptionStyle}" />
+                </StackPanel>
+                <NumberBox x:Name="TaskbarIntervalNumber" Grid.Column="1" Minimum="1" Maximum="3600"
+                           SmallChange="1" SpinButtonPlacementMode="Inline" />
+              </Grid>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}" Padding="14,9">
+              <Grid ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="230" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center" Spacing="3">
+                  <TextBlock x:Name="TaskbarUnitLabel" Text="速度单位" FontWeight="SemiBold" />
+                  <TextBlock x:Name="TaskbarUnitDescription" Text="K、M、G 等前缀会根据实时速度自动变化"
+                             Style="{StaticResource CaptionStyle}" />
+                </StackPanel>
+                <ComboBox x:Name="TaskbarUnitCombo" Grid.Column="1" HorizontalAlignment="Stretch">
+                  <ComboBoxItem x:Name="TaskbarUnitByteItem" Tag="Byte" Content="Byte（B/s、KB/s、MB/s）" />
+                  <ComboBoxItem x:Name="TaskbarUnitBitItem" Tag="bit" Content="bit（bps、Kbps、Mbps）" />
+                </ComboBox>
+              </Grid>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}" Padding="14,9">
+              <StackPanel Spacing="7">
+                <Grid ColumnSpacing="16">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="230" />
+                  </Grid.ColumnDefinitions>
+                  <StackPanel VerticalAlignment="Center" Spacing="3">
+                    <TextBlock x:Name="TaskbarAdapterModeLabel" Text="网卡模式" FontWeight="SemiBold" />
+                    <TextBlock x:Name="TaskbarAdapterModeDescription" Text="与网速记录功能分开设置"
+                               Style="{StaticResource CaptionStyle}" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                    <RadioButton x:Name="TaskbarAutoModeRadio" GroupName="TaskbarAdapterMode" IsChecked="True"
+                                 Content="自动（推荐）" Checked="TaskbarAdapterMode_Changed" />
+                    <RadioButton x:Name="TaskbarManualModeRadio" GroupName="TaskbarAdapterMode"
+                                 Content="手动" Checked="TaskbarAdapterMode_Changed" />
+                  </StackPanel>
+                </Grid>
+                <TextBlock x:Name="TaskbarAdapterModeHint" Style="{StaticResource CaptionStyle}" />
+                <Border Background="{ThemeResource CardBackgroundBrush}" BorderBrush="{ThemeResource CardBorderBrush}"
+                        BorderThickness="1" CornerRadius="6" Padding="4">
+                  <ListView x:Name="TaskbarAdapterList" Height="132" SelectionMode="None"
+                            ItemsSource="{x:Bind TaskbarAdapterChoices}">
+                    <ListView.ItemContainerStyle>
+                      <Style TargetType="ListViewItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="3" />
+                      </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                      <DataTemplate x:DataType="local:AdapterChoice">
+                        <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" HorizontalAlignment="Stretch">
+                          <StackPanel Margin="4,1,0,1" Spacing="1">
+                            <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{x:Bind Detail}" Style="{StaticResource CaptionStyle}"
+                                       MaxLines="2" TextTrimming="CharacterEllipsis" />
+                          </StackPanel>
+                        </CheckBox>
+                      </DataTemplate>
+                    </ListView.ItemTemplate>
+                  </ListView>
+                </Border>
+                <Button x:Name="TaskbarRefreshAdaptersButton" HorizontalAlignment="Right"
+                        Click="TaskbarRefreshAdaptersButton_Click">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE72C;" FontSize="13" />
+                    <TextBlock x:Name="TaskbarRefreshAdaptersText" Text="刷新网卡列表" />
+                  </StackPanel>
+                </Button>
+              </StackPanel>
+            </Border>
+          </StackPanel>
         </StackPanel>
 
         <StackPanel Spacing="6">

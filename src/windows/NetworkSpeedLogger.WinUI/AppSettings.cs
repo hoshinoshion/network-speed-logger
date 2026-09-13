@@ -23,10 +23,37 @@ public sealed class SessionDefaults
     };
 }
 
+public sealed class TaskbarSpeedSettings
+{
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; }
+
+    [JsonPropertyName("sampleIntervalSeconds")]
+    public int SampleIntervalSeconds { get; set; } = 1;
+
+    [JsonPropertyName("speedUnit")]
+    public string SpeedUnit { get; set; } = "Byte";
+
+    [JsonPropertyName("manualMode")]
+    public bool ManualMode { get; set; }
+
+    [JsonPropertyName("selectedAdapterIds")]
+    public string[] SelectedAdapterIds { get; set; } = [];
+
+    public TaskbarSpeedSettings Clone() => new()
+    {
+        Enabled = Enabled,
+        SampleIntervalSeconds = SampleIntervalSeconds,
+        SpeedUnit = SpeedUnit,
+        ManualMode = ManualMode,
+        SelectedAdapterIds = [.. SelectedAdapterIds]
+    };
+}
+
 public sealed class AppSettingsData
 {
     [JsonPropertyName("schemaVersion")]
-    public int SchemaVersion { get; set; } = 3;
+    public int SchemaVersion { get; set; } = 4;
 
     [JsonPropertyName("language")]
     public string Language { get; set; } = "Auto";
@@ -43,6 +70,9 @@ public sealed class AppSettingsData
     [JsonPropertyName("minimizeToTray")]
     public bool MinimizeToTray { get; set; }
 
+    [JsonPropertyName("taskbarSpeed")]
+    public TaskbarSpeedSettings TaskbarSpeed { get; set; } = new();
+
     [JsonPropertyName("defaults")]
     public SessionDefaults Defaults { get; set; } = new();
 
@@ -54,6 +84,7 @@ public sealed class AppSettingsData
         OutputFolder = OutputFolder,
         AutomaticallyCheckForUpdates = AutomaticallyCheckForUpdates,
         MinimizeToTray = MinimizeToTray,
+        TaskbarSpeed = TaskbarSpeed.Clone(),
         Defaults = Defaults.Clone()
     };
 }
@@ -164,6 +195,8 @@ public static class AppSettingsStore
 
     public static bool IsValidSpeedUnit(string? value) => value is "MB/s" or "Mbps";
 
+    public static bool IsValidTaskbarSpeedUnit(string? value) => value is "Byte" or "bit";
+
     public static bool IsValidDuration(double value) =>
         !double.IsNaN(value) && !double.IsInfinity(value) &&
         value >= MinimumDurationHours && value <= MaximumDurationHours;
@@ -174,10 +207,20 @@ public static class AppSettingsStore
     private static void Normalize(AppSettingsData settings)
     {
         AppSettingsData builtIn = CreateDefaults();
-        settings.SchemaVersion = 3;
+        settings.SchemaVersion = 4;
         if (!IsValidLanguage(settings.Language)) settings.Language = builtIn.Language;
         if (!IsValidTheme(settings.Theme)) settings.Theme = builtIn.Theme;
         settings.OutputFolder = (settings.OutputFolder ?? string.Empty).Trim();
+        settings.TaskbarSpeed ??= builtIn.TaskbarSpeed;
+        if (!IsValidSampleInterval(settings.TaskbarSpeed.SampleIntervalSeconds))
+            settings.TaskbarSpeed.SampleIntervalSeconds = builtIn.TaskbarSpeed.SampleIntervalSeconds;
+        if (!IsValidTaskbarSpeedUnit(settings.TaskbarSpeed.SpeedUnit))
+            settings.TaskbarSpeed.SpeedUnit = builtIn.TaskbarSpeed.SpeedUnit;
+        settings.TaskbarSpeed.SelectedAdapterIds = settings.TaskbarSpeed.SelectedAdapterIds?
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(NetworkAdapterService.NormalizeId)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray() ?? [];
         settings.Defaults ??= builtIn.Defaults;
         if (!IsValidDuration(settings.Defaults.DurationHours)) settings.Defaults.DurationHours = builtIn.Defaults.DurationHours;
         if (!IsValidSampleInterval(settings.Defaults.SampleIntervalSeconds)) settings.Defaults.SampleIntervalSeconds = builtIn.Defaults.SampleIntervalSeconds;
