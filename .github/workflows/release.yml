@@ -1,4 +1,4 @@
-name: Pre-release v0.8.2 (Windows)
+name: Pre-release v0.8.3 (Windows)
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.8.2
+  APP_VERSION: 0.8.3
 
 jobs:
   release-check:
@@ -19,12 +19,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.8.2 already exists
+      - name: Check whether v0.8.3 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.8.2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.8.3 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -215,8 +215,9 @@ jobs:
             Start-Sleep -Seconds 2
             $leftRect = New-Object NativeWindowLookup+Rect
             if (-not [NativeWindowLookup]::GetWindowRect($overlayWindow, [ref]$leftRect) -or
-                $leftRect.Left -ge $taskbarRect.Left + (($taskbarRect.Right - $taskbarRect.Left) / 4)) {
-              throw "Centered taskbar mode did not place the overlay on the left."
+                $leftRect.Left -le $taskbarRect.Left + 100 -or
+                $leftRect.Left -ge $taskbarRect.Left + (($taskbarRect.Right - $taskbarRect.Left) / 2)) {
+              throw "Centered taskbar mode did not place the overlay after the Widgets area on the left."
             }
 
             New-ItemProperty -Path $alignmentPath -Name TaskbarAl -Value 0 -PropertyType DWord -Force | Out-Null
@@ -232,8 +233,9 @@ jobs:
               Start-Sleep -Seconds 2
               $defaultRect = New-Object NativeWindowLookup+Rect
               if (-not [NativeWindowLookup]::GetWindowRect($overlayWindow, [ref]$defaultRect) -or
-                  $defaultRect.Left -ge $taskbarRect.Left + (($taskbarRect.Right - $taskbarRect.Left) / 4)) {
-                throw "Windows 11's default centered taskbar was not placed on the left."
+                  $defaultRect.Left -le $taskbarRect.Left + 100 -or
+                  $defaultRect.Left -ge $taskbarRect.Left + (($taskbarRect.Right - $taskbarRect.Left) / 2)) {
+                throw "Windows 11's default centered taskbar was not placed after the Widgets area on the left."
               }
             }
           }
@@ -281,21 +283,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.8.2 Windows pre-release
+          Network Speed Logger 0.8.3 Windows pre-release
 
-          - Fixes centered Windows 11 taskbars being mistaken for left-aligned when the TaskbarAl registry value has not been created
-          - Uses the live taskbar layout as a fallback before applying the operating system's default alignment
-          - Refreshes the taskbar speed typography with Segoe UI Variable Text on Windows 11, balanced sizing, medium weight, and a subtler shadow
-          - Retains the independent network adapter mode, sample interval, Byte/bit units, dynamic prefixes, theme adaptation, and full-screen hiding behavior
+          - Places the speed display immediately to the right of the Windows Widgets area when Start and app buttons are centered
+          - Detects visible taskbar controls at the left edge and keeps a DPI-aware safety reserve when their exact bounds are unavailable
+          - Retains left-aligned taskbar placement before the notification area, modern typography, independent sampling settings, theme adaptation, and full-screen hiding behavior
           - Includes the self-contained Windows x64 installer
 
           This pre-release contains the Windows client only. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown.
           EOF
           )
-          gh release create v0.8.2 \
+          gh release create v0.8.3 \
             artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.8.2" \
+            --title "v0.8.3" \
             --prerelease \
             --notes "$notes"

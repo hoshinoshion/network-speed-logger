@@ -231,6 +231,8 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
     private const uint SpiGetHighContrast = 0x0042;
     private const uint HcfHighContrastOn = 0x00000001;
     private const uint MonitorDefaultToNearest = 2;
+    private const int CenteredTaskbarLeftReserveDip = 184;
+    private const int TaskbarControlGapDip = 8;
     private const string TaskbarAlignmentPath = @"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced";
     private static readonly nint HwndTopmost = new(-1);
     private static readonly bool Windows11OrLater = DetectWindows11OrLater();
@@ -473,7 +475,7 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
             bool alignRight;
             if (centeredTaskbar)
             {
-                x = taskbarRect.Left + ScaleDip(10, dpi);
+                x = GetCenteredOverlayLeft(taskbar, taskbarRect, width, dpi);
                 alignRight = false;
             }
             else
@@ -510,6 +512,49 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
             false,
             true);
         return true;
+    }
+
+    private static int GetCenteredOverlayLeft(nint taskbar, NativeRect taskbarRect, int overlayWidth, uint dpi)
+    {
+        int reservedLeft = taskbarRect.Left + ScaleDip(CenteredTaskbarLeftReserveDip, dpi);
+        int leftControlsRight = FindLeftTaskbarControlsRight(taskbar, taskbarRect, dpi);
+        if (leftControlsRight > taskbarRect.Left)
+            reservedLeft = Math.Max(reservedLeft, leftControlsRight + ScaleDip(TaskbarControlGapDip, dpi));
+
+        return Math.Clamp(
+            reservedLeft,
+            taskbarRect.Left + ScaleDip(4, dpi),
+            taskbarRect.Right - overlayWidth - ScaleDip(4, dpi));
+    }
+
+    private static int FindLeftTaskbarControlsRight(nint taskbar, NativeRect taskbarRect, uint dpi)
+    {
+        int rightBoundary = taskbarRect.Left;
+        int edgeTolerance = ScaleDip(28, dpi);
+        int minimumWidth = ScaleDip(32, dpi);
+        int maximumWidth = ScaleDip(280, dpi);
+        EnumWindowsProcedure callback = (window, _) =>
+        {
+            if (!IsWindowVisible(window) || !GetWindowRect(window, out NativeRect rectangle)) return true;
+
+            int clippedLeft = Math.Max(rectangle.Left, taskbarRect.Left);
+            int clippedRight = Math.Min(rectangle.Right, taskbarRect.Right);
+            int clippedTop = Math.Max(rectangle.Top, taskbarRect.Top);
+            int clippedBottom = Math.Min(rectangle.Bottom, taskbarRect.Bottom);
+            int width = clippedRight - clippedLeft;
+            int height = clippedBottom - clippedTop;
+            if (clippedLeft <= taskbarRect.Left + edgeTolerance &&
+                width >= minimumWidth && width <= maximumWidth &&
+                height >= Math.Max(1, taskbarRect.Height / 2))
+            {
+                rightBoundary = Math.Max(rightBoundary, clippedRight);
+            }
+
+            return true;
+        };
+        EnumChildWindows(taskbar, callback, 0);
+        GC.KeepAlive(callback);
+        return rightBoundary;
     }
 
     private static bool IsTaskbarCentered(nint taskbar, NativeRect taskbarRect)
