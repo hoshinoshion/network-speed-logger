@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - hotfix/macos-0.7.3
   workflow_dispatch:
 
 permissions:
