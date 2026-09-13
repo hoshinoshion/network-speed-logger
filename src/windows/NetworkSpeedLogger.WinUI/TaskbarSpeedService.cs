@@ -868,7 +868,7 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
         ref BlendFunction blend,
         uint flags);
 
-    [DllImport("user32.dll", ExactSpelling = true)]
+    [DllImport("kernel32.dll", ExactSpelling = true)]
     private static extern int MulDiv(int number, int numerator, int denominator);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
