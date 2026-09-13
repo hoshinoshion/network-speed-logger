@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - fix/macos-status-reopen-0.7.4
   workflow_dispatch:
 
 permissions:
