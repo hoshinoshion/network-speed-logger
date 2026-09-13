@@ -9,10 +9,13 @@ final class StatusBarController: NSObject, ObservableObject {
     private var statusItem: NSStatusItem?
     private var isInStatusBarMode = false
 
-    init(settings: AppSettings, monitor: NetworkMonitor) {
+    override init() {
+        super.init()
+    }
+
+    func configure(settings: AppSettings, monitor: NetworkMonitor) {
         self.settings = settings
         self.monitor = monitor
-        super.init()
     }
 
     func handleMainWindowClose(_ window: NSWindow) -> Bool {
@@ -239,18 +242,22 @@ private final class MainWindowDelegateProxy: NSObject, NSWindowDelegate {
 
 struct MainWindowBridge: NSViewRepresentable {
     let controller: StatusBarController
+    let settings: AppSettings
+    let monitor: NetworkMonitor
 
     func makeCoordinator() -> Coordinator {
         Coordinator(controller: controller)
     }
 
     func makeNSView(context: Context) -> NSView {
+        controller.configure(settings: settings, monitor: monitor)
         let view = NSView(frame: .zero)
         context.coordinator.attach(to: view)
         return view
     }
 
     func updateNSView(_ view: NSView, context: Context) {
+        controller.configure(settings: settings, monitor: monitor)
         context.coordinator.attach(to: view)
     }
 

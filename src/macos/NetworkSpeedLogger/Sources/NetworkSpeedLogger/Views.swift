@@ -16,7 +16,11 @@ struct RootView: View {
                 MainView(settings: settings, monitor: monitor)
             }
         }
-        .background(MainWindowBridge(controller: statusBarController))
+        .background(MainWindowBridge(
+            controller: statusBarController,
+            settings: settings,
+            monitor: monitor
+        ))
         .animation(.easeInOut(duration: 0.2), value: settings.outputFolderURL)
         .task(id: settings.language) {
             try? await Task.sleep(nanoseconds: 100_000_000)

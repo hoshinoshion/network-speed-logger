@@ -121,8 +121,15 @@ final class AppSettings: ObservableObject {
             appKitAppearance = NSAppearance(named: .darkAqua)
         }
 
-        NSApp.appearance = appKitAppearance
-        for window in NSApp.windows {
+        guard let application = NSApp else {
+            DispatchQueue.main.async { [weak self] in
+                self?.applyAppearance()
+            }
+            return
+        }
+
+        application.appearance = appKitAppearance
+        for window in application.windows {
             window.appearance = appKitAppearance
             window.toolbar?.validateVisibleItems()
             window.contentView?.needsDisplay = true

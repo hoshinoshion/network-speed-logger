@@ -1,17 +1,18 @@
-name: Pre-release v0.7.2 (macOS)
+name: Pre-release v0.7.3 (macOS)
 
 on:
   push:
     branches:
       - main
+      - hotfix/macos-0.7.3
   workflow_dispatch:
 
 permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.7.2
-  APP_BUILD_NUMBER: 24
+  APP_VERSION: 0.7.3
+  APP_BUILD_NUMBER: 25
 
 jobs:
   release-check:
@@ -20,12 +21,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.7.2 already exists
+      - name: Check whether v0.7.3 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.7.2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.7.3 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -71,6 +72,37 @@ jobs:
             exit 1
           fi
 
+      - name: Smoke-test macOS application startup
+        run: |
+          executable="dist/NetworkSpeedLogger.app/Contents/MacOS/NetworkSpeedLogger"
+          log_path="$RUNNER_TEMP/network-speed-logger-startup.log"
+          "$executable" >"$log_path" 2>&1 &
+          app_pid=$!
+
+          cleanup() {
+            if kill -0 "$app_pid" >/dev/null 2>&1; then
+              kill -TERM "$app_pid" >/dev/null 2>&1 || true
+            fi
+            wait "$app_pid" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          for _ in {1..5}; do
+            sleep 1
+            if ! kill -0 "$app_pid" >/dev/null 2>&1; then
+              set +e
+              wait "$app_pid"
+              exit_code=$?
+              set -e
+              cat "$log_path"
+              echo "The macOS application exited during the startup smoke test with code $exit_code." >&2
+              exit 1
+            fi
+          done
+
+          cleanup
+          trap - EXIT
+
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
@@ -98,21 +130,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.7.2 macOS pre-release
+          Network Speed Logger 0.7.3 macOS pre-release
 
-          - Adds an optional setting to keep the macOS client running in the menu bar when its window is closed
-          - Supports both the Close button and Command-W while Command-Q continues to quit the application
-          - Removes the Dock icon while the application is running in the menu bar
-          - Adds an adaptive two-arrow menu-bar icon: left-click reopens the window; right-click provides Start, Stop, and Quit
+          - Fixes the launch crash introduced in macOS version 0.7.2
+          - Restores lifecycle-safe initialization while retaining the menu-bar mode added in 0.7.2
+          - Adds an application startup smoke test to the macOS release workflow
           - Includes the Universal macOS DMG for Apple silicon and Intel Macs
 
           This pre-release contains the macOS client only. The application is ad-hoc signed, is not notarized, and may require Open Anyway in System Settings > Privacy & Security on first launch.
           EOF
           )
-          gh release create v0.7.2 \
+          gh release create v0.7.3 \
             artifacts/NetworkSpeedLogger.dmg \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.7.2" \
+            --title "v0.7.3" \
             --prerelease \
             --notes "$notes"
