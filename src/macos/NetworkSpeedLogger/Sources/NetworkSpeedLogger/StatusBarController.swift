@@ -22,18 +22,23 @@ final class StatusBarController: NSObject, ObservableObject {
         guard settings?.keepsRunningInMenuBar == true else { return false }
         mainWindow = window
 
-        if !isInStatusBarMode {
-            DispatchQueue.main.async { [weak self] in
-                self?.enterStatusBarMode()
-            }
+        DispatchQueue.main.async { [weak self] in
+            self?.enterStatusBarMode()
         }
         return true
     }
 
+    func handleMainWindowBecameActive(_ window: NSWindow) {
+        guard isInStatusBarMode else { return }
+        mainWindow = window
+        leaveStatusBarMode()
+    }
+
     private func enterStatusBarMode() {
-        guard !isInStatusBarMode else { return }
-        isInStatusBarMode = true
-        installStatusItem()
+        if !isInStatusBarMode {
+            isInStatusBarMode = true
+            installStatusItem()
+        }
 
         for window in NSApp.windows where window.isVisible {
             window.orderOut(nil)
@@ -125,7 +130,7 @@ final class StatusBarController: NSObject, ObservableObject {
         NSApp.terminate(nil)
     }
 
-    private func restoreMainWindow() {
+    private func leaveStatusBarMode() {
         guard isInStatusBarMode else { return }
         isInStatusBarMode = false
 
@@ -134,6 +139,11 @@ final class StatusBarController: NSObject, ObservableObject {
             NSStatusBar.system.removeStatusItem(statusItem)
             self.statusItem = nil
         }
+    }
+
+    private func restoreMainWindow() {
+        guard isInStatusBarMode else { return }
+        leaveStatusBarMode()
 
         NSApp.unhide(nil)
         mainWindow?.makeKeyAndOrderFront(nil)
@@ -226,6 +236,20 @@ private final class MainWindowDelegateProxy: NSObject, NSWindowDelegate {
             return false
         }
         return forwardingDelegate?.windowShouldClose?(sender) ?? true
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        if let window = notification.object as? NSWindow {
+            controller?.handleMainWindowBecameActive(window)
+        }
+        forwardingDelegate?.windowDidBecomeKey?(notification)
+    }
+
+    func windowDidBecomeMain(_ notification: Notification) {
+        if let window = notification.object as? NSWindow {
+            controller?.handleMainWindowBecameActive(window)
+        }
+        forwardingDelegate?.windowDidBecomeMain?(notification)
     }
 
     override func responds(to selector: Selector!) -> Bool {
