@@ -1,4 +1,4 @@
-name: Pre-release v0.8.1 (Windows)
+name: Pre-release v0.8.2 (Windows)
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.8.1
+  APP_VERSION: 0.8.2
 
 jobs:
   release-check:
@@ -19,12 +19,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.8.1 already exists
+      - name: Check whether v0.8.2 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.8.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.8.2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -172,13 +172,77 @@ jobs:
           using System.Runtime.InteropServices;
           public static class NativeWindowLookup
           {
+              [StructLayout(LayoutKind.Sequential)]
+              public struct Rect
+              {
+                  public int Left;
+                  public int Top;
+                  public int Right;
+                  public int Bottom;
+              }
+
               [DllImport("user32.dll", CharSet = CharSet.Unicode)]
               public static extern IntPtr FindWindow(string className, string windowName);
+
+              [DllImport("user32.dll")]
+              [return: MarshalAs(UnmanagedType.Bool)]
+              public static extern bool GetWindowRect(IntPtr window, out Rect rectangle);
           }
           "@
           $overlayWindow = [NativeWindowLookup]::FindWindow("NetworkSpeedLogger.TaskbarSpeed.$($process.Id)", $null)
           if ($overlayWindow -eq [IntPtr]::Zero) {
             throw "The taskbar speed overlay window was not created."
+          }
+
+          $taskbarWindow = [NativeWindowLookup]::FindWindow("Shell_TrayWnd", $null)
+          if ($taskbarWindow -eq [IntPtr]::Zero) {
+            throw "The primary taskbar window was not found."
+          }
+          $taskbarRect = New-Object NativeWindowLookup+Rect
+          if (-not [NativeWindowLookup]::GetWindowRect($taskbarWindow, [ref]$taskbarRect)) {
+            throw "Unable to read the primary taskbar position."
+          }
+
+          $alignmentPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+          New-Item -Force -Path $alignmentPath | Out-Null
+          $originalProperties = Get-ItemProperty -Path $alignmentPath -ErrorAction SilentlyContinue
+          $hadAlignment = $null -ne $originalProperties -and `
+            $originalProperties.PSObject.Properties.Name -contains "TaskbarAl"
+          $originalAlignment = if ($hadAlignment) { $originalProperties.TaskbarAl } else { $null }
+
+          try {
+            New-ItemProperty -Path $alignmentPath -Name TaskbarAl -Value 1 -PropertyType DWord -Force | Out-Null
+            Start-Sleep -Seconds 2
+            $leftRect = New-Object NativeWindowLookup+Rect
+            if (-not [NativeWindowLookup]::GetWindowRect($overlayWindow, [ref]$leftRect) -or
+                $leftRect.Left -ge $taskbarRect.Left + (($taskbarRect.Right - $taskbarRect.Left) / 4)) {
+              throw "Centered taskbar mode did not place the overlay on the left."
+            }
+
+            New-ItemProperty -Path $alignmentPath -Name TaskbarAl -Value 0 -PropertyType DWord -Force | Out-Null
+            Start-Sleep -Seconds 2
+            $rightRect = New-Object NativeWindowLookup+Rect
+            if (-not [NativeWindowLookup]::GetWindowRect($overlayWindow, [ref]$rightRect) -or
+                $rightRect.Left -le $taskbarRect.Left + (($taskbarRect.Right - $taskbarRect.Left) / 2)) {
+              throw "Left-aligned taskbar mode did not place the overlay on the right."
+            }
+
+            Remove-ItemProperty -Path $alignmentPath -Name TaskbarAl -ErrorAction SilentlyContinue
+            if ([Environment]::OSVersion.Version.Build -ge 22000) {
+              Start-Sleep -Seconds 2
+              $defaultRect = New-Object NativeWindowLookup+Rect
+              if (-not [NativeWindowLookup]::GetWindowRect($overlayWindow, [ref]$defaultRect) -or
+                  $defaultRect.Left -ge $taskbarRect.Left + (($taskbarRect.Right - $taskbarRect.Left) / 4)) {
+                throw "Windows 11's default centered taskbar was not placed on the left."
+              }
+            }
+          }
+          finally {
+            if ($hadAlignment) {
+              New-ItemProperty -Path $alignmentPath -Name TaskbarAl -Value $originalAlignment -PropertyType DWord -Force | Out-Null
+            } else {
+              Remove-ItemProperty -Path $alignmentPath -Name TaskbarAl -ErrorAction SilentlyContinue
+            }
           }
           Stop-Process -Id $process.Id -Force
 
@@ -217,22 +281,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.8.1 Windows pre-release
+          Network Speed Logger 0.8.2 Windows pre-release
 
-          - Adds an optional, non-interactive real-time download and upload speed display on the primary Windows taskbar
-          - Uses independent automatic or manual adapter selection and an independent sampling interval, defaulting to one second
-          - Supports Byte or bit units and automatically changes between B/K/M/G/T prefixes for readability
-          - Places the display on the left for centered taskbar buttons and on the right for left-aligned taskbar buttons
-          - Adapts text contrast to Windows light, dark, and high-contrast themes and avoids covering full-screen applications
+          - Fixes centered Windows 11 taskbars being mistaken for left-aligned when the TaskbarAl registry value has not been created
+          - Uses the live taskbar layout as a fallback before applying the operating system's default alignment
+          - Refreshes the taskbar speed typography with Segoe UI Variable Text on Windows 11, balanced sizing, medium weight, and a subtler shadow
+          - Retains the independent network adapter mode, sample interval, Byte/bit units, dynamic prefixes, theme adaptation, and full-screen hiding behavior
           - Includes the self-contained Windows x64 installer
 
           This pre-release contains the Windows client only. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown.
           EOF
           )
-          gh release create v0.8.1 \
+          gh release create v0.8.2 \
             artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.8.1" \
+            --title "v0.8.2" \
             --prerelease \
             --notes "$notes"

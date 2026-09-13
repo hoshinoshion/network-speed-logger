@@ -233,6 +233,7 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
     private const uint MonitorDefaultToNearest = 2;
     private const string TaskbarAlignmentPath = @"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced";
     private static readonly nint HwndTopmost = new(-1);
+    private static readonly bool Windows11OrLater = DetectWindows11OrLater();
     private static readonly WindowProcedureDelegate WindowProcedureInstance = WindowProcedure;
 
     private readonly string _className = "NetworkSpeedLogger.TaskbarSpeed." + Environment.ProcessId;
@@ -335,14 +336,13 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
             previousBitmap = SelectObject(memoryDc, bitmap);
             PatBlt(memoryDc, 0, 0, placement.Width, placement.Height, 0x00000042);
 
-            int pointSize = placement.Height >= ScaleDip(46, placement.Dpi) ? 9 : 8;
-            int fontHeight = -MulDiv(pointSize, (int)placement.Dpi, 72);
+            int fontHeight = -ScaleDip(12, placement.Dpi);
             font = CreateFontW(
                 fontHeight,
                 0,
                 0,
                 0,
-                600,
+                500,
                 0,
                 0,
                 0,
@@ -351,13 +351,13 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
                 ClipDefaultPrecis,
                 AntialiasedQuality,
                 DefaultPitch,
-                "Segoe UI");
+                Windows11OrLater ? "Segoe UI Variable Text" : "Segoe UI");
             if (font == 0) return;
             previousFont = SelectObject(memoryDc, font);
             SetBkMode(memoryDc, TransparentBackground);
             SetTextColor(memoryDc, 0x00FFFFFF);
 
-            int inset = ScaleDip(4, placement.Dpi);
+            int inset = ScaleDip(6, placement.Dpi);
             int rowHeight = placement.Height / 2;
             uint alignment = placement.AlignRight ? DtRight : placement.IsVertical ? DtCenter : 0;
             uint flags = DtSingleLine | DtVCenter | DtNoPrefix | alignment;
@@ -381,7 +381,7 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
                 ? new RgbColor(0, 0, 0)
                 : new RgbColor(255, 255, 255);
             var outputPixels = new int[pixelCount];
-            int shadowOffset = Math.Max(1, ScaleDip(1, placement.Dpi));
+            const int shadowOffset = 1;
             for (int y = 0; y < placement.Height; y++)
             {
                 for (int x = 0; x < placement.Width; x++)
@@ -390,7 +390,7 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
                     int textAlpha = alphaMask[index];
                     int shadowAlpha = 0;
                     if (x >= shadowOffset && y >= shadowOffset)
-                        shadowAlpha = alphaMask[(y - shadowOffset) * placement.Width + x - shadowOffset] * 72 / 255;
+                        shadowAlpha = alphaMask[(y - shadowOffset) * placement.Width + x - shadowOffset] * 36 / 255;
 
                     int remaining = 255 - textAlpha;
                     int outputAlpha = textAlpha + shadowAlpha * remaining / 255;
@@ -463,7 +463,7 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
 
         uint dpi = GetDpiForWindow(taskbar);
         if (dpi == 0) dpi = 96;
-        bool centeredTaskbar = IsTaskbarCentered();
+        bool centeredTaskbar = IsTaskbarCentered(taskbar, taskbarRect);
 
         if (horizontal)
         {
@@ -512,17 +512,57 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
         return true;
     }
 
-    private static bool IsTaskbarCentered()
+    private static bool IsTaskbarCentered(nint taskbar, NativeRect taskbarRect)
     {
         try
         {
             using RegistryKey? key = Registry.CurrentUser.OpenSubKey(TaskbarAlignmentPath);
-            return key?.GetValue("TaskbarAl") is int alignment && alignment == 1;
+            object? rawAlignment = key?.GetValue("TaskbarAl");
+            if (rawAlignment is int alignment) return alignment != 0;
         }
         catch
         {
-            return false;
+            // Fall through to the live layout and operating-system defaults.
         }
+
+        if (TryDetectCenteredTaskList(taskbar, taskbarRect, out bool centered)) return centered;
+
+        // Windows 11 defaults to centered buttons and may omit TaskbarAl until the
+        // user changes the setting. Windows 10 and earlier default to left alignment.
+        return Windows11OrLater;
+    }
+
+    private static bool TryDetectCenteredTaskList(nint taskbar, NativeRect taskbarRect, out bool centered)
+    {
+        centered = false;
+        nint taskList = FindTaskbarDescendant(taskbar, "MSTaskListWClass");
+        if (taskList == 0 || !GetWindowRect(taskList, out NativeRect taskListRect) || taskListRect.Width <= 0)
+            return false;
+
+        int taskbarCenter = taskbarRect.Left + taskbarRect.Width / 2;
+        int taskListCenter = taskListRect.Left + taskListRect.Width / 2;
+        int centerTolerance = Math.Max(1, taskbarRect.Width / 8);
+        if (Math.Abs(taskListCenter - taskbarCenter) <= centerTolerance &&
+            taskListRect.Left > taskbarRect.Left + taskbarRect.Width / 8)
+        {
+            centered = true;
+            return true;
+        }
+
+        // A task-list host can span most of the taskbar even when its visual
+        // buttons are centered, so only treat a clearly centered host as proof.
+        return false;
+    }
+
+    private static bool DetectWindows11OrLater()
+    {
+        var version = new OsVersionInfo
+        {
+            Size = (uint)Marshal.SizeOf<OsVersionInfo>(),
+            ServicePack = string.Empty
+        };
+        return RtlGetVersion(ref version) == 0 &&
+               (version.MajorVersion > 10 || version.MajorVersion == 10 && version.BuildNumber >= 22000);
     }
 
     private static bool IsFullscreenWindowOnMonitor(nint taskbar, NativeRect monitorRect)
@@ -725,6 +765,19 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
         public nint DefaultScheme;
     }
 
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct OsVersionInfo
+    {
+        public uint Size;
+        public uint MajorVersion;
+        public uint MinorVersion;
+        public uint BuildNumber;
+        public uint PlatformId;
+
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string ServicePack;
+    }
+
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     private static extern nint GetModuleHandleW(string? moduleName);
 
@@ -868,13 +921,13 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
         ref BlendFunction blend,
         uint flags);
 
-    [DllImport("kernel32.dll", ExactSpelling = true)]
-    private static extern int MulDiv(int number, int numerator, int denominator);
-
     [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SystemParametersInfoW(uint action, uint parameter, ref HighContrast data, uint update);
 
     [DllImport("user32.dll", ExactSpelling = true)]
     private static extern uint GetSysColor(int index);
+
+    [DllImport("ntdll.dll", ExactSpelling = true)]
+    private static extern int RtlGetVersion(ref OsVersionInfo versionInfo);
 }
