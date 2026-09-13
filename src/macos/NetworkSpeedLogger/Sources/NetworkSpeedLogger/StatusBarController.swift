@@ -34,6 +34,19 @@ final class StatusBarController: NSObject, ObservableObject {
         leaveStatusBarMode()
     }
 
+    func registerMainWindow(_ window: NSWindow) {
+        mainWindow = window
+        if isInStatusBarMode, window.isVisible {
+            leaveStatusBarMode()
+        }
+    }
+
+    func handleApplicationReopen() -> Bool {
+        guard isInStatusBarMode else { return false }
+        restoreMainWindow()
+        return true
+    }
+
     private func enterStatusBarMode() {
         if !isInStatusBarMode {
             isInStatusBarMode = true
@@ -301,6 +314,7 @@ struct MainWindowBridge: NSViewRepresentable {
         func attach(to view: NSView) {
             DispatchQueue.main.async { [weak self, weak view] in
                 guard let self, let window = view?.window else { return }
+                self.controller.registerMainWindow(window)
                 guard self.window !== window || window.delegate !== self.delegateProxy else { return }
 
                 self.detach()

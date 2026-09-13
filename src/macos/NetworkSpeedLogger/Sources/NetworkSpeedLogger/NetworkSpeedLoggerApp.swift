@@ -1,8 +1,24 @@
 import AppKit
 import SwiftUI
 
+@MainActor
+final class ApplicationDelegate: NSObject, NSApplicationDelegate {
+    weak var statusBarController: StatusBarController?
+
+    func applicationShouldHandleReopen(
+        _ sender: NSApplication,
+        hasVisibleWindows flag: Bool
+    ) -> Bool {
+        guard statusBarController?.handleApplicationReopen() == true else {
+            return true
+        }
+        return false
+    }
+}
+
 @main
 struct NetworkSpeedLoggerApp: App {
+    @NSApplicationDelegateAdaptor(ApplicationDelegate.self) private var applicationDelegate
     @StateObject private var settings = AppSettings()
     @StateObject private var monitor = NetworkMonitor()
     @StateObject private var updateChecker = UpdateChecker()
@@ -17,6 +33,9 @@ struct NetworkSpeedLoggerApp: App {
                 statusBarController: statusBarController
             )
                 .frame(minWidth: 1_040, minHeight: 700)
+                .onAppear {
+                    applicationDelegate.statusBarController = statusBarController
+                }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
                     monitor.stop(reason: .applicationQuit)
                 }

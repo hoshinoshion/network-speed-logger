@@ -1,17 +1,18 @@
-name: Pre-release v0.7.4 (macOS)
+name: Pre-release v0.7.5 (macOS)
 
 on:
   push:
     branches:
       - main
+      - fix/macos-system-reopen-0.7.5
   workflow_dispatch:
 
 permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.7.4
-  APP_BUILD_NUMBER: 26
+  APP_VERSION: 0.7.5
+  APP_BUILD_NUMBER: 27
 
 jobs:
   release-check:
@@ -20,12 +21,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.7.4 already exists
+      - name: Check whether v0.7.5 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.7.4 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.7.5 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -144,20 +145,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.7.4 macOS pre-release
+          Network Speed Logger 0.7.5 macOS pre-release
 
-          - Fixes stale menu-bar state when the application window is reopened from Launchpad or the Dock
-          - Removes the menu-bar icon and restores normal window behavior whenever the window is externally reopened
-          - Ensures Close and Command-W can always return an externally reopened window to the menu bar
+          - Handles Launchpad and Dock reopen requests at the macOS application lifecycle level
+          - Prevents SwiftUI from creating or restoring a second unsynchronized window while menu-bar mode is active
+          - Keeps the menu-bar icon, Dock state, and Close or Command-W behavior synchronized across repeated reopen cycles
           - Includes the Universal macOS DMG for Apple silicon and Intel Macs
 
           This pre-release contains the macOS client only. The application is ad-hoc signed, is not notarized, and may require Open Anyway in System Settings > Privacy & Security on first launch.
           EOF
           )
-          gh release create v0.7.4 \
+          gh release create v0.7.5 \
             artifacts/NetworkSpeedLogger.dmg \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.7.4" \
+            --title "v0.7.5" \
             --prerelease \
             --notes "$notes"
