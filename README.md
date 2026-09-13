@@ -138,7 +138,7 @@ Each sample is flushed to the CSV immediately, so completed data remains availab
 Install the current Xcode command-line tools, then run on macOS:
 
 ```sh
-bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.7.5 27
+bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.8.0 28
 ```
 
 The script builds `arm64` and `x86_64`, combines them into a Universal application, generates the icon, applies an ad-hoc signature, and creates `dist/NetworkSpeedLogger.dmg`. You can also open `src/macos/NetworkSpeedLogger/Package.swift` as a Swift package.

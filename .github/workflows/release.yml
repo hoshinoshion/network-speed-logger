@@ -1,17 +1,18 @@
-name: Pre-release v0.7.5 (macOS)
+name: Release v0.8.0
 
 on:
   push:
     branches:
       - main
+      - release/0.8.0
   workflow_dispatch:
 
 permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.7.5
-  APP_BUILD_NUMBER: 27
+  APP_VERSION: 0.8.0
+  APP_BUILD_NUMBER: 28
 
 jobs:
   release-check:
@@ -20,12 +21,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.7.5 already exists
+      - name: Check whether v0.8.0 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.7.5 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.8.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -124,12 +125,143 @@ jobs:
           path: dist/NetworkSpeedLogger.dmg
           if-no-files-found: error
 
+  build-windows:
+    needs: release-check
+    if: needs.release-check.outputs.exists != 'true'
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build Windows application
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          dotnet publish src\windows\NetworkSpeedLogger.WinUI\NetworkSpeedLogger.WinUI.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            -p:Platform=x64 `
+            -p:WindowsAppSDKSelfContained=true `
+            -p:Version=$env:APP_VERSION `
+            -p:AssemblyVersion=${env:APP_VERSION}.0 `
+            -p:FileVersion=${env:APP_VERSION}.0
+          if ($LASTEXITCODE -ne 0) {
+            throw "dotnet publish failed with exit code $LASTEXITCODE."
+          }
+
+          $app = Get-Item src\windows\NetworkSpeedLogger.WinUI\bin\x64\Release\net10.0-windows10.0.17763.0\win-x64\publish\NetworkSpeedLogger.exe
+          if (-not $app.VersionInfo.FileVersion.StartsWith($env:APP_VERSION)) {
+            throw "Unexpected application file version: $($app.VersionInfo.FileVersion)"
+          }
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+          $iscc = if ($null -ne $command) {
+            $command.Source
+          } else {
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
+
+          if (-not (Test-Path $iscc)) {
+            throw "ISCC.exe was not found."
+          }
+
+          & $iscc "/DAppVersion=$env:APP_VERSION" installer\windows\NetworkSpeedLogger.iss
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup failed with exit code $LASTEXITCODE."
+          }
+
+          $installer = Get-Item dist\NetworkSpeedLogger-Setup.exe
+          if ($installer.Length -lt 10MB) {
+            throw "The installer is unexpectedly small."
+          }
+
+      - name: Smoke-test installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $installer = (Resolve-Path dist\NetworkSpeedLogger-Setup.exe).Path
+          $installDir = Join-Path $env:RUNNER_TEMP "NetworkSpeedLogger-smoke"
+
+          $installProcess = Start-Process $installer `
+            -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$installDir") `
+            -Wait -PassThru
+          if ($installProcess.ExitCode -ne 0) {
+            throw "Silent installation failed with exit code $($installProcess.ExitCode)."
+          }
+
+          $requiredFiles = @(
+            "NetworkSpeedLogger.exe",
+            "NetworkSpeedLogger.dll",
+            "NetworkSpeedLogger.pri",
+            "NetworkSpeedLogger.ico",
+            "Microsoft.ui.xaml.dll",
+            "Microsoft.WindowsAppRuntime.dll"
+          )
+          foreach ($file in $requiredFiles) {
+            if (-not (Test-Path (Join-Path $installDir $file))) {
+              throw "Installed payload is missing $file."
+            }
+          }
+
+          $app = Get-Item (Join-Path $installDir "NetworkSpeedLogger.exe")
+          if (-not $app.VersionInfo.FileVersion.StartsWith($env:APP_VERSION)) {
+            throw "Unexpected installed application file version: $($app.VersionInfo.FileVersion)"
+          }
+
+          $process = Start-Process $app.FullName -PassThru
+          Start-Sleep -Seconds 8
+          if ($process.HasExited) {
+            $crashLog = Join-Path $env:LOCALAPPDATA "NetworkSpeedLogger\crash.log"
+            if (Test-Path $crashLog) {
+              Write-Host "Application crash log:"
+              Get-Content $crashLog
+            }
+            Write-Host "Recent Windows application events:"
+            Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = (Get-Date).AddMinutes(-3) } `
+              -ErrorAction SilentlyContinue |
+              Where-Object { $_.Message -match "NetworkSpeedLogger" } |
+              Select-Object -First 10 TimeCreated, Id, ProviderName, LevelDisplayName, Message |
+              Format-List | Out-String | Write-Host
+            throw "The installed application exited during the startup smoke test with code $($process.ExitCode)."
+          }
+          Stop-Process -Id $process.Id -Force
+
+          $uninstaller = Join-Path $installDir "unins000.exe"
+          $uninstallProcess = Start-Process $uninstaller `
+            -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART") `
+            -Wait -PassThru
+          if ($uninstallProcess.ExitCode -ne 0) {
+            throw "Silent uninstall failed with exit code $($uninstallProcess.ExitCode)."
+          }
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/NetworkSpeedLogger-Setup.exe
+          if-no-files-found: error
+
   publish:
-    needs: [release-check, build-macos]
+    needs: [release-check, build-macos, build-windows]
     if: >-
       github.ref == 'refs/heads/main' &&
       needs.release-check.outputs.exists != 'true' &&
-      needs.build-macos.result == 'success'
+      needs.build-macos.result == 'success' &&
+      needs.build-windows.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
@@ -139,25 +271,46 @@ jobs:
           name: macos-release
           path: artifacts
 
+      - name: Download Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-installer
+          path: artifacts
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.7.5 macOS pre-release
+          Network Speed Logger 0.8.0
 
-          - Handles Launchpad and Dock reopen requests at the macOS application lifecycle level
-          - Prevents SwiftUI from creating or restoring a second unsynchronized window while menu-bar mode is active
-          - Keeps the menu-bar icon, Dock state, and Close or Command-W behavior synchronized across repeated reopen cycles
-          - Includes the Universal macOS DMG for Apple silicon and Intel Macs
+          - Adds optional Windows notification-area mode with background recording, a brief system notification, and Start, Stop, and Exit controls
+          - Adds optional macOS menu-bar mode with background recording, an adaptive two-arrow icon, and Start, Stop, and Quit controls
+          - Preserves correct Dock, menu-bar, Close, Command-W, and system reopen behavior across repeated macOS window cycles
+          - Includes the Universal macOS DMG for Apple silicon and Intel Macs and the self-contained Windows x64 installer
 
-          This pre-release contains the macOS client only. The application is ad-hoc signed, is not notarized, and may require Open Anyway in System Settings > Privacy & Security on first launch.
+          The macOS application is ad-hoc signed and is not notarized. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown. Follow the README instructions if macOS Gatekeeper blocks the first launch.
           EOF
           )
-          gh release create v0.7.5 \
+          gh release create v0.8.0 \
             artifacts/NetworkSpeedLogger.dmg \
+            artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.7.5" \
-            --prerelease \
+            --title "v0.8.0" \
             --notes "$notes"
+
+      - name: Delete previous pre-releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.prerelease == true) | .tag_name' |
+          while IFS= read -r tag; do
+            if [[ -n "$tag" ]]; then
+              gh release delete "$tag" \
+                --repo "$GITHUB_REPOSITORY" \
+                --cleanup-tag \
+                --yes
+            fi
+          done
