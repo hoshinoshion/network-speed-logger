@@ -1,4 +1,4 @@
-name: Pre-release v0.8.3 (Windows)
+name: Pre-release v0.8.4 (Windows)
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.8.3
+  APP_VERSION: 0.8.4
 
 jobs:
   release-check:
@@ -19,12 +19,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.8.3 already exists
+      - name: Check whether v0.8.4 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.8.3 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.8.4 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -187,6 +187,14 @@ jobs:
               [DllImport("user32.dll")]
               [return: MarshalAs(UnmanagedType.Bool)]
               public static extern bool GetWindowRect(IntPtr window, out Rect rectangle);
+
+              [DllImport("user32.dll")]
+              [return: MarshalAs(UnmanagedType.Bool)]
+              public static extern bool IsWindowVisible(IntPtr window);
+
+              [DllImport("user32.dll")]
+              [return: MarshalAs(UnmanagedType.Bool)]
+              public static extern bool SetForegroundWindow(IntPtr window);
           }
           "@
           $overlayWindow = [NativeWindowLookup]::FindWindow("NetworkSpeedLogger.TaskbarSpeed.$($process.Id)", $null)
@@ -201,6 +209,24 @@ jobs:
           $taskbarRect = New-Object NativeWindowLookup+Rect
           if (-not [NativeWindowLookup]::GetWindowRect($taskbarWindow, [ref]$taskbarRect)) {
             throw "Unable to read the primary taskbar position."
+          }
+
+          $desktopWindow = [NativeWindowLookup]::FindWindow("Progman", $null)
+          if ($desktopWindow -ne [IntPtr]::Zero) {
+            $desktopFocused = [NativeWindowLookup]::SetForegroundWindow($desktopWindow)
+            if ($desktopFocused) {
+              Start-Sleep -Seconds 2
+              if (-not [NativeWindowLookup]::IsWindowVisible($overlayWindow)) {
+                throw "The overlay disappeared when the desktop received focus."
+              }
+            }
+          }
+
+          if ([NativeWindowLookup]::SetForegroundWindow($taskbarWindow)) {
+            Start-Sleep -Seconds 2
+            if (-not [NativeWindowLookup]::IsWindowVisible($overlayWindow)) {
+              throw "The overlay disappeared when the taskbar received focus."
+            }
           }
 
           $alignmentPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
@@ -219,6 +245,9 @@ jobs:
                 $leftRect.Left -ge $taskbarRect.Left + (($taskbarRect.Right - $taskbarRect.Left) / 2)) {
               throw "Centered taskbar mode did not place the overlay after the Widgets area on the left."
             }
+            if (-not [NativeWindowLookup]::IsWindowVisible($overlayWindow)) {
+              throw "The overlay disappeared while testing centered taskbar mode."
+            }
 
             New-ItemProperty -Path $alignmentPath -Name TaskbarAl -Value 0 -PropertyType DWord -Force | Out-Null
             Start-Sleep -Seconds 2
@@ -226,6 +255,9 @@ jobs:
             if (-not [NativeWindowLookup]::GetWindowRect($overlayWindow, [ref]$rightRect) -or
                 $rightRect.Left -le $taskbarRect.Left + (($taskbarRect.Right - $taskbarRect.Left) / 2)) {
               throw "Left-aligned taskbar mode did not place the overlay on the right."
+            }
+            if (-not [NativeWindowLookup]::IsWindowVisible($overlayWindow)) {
+              throw "The overlay disappeared while testing left-aligned taskbar mode."
             }
 
             Remove-ItemProperty -Path $alignmentPath -Name TaskbarAl -ErrorAction SilentlyContinue
@@ -236,6 +268,9 @@ jobs:
                   $defaultRect.Left -le $taskbarRect.Left + 100 -or
                   $defaultRect.Left -ge $taskbarRect.Left + (($taskbarRect.Right - $taskbarRect.Left) / 2)) {
                 throw "Windows 11's default centered taskbar was not placed after the Widgets area on the left."
+              }
+              if (-not [NativeWindowLookup]::IsWindowVisible($overlayWindow)) {
+                throw "The overlay disappeared while testing Windows 11's default taskbar mode."
               }
             }
           }
@@ -283,20 +318,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.8.3 Windows pre-release
+          Network Speed Logger 0.8.4 Windows pre-release
 
-          - Places the speed display immediately to the right of the Windows Widgets area when Start and app buttons are centered
-          - Detects visible taskbar controls at the left edge and keeps a DPI-aware safety reserve when their exact bounds are unavailable
-          - Retains left-aligned taskbar placement before the notification area, modern typography, independent sampling settings, theme adaptation, and full-screen hiding behavior
+          - Fixes the taskbar speed display briefly disappearing when Start, taskbar controls, desktop items, or ordinary application windows receive focus
+          - Uses the Windows Shell notification state instead of raw foreground-window bounds to identify genuine full-screen applications, and immediately restores overlay z-order after focus changes
+          - Shows upload on the first row and download on the second, with both rows moved slightly toward the vertical center to match the taskbar clock layout
+          - Retains Widgets-area avoidance, modern typography, independent sampling settings, theme adaptation, and full-screen hiding behavior
           - Includes the self-contained Windows x64 installer
 
           This pre-release contains the Windows client only. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown.
           EOF
           )
-          gh release create v0.8.3 \
+          gh release create v0.8.4 \
             artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.8.3" \
+            --title "v0.8.4" \
             --prerelease \
             --notes "$notes"
