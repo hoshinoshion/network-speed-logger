@@ -34,6 +34,9 @@ public sealed class TaskbarSpeedSettings
     [JsonPropertyName("speedUnit")]
     public string SpeedUnit { get; set; } = "Byte";
 
+    [JsonPropertyName("singleLine")]
+    public bool SingleLine { get; set; }
+
     [JsonPropertyName("manualMode")]
     public bool ManualMode { get; set; }
 
@@ -45,6 +48,7 @@ public sealed class TaskbarSpeedSettings
         Enabled = Enabled,
         SampleIntervalSeconds = SampleIntervalSeconds,
         SpeedUnit = SpeedUnit,
+        SingleLine = SingleLine,
         ManualMode = ManualMode,
         SelectedAdapterIds = [.. SelectedAdapterIds]
     };
@@ -53,7 +57,7 @@ public sealed class TaskbarSpeedSettings
 public sealed class AppSettingsData
 {
     [JsonPropertyName("schemaVersion")]
-    public int SchemaVersion { get; set; } = 4;
+    public int SchemaVersion { get; set; } = 5;
 
     [JsonPropertyName("language")]
     public string Language { get; set; } = "Auto";
@@ -207,7 +211,7 @@ public static class AppSettingsStore
     private static void Normalize(AppSettingsData settings)
     {
         AppSettingsData builtIn = CreateDefaults();
-        settings.SchemaVersion = 4;
+        settings.SchemaVersion = 5;
         if (!IsValidLanguage(settings.Language)) settings.Language = builtIn.Language;
         if (!IsValidTheme(settings.Theme)) settings.Theme = builtIn.Theme;
         settings.OutputFolder = (settings.OutputFolder ?? string.Empty).Trim();

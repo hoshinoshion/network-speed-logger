@@ -164,7 +164,8 @@ internal sealed class TaskbarSpeedService : IDisposable
     {
         _overlay?.Update(
             "↑ " + TaskbarSpeedFormatter.Format(_uploadBytesPerSecond, _settings.SpeedUnit),
-            "↓ " + TaskbarSpeedFormatter.Format(_downloadBytesPerSecond, _settings.SpeedUnit));
+            "↓ " + TaskbarSpeedFormatter.Format(_downloadBytesPerSecond, _settings.SpeedUnit),
+            _settings.SingleLine);
     }
 }
 
@@ -236,6 +237,9 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
     private const uint MonitorDefaultToNearest = 2;
     private const int CenteredTaskbarLeftReserveDip = 184;
     private const int TaskbarControlGapDip = 8;
+    private const int TwoLineWidthDip = 164;
+    private const int SingleLineWidthDip = 260;
+    private const int SingleLineGapDip = 20;
     private const string TaskbarAlignmentPath = @"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced";
     private static readonly nint HwndTopmost = new(-1);
     private static readonly bool Windows11OrLater = DetectWindows11OrLater();
@@ -296,7 +300,7 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
             WinEventOutOfContext | WinEventSkipOwnProcess);
     }
 
-    public void Update(string topText, string bottomText)
+    public void Update(string topText, string bottomText, bool singleLine)
     {
         if (_disposed || _windowHandle == 0) return;
         if (ShouldHideForFullscreen())
@@ -304,13 +308,13 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
             Hide();
             return;
         }
-        if (!TryGetPlacement(out TaskbarPlacement placement))
+        if (!TryGetPlacement(singleLine, out TaskbarPlacement placement))
         {
             Hide();
             return;
         }
 
-        Render(topText, bottomText, placement);
+        Render(topText, bottomText, singleLine, placement);
     }
 
     private bool ShouldHideForFullscreen()
@@ -373,7 +377,7 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
             SwpNoMove | SwpNoSize | SwpNoActivate);
     }
 
-    private void Render(string topText, string bottomText, TaskbarPlacement placement)
+    private void Render(string topText, string bottomText, bool singleLine, TaskbarPlacement placement)
     {
         nint screenDc = GetDC(0);
         if (screenDc == 0) return;
@@ -424,19 +428,36 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
             SetTextColor(memoryDc, 0x00FFFFFF);
 
             int inset = ScaleDip(6, placement.Dpi);
-            int verticalInset = Math.Min(ScaleDip(3, placement.Dpi), Math.Max(0, (placement.Height - 2) / 4));
-            int contentHeight = Math.Max(2, placement.Height - verticalInset * 2);
-            int rowHeight = contentHeight / 2;
-            uint alignment = placement.AlignRight ? DtRight : placement.IsVertical ? DtCenter : 0;
-            uint flags = DtSingleLine | DtVCenter | DtNoPrefix | alignment;
-            var topRect = new NativeRect(inset, verticalInset, placement.Width - inset, verticalInset + rowHeight);
-            var bottomRect = new NativeRect(
-                inset,
-                verticalInset + rowHeight,
-                placement.Width - inset,
-                placement.Height - verticalInset);
-            DrawTextW(memoryDc, topText, -1, ref topRect, flags);
-            DrawTextW(memoryDc, bottomText, -1, ref bottomRect, flags);
+            uint baseFlags = DtSingleLine | DtVCenter | DtNoPrefix;
+            if (singleLine && !placement.IsVertical)
+            {
+                int gap = ScaleDip(SingleLineGapDip, placement.Dpi);
+                int middle = placement.Width / 2;
+                var uploadRect = new NativeRect(inset, 0, middle - gap / 2, placement.Height);
+                var downloadRect = new NativeRect(
+                    middle + (gap + 1) / 2,
+                    0,
+                    placement.Width - inset,
+                    placement.Height);
+                DrawTextW(memoryDc, topText, -1, ref uploadRect, baseFlags | DtRight);
+                DrawTextW(memoryDc, bottomText, -1, ref downloadRect, baseFlags);
+            }
+            else
+            {
+                uint alignment = placement.AlignRight ? DtRight : placement.IsVertical ? DtCenter : 0;
+                uint flags = baseFlags | alignment;
+                int verticalInset = Math.Min(ScaleDip(3, placement.Dpi), Math.Max(0, (placement.Height - 2) / 4));
+                int contentHeight = Math.Max(2, placement.Height - verticalInset * 2);
+                int rowHeight = contentHeight / 2;
+                var topRect = new NativeRect(inset, verticalInset, placement.Width - inset, verticalInset + rowHeight);
+                var bottomRect = new NativeRect(
+                    inset,
+                    verticalInset + rowHeight,
+                    placement.Width - inset,
+                    placement.Height - verticalInset);
+                DrawTextW(memoryDc, topText, -1, ref topRect, flags);
+                DrawTextW(memoryDc, bottomText, -1, ref bottomRect, flags);
+            }
 
             int pixelCount = checked(placement.Width * placement.Height);
             var sourcePixels = new int[pixelCount];
@@ -515,7 +536,7 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
         }
     }
 
-    private static bool TryGetPlacement(out TaskbarPlacement placement)
+    private static bool TryGetPlacement(bool singleLine, out TaskbarPlacement placement)
     {
         placement = default;
         nint taskbar = FindWindowW("Shell_TrayWnd", null);
@@ -537,7 +558,8 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
 
         if (horizontal)
         {
-            int width = Math.Min(ScaleDip(164, dpi), Math.Max(1, taskbarRect.Width - ScaleDip(16, dpi)));
+            int preferredWidth = singleLine ? SingleLineWidthDip : TwoLineWidthDip;
+            int width = Math.Min(ScaleDip(preferredWidth, dpi), Math.Max(1, taskbarRect.Width - ScaleDip(16, dpi)));
             int height = Math.Min(ScaleDip(42, dpi), Math.Max(1, taskbarRect.Height - ScaleDip(2, dpi)));
             int x;
             bool alignRight;

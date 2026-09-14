@@ -1,4 +1,4 @@
-name: Pre-release v0.8.4 (Windows)
+name: Pre-release v0.8.5 (Windows)
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.8.4
+  APP_VERSION: 0.8.5
 
 jobs:
   release-check:
@@ -19,12 +19,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.8.4 already exists
+      - name: Check whether v0.8.5 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.8.4 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.8.5 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -130,7 +130,7 @@ jobs:
           $settingsDir = Join-Path $env:LOCALAPPDATA "NetworkSpeedLogger"
           New-Item -ItemType Directory -Force -Path $settingsDir | Out-Null
           @{
-            schemaVersion = 4
+            schemaVersion = 5
             language = "en-US"
             theme = "Auto"
             outputFolder = $env:RUNNER_TEMP
@@ -140,6 +140,7 @@ jobs:
               enabled = $true
               sampleIntervalSeconds = 1
               speedUnit = "Byte"
+              singleLine = $true
               manualMode = $false
               selectedAdapterIds = @()
             }
@@ -200,6 +201,11 @@ jobs:
           $overlayWindow = [NativeWindowLookup]::FindWindow("NetworkSpeedLogger.TaskbarSpeed.$($process.Id)", $null)
           if ($overlayWindow -eq [IntPtr]::Zero) {
             throw "The taskbar speed overlay window was not created."
+          }
+          $singleLineRect = New-Object NativeWindowLookup+Rect
+          if (-not [NativeWindowLookup]::GetWindowRect($overlayWindow, [ref]$singleLineRect) -or
+              $singleLineRect.Right - $singleLineRect.Left -lt 200) {
+            throw "The single-line taskbar speed layout did not use the expected wider overlay."
           }
 
           $taskbarWindow = [NativeWindowLookup]::FindWindow("Shell_TrayWnd", $null)
@@ -318,21 +324,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.8.4 Windows pre-release
+          Network Speed Logger 0.8.5 Windows pre-release
 
-          - Fixes the taskbar speed display briefly disappearing when Start, taskbar controls, desktop items, or ordinary application windows receive focus
-          - Uses the Windows Shell notification state instead of raw foreground-window bounds to identify genuine full-screen applications, and immediately restores overlay z-order after focus changes
-          - Shows upload on the first row and download on the second, with both rows moved slightly toward the vertical center to match the taskbar clock layout
-          - Retains Widgets-area avoidance, modern typography, independent sampling settings, theme adaptation, and full-screen hiding behavior
+          - Adds an optional single-line taskbar speed layout in Windows Settings while retaining the current two-line layout by default
+          - Shows upload followed by download from left to right in single-line mode, with a wider overlay and comfortable spacing between the values
+          - Preserves independent sampling settings, Widgets-area avoidance, modern typography, focus stability, theme adaptation, and full-screen hiding behavior
           - Includes the self-contained Windows x64 installer
 
           This pre-release contains the Windows client only. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown.
           EOF
           )
-          gh release create v0.8.4 \
+          gh release create v0.8.5 \
             artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.8.4" \
+            --title "v0.8.5" \
             --prerelease \
             --notes "$notes"
