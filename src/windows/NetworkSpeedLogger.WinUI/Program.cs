@@ -10,6 +10,7 @@ public static class Program
 {
     private const string InstanceKey = "NetworkSpeedLogger.Main";
     private static nint _redirectEventHandle;
+    private static App? _app;
 
     [STAThread]
     public static int Main(string[] args)
@@ -22,7 +23,7 @@ public static class Program
             var context = new DispatcherQueueSynchronizationContext(
                 DispatcherQueue.GetForCurrentThread());
             SynchronizationContext.SetSynchronizationContext(context);
-            _ = new App();
+            _app = new App();
         });
 
         return 0;
