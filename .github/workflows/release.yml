@@ -1,4 +1,4 @@
-name: Pre-release v0.8.7 (Windows)
+name: Pre-release v0.8.8 (Windows)
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.8.7
+  APP_VERSION: 0.8.8
 
 jobs:
   release-check:
@@ -19,12 +19,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.8.7 already exists
+      - name: Check whether v0.8.8 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.8.7 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.8.8 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -372,22 +372,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.8.7 Windows pre-release
+          Network Speed Logger 0.8.8 Windows pre-release
 
-          - Keeps the taskbar speed display present while opening applications or interacting with Start, notification panels, the tray, and the desktop
-          - Anchors the non-interactive overlay to the primary taskbar as an owned window instead of relying on an independent global topmost window
-          - Removes foreground-window full-screen guesses that could hide the overlay during ordinary Windows Shell interactions
-          - Uses regular-weight single-line typography with a lighter shadow for a cleaner, more refined appearance
-          - Preserves layout selection, independent sampling settings, Widgets-area avoidance, and theme adaptation
+          - Refines single-line text with 4x grayscale supersampling for smoother glyph edges at taskbar size
+          - Uses Windows 11's Segoe UI Variable Text face at regular weight, with Segoe UI fallback on Windows 10
+          - Removes the single-line drop shadow for a flatter appearance consistent with built-in taskbar components
+          - Preserves the current 15 DIP single-line size, comfortable upload/download spacing, and all taskbar visibility fixes
+          - Preserves layout selection, independent sampling settings, Widgets-area avoidance, and light/dark/high-contrast adaptation
           - Includes the self-contained Windows x64 installer
 
           This pre-release contains the Windows client only. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown.
           EOF
           )
-          gh release create v0.8.7 \
+          gh release create v0.8.8 \
             artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.8.7" \
+            --title "v0.8.8" \
             --prerelease \
             --notes "$notes"

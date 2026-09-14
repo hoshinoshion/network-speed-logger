@@ -244,6 +244,7 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
     private const int SingleLineGapDip = 18;
     private const int TwoLineFontSizeDip = 12;
     private const int SingleLineFontSizeDip = 15;
+    private const int SingleLineRenderScale = 4;
     private const string TaskbarAlignmentPath = @"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced";
     private static readonly nint HwndTop = 0;
     private static readonly bool Windows11OrLater = DetectWindows11OrLater();
@@ -386,36 +387,47 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
     {
         nint screenDc = GetDC(0);
         if (screenDc == 0) return;
-        nint memoryDc = CreateCompatibleDC(screenDc);
-        nint bitmap = 0;
-        nint previousBitmap = 0;
+        nint renderDc = CreateCompatibleDC(screenDc);
+        nint renderBitmap = 0;
+        nint previousRenderBitmap = 0;
+        nint outputDc = 0;
+        nint outputBitmap = 0;
+        nint previousOutputBitmap = 0;
         nint font = 0;
         nint previousFont = 0;
 
         try
         {
-            var bitmapInfo = new BitmapInfo
+            if (renderDc == 0) return;
+
+            bool refinedSingleLine = singleLine && !placement.IsVertical;
+            // Layered windows need grayscale alpha instead of ClearType color fringes. Render the
+            // taskbar-sized line at higher resolution, then average coverage back to device pixels.
+            int renderScale = refinedSingleLine ? SingleLineRenderScale : 1;
+            int renderWidth = checked(placement.Width * renderScale);
+            int renderHeight = checked(placement.Height * renderScale);
+            var renderBitmapInfo = new BitmapInfo
             {
                 Header = new BitmapInfoHeader
                 {
                     Size = (uint)Marshal.SizeOf<BitmapInfoHeader>(),
-                    Width = placement.Width,
-                    Height = -placement.Height,
+                    Width = renderWidth,
+                    Height = -renderHeight,
                     Planes = 1,
                     BitCount = 32,
                     Compression = BiRgb
                 }
             };
-            bitmap = CreateDIBSection(memoryDc, ref bitmapInfo, DibRgbColors, out nint bits, 0, 0);
-            if (bitmap == 0 || bits == 0) return;
-            previousBitmap = SelectObject(memoryDc, bitmap);
-            PatBlt(memoryDc, 0, 0, placement.Width, placement.Height, 0x00000042);
+            renderBitmap = CreateDIBSection(renderDc, ref renderBitmapInfo, DibRgbColors, out nint renderBits, 0, 0);
+            if (renderBitmap == 0 || renderBits == 0) return;
+            previousRenderBitmap = SelectObject(renderDc, renderBitmap);
+            PatBlt(renderDc, 0, 0, renderWidth, renderHeight, 0x00000042);
 
-            int fontSizeDip = singleLine && !placement.IsVertical
+            int fontSizeDip = refinedSingleLine
                 ? SingleLineFontSizeDip
                 : TwoLineFontSizeDip;
-            int fontHeight = -ScaleDip(fontSizeDip, placement.Dpi);
-            int fontWeight = singleLine && !placement.IsVertical ? 400 : 500;
+            int fontHeight = -checked(ScaleDip(fontSizeDip, placement.Dpi) * renderScale);
+            int fontWeight = refinedSingleLine ? 400 : 500;
             font = CreateFontW(
                 fontHeight,
                 0,
@@ -432,53 +444,85 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
                 DefaultPitch,
                 Windows11OrLater ? "Segoe UI Variable Text" : "Segoe UI");
             if (font == 0) return;
-            previousFont = SelectObject(memoryDc, font);
-            SetBkMode(memoryDc, TransparentBackground);
-            SetTextColor(memoryDc, 0x00FFFFFF);
+            previousFont = SelectObject(renderDc, font);
+            SetBkMode(renderDc, TransparentBackground);
+            SetTextColor(renderDc, 0x00FFFFFF);
 
-            int inset = ScaleDip(6, placement.Dpi);
+            int inset = checked(ScaleDip(6, placement.Dpi) * renderScale);
             uint baseFlags = DtSingleLine | DtVCenter | DtNoPrefix;
-            if (singleLine && !placement.IsVertical)
+            if (refinedSingleLine)
             {
-                int gap = ScaleDip(SingleLineGapDip, placement.Dpi);
-                int uploadWidth = MeasureTextWidth(memoryDc, topText);
+                int gap = checked(ScaleDip(SingleLineGapDip, placement.Dpi) * renderScale);
+                int uploadWidth = MeasureTextWidth(renderDc, topText);
                 int downloadLeft = Math.Min(
-                    placement.Width - inset,
+                    renderWidth - inset,
                     inset + uploadWidth + gap);
-                var uploadRect = new NativeRect(inset, 0, placement.Width - inset, placement.Height);
+                var uploadRect = new NativeRect(inset, 0, renderWidth - inset, renderHeight);
                 var downloadRect = new NativeRect(
                     downloadLeft,
                     0,
-                    placement.Width - inset,
-                    placement.Height);
-                DrawTextW(memoryDc, topText, -1, ref uploadRect, baseFlags);
-                DrawTextW(memoryDc, bottomText, -1, ref downloadRect, baseFlags);
+                    renderWidth - inset,
+                    renderHeight);
+                DrawTextW(renderDc, topText, -1, ref uploadRect, baseFlags);
+                DrawTextW(renderDc, bottomText, -1, ref downloadRect, baseFlags);
             }
             else
             {
                 uint alignment = placement.AlignRight ? DtRight : placement.IsVertical ? DtCenter : 0;
                 uint flags = baseFlags | alignment;
-                int verticalInset = Math.Min(ScaleDip(3, placement.Dpi), Math.Max(0, (placement.Height - 2) / 4));
-                int contentHeight = Math.Max(2, placement.Height - verticalInset * 2);
+                int verticalInset = Math.Min(
+                    checked(ScaleDip(3, placement.Dpi) * renderScale),
+                    Math.Max(0, (renderHeight - 2) / 4));
+                int contentHeight = Math.Max(2, renderHeight - verticalInset * 2);
                 int rowHeight = contentHeight / 2;
-                var topRect = new NativeRect(inset, verticalInset, placement.Width - inset, verticalInset + rowHeight);
+                var topRect = new NativeRect(inset, verticalInset, renderWidth - inset, verticalInset + rowHeight);
                 var bottomRect = new NativeRect(
                     inset,
                     verticalInset + rowHeight,
-                    placement.Width - inset,
-                    placement.Height - verticalInset);
-                DrawTextW(memoryDc, topText, -1, ref topRect, flags);
-                DrawTextW(memoryDc, bottomText, -1, ref bottomRect, flags);
+                    renderWidth - inset,
+                    renderHeight - verticalInset);
+                DrawTextW(renderDc, topText, -1, ref topRect, flags);
+                DrawTextW(renderDc, bottomText, -1, ref bottomRect, flags);
+            }
+
+            int renderPixelCount = checked(renderWidth * renderHeight);
+            var sourcePixels = new int[renderPixelCount];
+            var sourceAlpha = new byte[renderPixelCount];
+            Marshal.Copy(renderBits, sourcePixels, 0, renderPixelCount);
+            for (int index = 0; index < renderPixelCount; index++)
+            {
+                int pixel = sourcePixels[index];
+                sourceAlpha[index] = (byte)Math.Max(
+                    pixel & 0xFF,
+                    Math.Max((pixel >> 8) & 0xFF, (pixel >> 16) & 0xFF));
             }
 
             int pixelCount = checked(placement.Width * placement.Height);
-            var sourcePixels = new int[pixelCount];
             var alphaMask = new byte[pixelCount];
-            Marshal.Copy(bits, sourcePixels, 0, pixelCount);
-            for (int index = 0; index < pixelCount; index++)
+            if (renderScale == 1)
             {
-                int pixel = sourcePixels[index];
-                alphaMask[index] = (byte)Math.Max(pixel & 0xFF, Math.Max((pixel >> 8) & 0xFF, (pixel >> 16) & 0xFF));
+                Buffer.BlockCopy(sourceAlpha, 0, alphaMask, 0, pixelCount);
+            }
+            else
+            {
+                int sampleCount = renderScale * renderScale;
+                int rounding = sampleCount / 2;
+                for (int y = 0; y < placement.Height; y++)
+                {
+                    int sourceTop = y * renderScale;
+                    for (int x = 0; x < placement.Width; x++)
+                    {
+                        int sourceLeft = x * renderScale;
+                        int coverage = 0;
+                        for (int sampleY = 0; sampleY < renderScale; sampleY++)
+                        {
+                            int sourceIndex = (sourceTop + sampleY) * renderWidth + sourceLeft;
+                            for (int sampleX = 0; sampleX < renderScale; sampleX++)
+                                coverage += sourceAlpha[sourceIndex + sampleX];
+                        }
+                        alphaMask[y * placement.Width + x] = (byte)((coverage + rounding) / sampleCount);
+                    }
+                }
             }
 
             RgbColor foreground = ResolveForegroundColor();
@@ -487,7 +531,7 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
                 : new RgbColor(255, 255, 255);
             var outputPixels = new int[pixelCount];
             const int shadowOffset = 1;
-            int shadowStrength = singleLine && !placement.IsVertical ? 18 : 36;
+            int shadowStrength = refinedSingleLine ? 0 : 36;
             for (int y = 0; y < placement.Height; y++)
             {
                 for (int x = 0; x < placement.Width; x++)
@@ -506,7 +550,25 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
                     outputPixels[index] = blue | (green << 8) | (red << 16) | (outputAlpha << 24);
                 }
             }
-            Marshal.Copy(outputPixels, 0, bits, pixelCount);
+
+            outputDc = CreateCompatibleDC(screenDc);
+            if (outputDc == 0) return;
+            var outputBitmapInfo = new BitmapInfo
+            {
+                Header = new BitmapInfoHeader
+                {
+                    Size = (uint)Marshal.SizeOf<BitmapInfoHeader>(),
+                    Width = placement.Width,
+                    Height = -placement.Height,
+                    Planes = 1,
+                    BitCount = 32,
+                    Compression = BiRgb
+                }
+            };
+            outputBitmap = CreateDIBSection(outputDc, ref outputBitmapInfo, DibRgbColors, out nint outputBits, 0, 0);
+            if (outputBitmap == 0 || outputBits == 0) return;
+            previousOutputBitmap = SelectObject(outputDc, outputBitmap);
+            Marshal.Copy(outputPixels, 0, outputBits, pixelCount);
 
             var destination = new NativePoint(placement.X, placement.Y);
             var source = new NativePoint(0, 0);
@@ -522,7 +584,7 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
                     screenDc,
                     ref destination,
                     ref size,
-                    memoryDc,
+                    outputDc,
                     ref source,
                     0,
                     ref blend,
@@ -540,11 +602,14 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
         }
         finally
         {
-            if (previousFont != 0) SelectObject(memoryDc, previousFont);
+            if (previousFont != 0) SelectObject(renderDc, previousFont);
             if (font != 0) DeleteObject(font);
-            if (previousBitmap != 0) SelectObject(memoryDc, previousBitmap);
-            if (bitmap != 0) DeleteObject(bitmap);
-            if (memoryDc != 0) DeleteDC(memoryDc);
+            if (previousRenderBitmap != 0) SelectObject(renderDc, previousRenderBitmap);
+            if (renderBitmap != 0) DeleteObject(renderBitmap);
+            if (previousOutputBitmap != 0) SelectObject(outputDc, previousOutputBitmap);
+            if (outputBitmap != 0) DeleteObject(outputBitmap);
+            if (outputDc != 0) DeleteDC(outputDc);
+            if (renderDc != 0) DeleteDC(renderDc);
             ReleaseDC(0, screenDc);
         }
     }
