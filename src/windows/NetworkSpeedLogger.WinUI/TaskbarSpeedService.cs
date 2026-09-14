@@ -244,7 +244,7 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
     private const int SingleLineGapDip = 18;
     private const int TwoLineFontSizeDip = 12;
     private const int SingleLineFontSizeDip = 15;
-    private const int SingleLineRenderScale = 4;
+    private const int TextRenderScale = 4;
     private const string TaskbarAlignmentPath = @"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced";
     private static readonly nint HwndTop = 0;
     private static readonly bool Windows11OrLater = DetectWindows11OrLater();
@@ -400,10 +400,10 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
         {
             if (renderDc == 0) return;
 
-            bool refinedSingleLine = singleLine && !placement.IsVertical;
+            bool horizontalSingleLine = singleLine && !placement.IsVertical;
             // Layered windows need grayscale alpha instead of ClearType color fringes. Render the
-            // taskbar-sized line at higher resolution, then average coverage back to device pixels.
-            int renderScale = refinedSingleLine ? SingleLineRenderScale : 1;
+            // taskbar text at higher resolution, then average coverage back to device pixels.
+            int renderScale = TextRenderScale;
             int renderWidth = checked(placement.Width * renderScale);
             int renderHeight = checked(placement.Height * renderScale);
             var renderBitmapInfo = new BitmapInfo
@@ -423,17 +423,16 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
             previousRenderBitmap = SelectObject(renderDc, renderBitmap);
             PatBlt(renderDc, 0, 0, renderWidth, renderHeight, 0x00000042);
 
-            int fontSizeDip = refinedSingleLine
+            int fontSizeDip = horizontalSingleLine
                 ? SingleLineFontSizeDip
                 : TwoLineFontSizeDip;
             int fontHeight = -checked(ScaleDip(fontSizeDip, placement.Dpi) * renderScale);
-            int fontWeight = refinedSingleLine ? 400 : 500;
             font = CreateFontW(
                 fontHeight,
                 0,
                 0,
                 0,
-                fontWeight,
+                400,
                 0,
                 0,
                 0,
@@ -450,7 +449,7 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
 
             int inset = checked(ScaleDip(6, placement.Dpi) * renderScale);
             uint baseFlags = DtSingleLine | DtVCenter | DtNoPrefix;
-            if (refinedSingleLine)
+            if (horizontalSingleLine)
             {
                 int gap = checked(ScaleDip(SingleLineGapDip, placement.Dpi) * renderScale);
                 int uploadWidth = MeasureTextWidth(renderDc, topText);
@@ -499,56 +498,34 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
 
             int pixelCount = checked(placement.Width * placement.Height);
             var alphaMask = new byte[pixelCount];
-            if (renderScale == 1)
+            int sampleCount = renderScale * renderScale;
+            int rounding = sampleCount / 2;
+            for (int y = 0; y < placement.Height; y++)
             {
-                Buffer.BlockCopy(sourceAlpha, 0, alphaMask, 0, pixelCount);
-            }
-            else
-            {
-                int sampleCount = renderScale * renderScale;
-                int rounding = sampleCount / 2;
-                for (int y = 0; y < placement.Height; y++)
+                int sourceTop = y * renderScale;
+                for (int x = 0; x < placement.Width; x++)
                 {
-                    int sourceTop = y * renderScale;
-                    for (int x = 0; x < placement.Width; x++)
+                    int sourceLeft = x * renderScale;
+                    int coverage = 0;
+                    for (int sampleY = 0; sampleY < renderScale; sampleY++)
                     {
-                        int sourceLeft = x * renderScale;
-                        int coverage = 0;
-                        for (int sampleY = 0; sampleY < renderScale; sampleY++)
-                        {
-                            int sourceIndex = (sourceTop + sampleY) * renderWidth + sourceLeft;
-                            for (int sampleX = 0; sampleX < renderScale; sampleX++)
-                                coverage += sourceAlpha[sourceIndex + sampleX];
-                        }
-                        alphaMask[y * placement.Width + x] = (byte)((coverage + rounding) / sampleCount);
+                        int sourceIndex = (sourceTop + sampleY) * renderWidth + sourceLeft;
+                        for (int sampleX = 0; sampleX < renderScale; sampleX++)
+                            coverage += sourceAlpha[sourceIndex + sampleX];
                     }
+                    alphaMask[y * placement.Width + x] = (byte)((coverage + rounding) / sampleCount);
                 }
             }
 
             RgbColor foreground = ResolveForegroundColor();
-            RgbColor shadow = foreground.R + foreground.G + foreground.B > 384
-                ? new RgbColor(0, 0, 0)
-                : new RgbColor(255, 255, 255);
             var outputPixels = new int[pixelCount];
-            const int shadowOffset = 1;
-            int shadowStrength = refinedSingleLine ? 0 : 36;
-            for (int y = 0; y < placement.Height; y++)
+            for (int index = 0; index < pixelCount; index++)
             {
-                for (int x = 0; x < placement.Width; x++)
-                {
-                    int index = y * placement.Width + x;
-                    int textAlpha = alphaMask[index];
-                    int shadowAlpha = 0;
-                    if (x >= shadowOffset && y >= shadowOffset)
-                        shadowAlpha = alphaMask[(y - shadowOffset) * placement.Width + x - shadowOffset] * shadowStrength / 255;
-
-                    int remaining = 255 - textAlpha;
-                    int outputAlpha = textAlpha + shadowAlpha * remaining / 255;
-                    int red = foreground.R * textAlpha / 255 + shadow.R * shadowAlpha * remaining / 65025;
-                    int green = foreground.G * textAlpha / 255 + shadow.G * shadowAlpha * remaining / 65025;
-                    int blue = foreground.B * textAlpha / 255 + shadow.B * shadowAlpha * remaining / 65025;
-                    outputPixels[index] = blue | (green << 8) | (red << 16) | (outputAlpha << 24);
-                }
+                int alpha = alphaMask[index];
+                int red = foreground.R * alpha / 255;
+                int green = foreground.G * alpha / 255;
+                int blue = foreground.B * alpha / 255;
+                outputPixels[index] = blue | (green << 8) | (red << 16) | (alpha << 24);
             }
 
             outputDc = CreateCompatibleDC(screenDc);

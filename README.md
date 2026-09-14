@@ -70,7 +70,7 @@ Use the Settings button to change the interface language, output folder, and lau
 
 Settings can also enable minimizing to the notification area. When enabled, the Close button hides the window without interrupting an active recording and briefly shows a Windows notification. Left-click the notification-area icon to reopen the window, or right-click it to start recording, stop recording, or exit the application.
 
-Windows Settings can enable a non-interactive real-time upload and download speed display on the primary taskbar, with a drop-down menu for choosing a two-line or single-line layout. The two-line layout shows upload first and download second; the single-line layout uses larger regular-weight text and places them left to right with comfortable spacing. It has its own automatic or manual adapter selection, sample interval (one second by default), and Byte/bit unit. The B, K, M, G, and T prefix changes automatically with the current speed. With centered Start and app buttons, the display sits on the left immediately after the Windows Widgets area; with left-aligned buttons, it sits on the right before the notification area. It uses the modern Windows 11 system typeface when available and follows the taskbar theme including high-contrast mode. The display window is owned by the taskbar so it stays present while switching among Start, notification panels, the tray, the desktop, and ordinary applications, and hides with an auto-hidden taskbar.
+Windows Settings can enable a non-interactive real-time upload and download speed display on the primary taskbar, with a drop-down menu for choosing a two-line or single-line layout. The two-line layout shows upload first and download second; the single-line layout uses larger text and places them left to right with comfortable spacing. Both layouts use regular-weight system typography with high-quality grayscale edges. It has its own automatic or manual adapter selection, sample interval (one second by default), and Byte/bit unit. The B, K, M, G, and T prefix changes automatically with the current speed. With centered Start and app buttons, the display sits on the left immediately after the Windows Widgets area; with left-aligned buttons, it sits on the right before the notification area. It uses the modern Windows 11 system typeface when available and follows the taskbar theme including high-contrast mode. The display window is owned by the taskbar so it stays present while switching among Start, notification panels, the tray, the desktop, and ordinary applications, and hides with an auto-hidden taskbar.
 
 It uses WinUI 3 and ships the required .NET and Windows App SDK components in a self-contained installer, so no separate runtime installation is required. The current Windows application and installer are not code-signed, so SmartScreen may identify the publisher as unknown.
 
@@ -140,7 +140,7 @@ Each sample is flushed to the CSV immediately, so completed data remains availab
 Install the current Xcode command-line tools, then run on macOS:
 
 ```sh
-bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.8.0 28
+bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh 0.8.9 29
 ```
 
 The script builds `arm64` and `x86_64`, combines them into a Universal application, generates the icon, applies an ad-hoc signature, and creates `dist/NetworkSpeedLogger.dmg`. You can also open `src/macos/NetworkSpeedLogger/Package.swift` as a Swift package.

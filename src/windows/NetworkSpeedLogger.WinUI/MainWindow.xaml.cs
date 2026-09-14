@@ -637,7 +637,7 @@ public sealed partial class MainWindow : Window
         _themeController.ApplyPreference(_settings.Theme);
         _taskbarSpeed.ApplySettings(_settings.TaskbarSpeed);
         OutputFolderText.Text = _settings.OutputFolder;
-        if (e.ApplyDefaultsNow && _session?.IsRunning != true) ApplyDefaultsToCurrentSession();
+        if (_session?.IsRunning != true) ApplyDefaultsToCurrentSession();
         ApplyLanguage();
         RefreshAdapters(false);
     }
