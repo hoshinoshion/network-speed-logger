@@ -39,6 +39,13 @@ enum SpeedUnit: String, CaseIterable, Identifiable {
     }
 }
 
+enum MenuBarSpeedUnit: String, CaseIterable, Identifiable {
+    case byte
+    case bit
+
+    var id: String { rawValue }
+}
+
 enum InterfaceSelectionMode: String, CaseIterable, Identifiable {
     case automatic
     case manual

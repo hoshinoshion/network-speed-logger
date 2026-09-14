@@ -580,6 +580,38 @@ private struct IntervalInputRow: View {
     }
 }
 
+private struct KilobyteThresholdInputRow: View {
+    let title: String
+    @Binding var value: Int
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Text(title)
+            Spacer(minLength: 12)
+            HStack(spacing: 7) {
+                TextField("", value: $value, format: .number)
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.trailing)
+                    .monospacedDigit()
+                    .frame(width: SidebarMetrics.numericFieldWidth)
+                    .onSubmit { value = min(max(value, 0), 1_000_000) }
+                Text("KB/s")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 34, alignment: .leading)
+                Stepper("", value: $value, in: 0...1_000_000, step: 10)
+                    .labelsHidden()
+            }
+            .frame(width: SidebarMetrics.trailingControlWidth + 22, alignment: .trailing)
+        }
+        .padding(.vertical, SidebarMetrics.rowVerticalPadding)
+        .onChange(of: value) { newValue in
+            if newValue < 0 || newValue > 1_000_000 {
+                value = min(max(newValue, 0), 1_000_000)
+            }
+        }
+    }
+}
+
 private struct InterfaceRow: View {
     let interface: NetworkInterfaceInfo
     let showsKind: Bool
@@ -956,6 +988,111 @@ struct PreferencesView: View {
                 )
             }
 
+            Section(settings.text("Menu Bar Speed", "状态栏网速")) {
+                Toggle(
+                    settings.text(
+                        "Show live network speed in the menu bar",
+                        "在状态栏显示实时网速"
+                    ),
+                    isOn: $settings.showsNetworkSpeedInMenuBar
+                )
+
+                Group {
+                    IntervalInputRow(
+                        title: settings.text("Sample interval", "采样间隔"),
+                        value: $settings.menuBarSpeedSampleIntervalSeconds
+                    )
+
+                    Picker(
+                        settings.text("Speed unit", "速度单位"),
+                        selection: $settings.menuBarSpeedUnit
+                    ) {
+                        Text("Byte").tag(MenuBarSpeedUnit.byte)
+                        Text("bit").tag(MenuBarSpeedUnit.bit)
+                    }
+                    .pickerStyle(.segmented)
+
+                    KilobyteThresholdInputRow(
+                        title: settings.text("Arrow activity threshold", "箭头活动阈值"),
+                        value: $settings.menuBarSpeedActivityThresholdKilobytesPerSecond
+                    )
+
+                    Picker(
+                        settings.text("Interface mode", "网络接口模式"),
+                        selection: $settings.menuBarSpeedInterfaceMode
+                    ) {
+                        Text(settings.text("Automatic", "自动"))
+                            .tag(InterfaceSelectionMode.automatic)
+                        Text(settings.text("Manual", "手动"))
+                            .tag(InterfaceSelectionMode.manual)
+                    }
+                    .pickerStyle(.segmented)
+
+                    if settings.menuBarSpeedInterfaceMode == .automatic {
+                        Text(settings.text(
+                            "Automatically combines active physical interfaces and follows Ethernet/Wi-Fi changes.",
+                            "自动合并活动物理接口，并跟随有线与 Wi-Fi 的连接变化。"
+                        ))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    } else {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(settings.text("Interfaces", "网络接口"))
+                                Spacer()
+                                Button {
+                                    monitor.refreshInterfaces()
+                                } label: {
+                                    Label(
+                                        settings.text("Refresh", "刷新"),
+                                        systemImage: "arrow.clockwise"
+                                    )
+                                }
+                                .buttonStyle(.borderless)
+                            }
+
+                            ScrollView {
+                                LazyVStack(alignment: .leading, spacing: 2) {
+                                    ForEach(monitor.availableInterfaces) { interface in
+                                        Toggle(isOn: Binding(
+                                            get: {
+                                                settings.menuBarSpeedSelectedInterfaceNames
+                                                    .contains(interface.name)
+                                            },
+                                            set: {
+                                                settings.toggleMenuBarSpeedInterface(
+                                                    interface.name,
+                                                    enabled: $0
+                                                )
+                                            }
+                                        )) {
+                                            InterfaceRow(
+                                                interface: interface,
+                                                showsKind: true,
+                                                settings: settings
+                                            )
+                                        }
+                                        .toggleStyle(.checkbox)
+                                    }
+                                }
+                            }
+                            .frame(height: min(
+                                CGFloat(max(monitor.availableInterfaces.count, 1)) * 38,
+                                160
+                            ))
+                        }
+                    }
+                }
+                .disabled(!settings.showsNetworkSpeedInMenuBar)
+
+                Text(settings.text(
+                    "Upload is shown above download. Each arrow becomes fully opaque when its direction reaches the threshold; lower activity remains translucent.",
+                    "上传显示在上、下载显示在下。对应方向达到阈值时箭头完全不透明，低于阈值时保持半透明。"
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
             Section(settings.text("Session Defaults", "记录默认配置")) {
                 DurationInputRow(
                     title: settings.text("Duration", "记录时长"),
@@ -1044,8 +1181,12 @@ struct PreferencesView: View {
             }
         }
         .formStyle(.grouped)
+        .onAppear {
+            monitor.refreshInterfaces()
+        }
         .onDisappear {
             settings.normalizeDefaultValues()
+            settings.normalizeMenuBarSpeedValues()
         }
     }
 

@@ -39,6 +39,8 @@ The macOS client is a native SwiftUI application designed around standard macOS 
 
 Settings can enable keeping the application in the menu bar after its window is closed with the Close button or `Command-W`. While it is running there, the Dock icon is hidden and active recordings continue uninterrupted. Left-click the two-arrow menu-bar icon to reopen the window, or right-click it to start recording, stop recording, or quit. `Command-Q` always quits the application normally.
 
+A separate setting keeps the menu-bar item visible for the entire time the application is running and shows live upload above download to the left of the arrows. This display has its own automatic/manual interface selection, sample interval (one second by default), and Byte/bit unit, with B, K, M, G, and T prefixes selected dynamically. The upload and download arrows independently become fully opaque above a configurable activity threshold (50 KB/s by default) and remain translucent below it. Enabling this display does not change the separate close-window or Dock behavior.
+
 ### Install
 
 1. Open `NetworkSpeedLogger.dmg`.

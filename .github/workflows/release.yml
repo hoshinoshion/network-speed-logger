@@ -1,4 +1,4 @@
-name: Release v0.8.9
+name: Release v0.8.10 macOS pre-release
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.8.9
-  APP_BUILD_NUMBER: 29
+  APP_VERSION: 0.8.10
+  APP_BUILD_NUMBER: 30
 
 jobs:
   release-check:
@@ -20,12 +20,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.8.9 already exists
+      - name: Check whether v0.8.10 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.8.9 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.8.10 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -76,6 +76,10 @@ jobs:
           app_path="dist/NetworkSpeedLogger.app"
           executable="dist/NetworkSpeedLogger.app/Contents/MacOS/NetworkSpeedLogger"
           log_path="$RUNNER_TEMP/network-speed-logger-startup.log"
+          defaults write com.hoshinoshion.network-speed-logger showsNetworkSpeedInMenuBar -bool true
+          defaults write com.hoshinoshion.network-speed-logger menuBarSpeedSampleInterval -int 1
+          defaults write com.hoshinoshion.network-speed-logger menuBarSpeedUnit -string byte
+          defaults write com.hoshinoshion.network-speed-logger menuBarSpeedActivityThreshold -int 50
           "$executable" >"$log_path" 2>&1 &
           app_pid=$!
 
@@ -126,7 +130,7 @@ jobs:
 
   build-windows:
     needs: release-check
-    if: needs.release-check.outputs.exists != 'true'
+    if: ${{ false }}
     runs-on: windows-latest
 
     steps:
@@ -481,12 +485,11 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [release-check, build-macos, build-windows]
+    needs: [release-check, build-macos]
     if: >-
       github.ref == 'refs/heads/main' &&
       needs.release-check.outputs.exists != 'true' &&
-      needs.build-macos.result == 'success' &&
-      needs.build-windows.result == 'success'
+      needs.build-macos.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
@@ -496,47 +499,26 @@ jobs:
           name: macos-release
           path: artifacts
 
-      - name: Download Windows installer
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-installer
-          path: artifacts
-
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.8.9
+          Network Speed Logger 0.8.10 macOS Pre-release
 
-          - Adds the optional Windows taskbar upload/download speed display with independent adapter mode, sampling interval, Byte/bit unit, and single-line/two-line layout settings
-          - Keeps the taskbar display visible through Start, notification center, tray, desktop, and ordinary application interactions, while avoiding the centered Widgets area
-          - Applies 4x grayscale supersampling, regular Segoe UI Variable typography, and a shadow-free system-style appearance to both taskbar layouts
-          - Simplifies Windows Settings to one Save action that applies available settings immediately
-          - Includes the Universal macOS DMG for Apple silicon and Intel Macs and the self-contained Windows x64 installer
+          - Adds an optional always-visible macOS menu-bar upload/download speed display
+          - Shows upload above download with B, K, M, G, and T prefixes that adapt to the current speed
+          - Adds independent automatic/manual interface selection, sampling interval, and Byte/bit unit settings
+          - Uses a configurable 50 KB/s default threshold to make each direction arrow opaque for active traffic and translucent below the threshold
+          - Preserves the existing left-click, right-click menu, close-window background mode, and Dock behavior
 
-          The macOS application is ad-hoc signed and is not notarized. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown. Follow the README instructions if macOS Gatekeeper blocks the first launch.
+          This pre-release contains the Universal macOS DMG for Apple silicon and Intel Macs. The application is ad-hoc signed and is not notarized; follow the README instructions if Gatekeeper blocks the first launch.
           EOF
           )
-          gh release create v0.8.9 \
+          gh release create v0.8.10 \
             artifacts/NetworkSpeedLogger.dmg \
-            artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.8.9" \
-            --notes "$notes"
-
-      - name: Delete previous pre-releases
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-            --jq '.[] | select(.prerelease == true) | .tag_name' |
-          while IFS= read -r tag; do
-            if [[ -n "$tag" ]]; then
-              gh release delete "$tag" \
-                --repo "$GITHUB_REPOSITORY" \
-                --cleanup-tag \
-                --yes
-            fi
-          done
+            --title "v0.8.10" \
+            --notes "$notes" \
+            --prerelease

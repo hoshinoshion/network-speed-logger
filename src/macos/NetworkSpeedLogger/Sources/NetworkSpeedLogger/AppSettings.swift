@@ -15,6 +15,12 @@ final class AppSettings: ObservableObject {
         static let outputFolderBookmark = "outputFolderBookmark"
         static let automaticallyChecksForUpdates = "automaticallyChecksForUpdates"
         static let keepsRunningInMenuBar = "keepsRunningInMenuBar"
+        static let showsNetworkSpeedInMenuBar = "showsNetworkSpeedInMenuBar"
+        static let menuBarSpeedUnit = "menuBarSpeedUnit"
+        static let menuBarSpeedSampleInterval = "menuBarSpeedSampleInterval"
+        static let menuBarSpeedInterfaceMode = "menuBarSpeedInterfaceMode"
+        static let menuBarSpeedSelectedInterfaces = "menuBarSpeedSelectedInterfaces"
+        static let menuBarSpeedActivityThreshold = "menuBarSpeedActivityThreshold"
     }
 
     private let defaults: UserDefaults
@@ -65,6 +71,40 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(keepsRunningInMenuBar, forKey: Key.keepsRunningInMenuBar) }
     }
 
+    @Published var showsNetworkSpeedInMenuBar: Bool {
+        didSet { defaults.set(showsNetworkSpeedInMenuBar, forKey: Key.showsNetworkSpeedInMenuBar) }
+    }
+
+    @Published var menuBarSpeedUnit: MenuBarSpeedUnit {
+        didSet { defaults.set(menuBarSpeedUnit.rawValue, forKey: Key.menuBarSpeedUnit) }
+    }
+
+    @Published var menuBarSpeedSampleIntervalSeconds: Int {
+        didSet { defaults.set(menuBarSpeedSampleIntervalSeconds, forKey: Key.menuBarSpeedSampleInterval) }
+    }
+
+    @Published var menuBarSpeedInterfaceMode: InterfaceSelectionMode {
+        didSet { defaults.set(menuBarSpeedInterfaceMode.rawValue, forKey: Key.menuBarSpeedInterfaceMode) }
+    }
+
+    @Published var menuBarSpeedSelectedInterfaceNames: Set<String> {
+        didSet {
+            defaults.set(
+                Array(menuBarSpeedSelectedInterfaceNames).sorted(),
+                forKey: Key.menuBarSpeedSelectedInterfaces
+            )
+        }
+    }
+
+    @Published var menuBarSpeedActivityThresholdKilobytesPerSecond: Int {
+        didSet {
+            defaults.set(
+                menuBarSpeedActivityThresholdKilobytesPerSecond,
+                forKey: Key.menuBarSpeedActivityThreshold
+            )
+        }
+    }
+
     @Published private(set) var outputFolderURL: URL?
 
     init(defaults: UserDefaults = .standard) {
@@ -89,6 +129,23 @@ final class AppSettings: ObservableObject {
         speedUnit = storedDefaultSpeedUnit
         automaticallyChecksForUpdates = (defaults.object(forKey: Key.automaticallyChecksForUpdates) as? Bool) ?? true
         keepsRunningInMenuBar = (defaults.object(forKey: Key.keepsRunningInMenuBar) as? Bool) ?? false
+        showsNetworkSpeedInMenuBar =
+            (defaults.object(forKey: Key.showsNetworkSpeedInMenuBar) as? Bool) ?? false
+        menuBarSpeedUnit = MenuBarSpeedUnit(
+            rawValue: defaults.string(forKey: Key.menuBarSpeedUnit) ?? ""
+        ) ?? .byte
+        menuBarSpeedSampleIntervalSeconds =
+            (defaults.object(forKey: Key.menuBarSpeedSampleInterval) as? Int)
+                .map { min(max($0, 1), 3_600) } ?? 1
+        menuBarSpeedInterfaceMode = InterfaceSelectionMode(
+            rawValue: defaults.string(forKey: Key.menuBarSpeedInterfaceMode) ?? ""
+        ) ?? .automatic
+        menuBarSpeedSelectedInterfaceNames = Set(
+            defaults.stringArray(forKey: Key.menuBarSpeedSelectedInterfaces) ?? []
+        )
+        menuBarSpeedActivityThresholdKilobytesPerSecond =
+            (defaults.object(forKey: Key.menuBarSpeedActivityThreshold) as? Int)
+                .map { min(max($0, 0), 1_000_000) } ?? 50
 
         restoreOutputFolder()
         applyAppearance()
@@ -182,6 +239,14 @@ final class AppSettings: ObservableObject {
         }
     }
 
+    func toggleMenuBarSpeedInterface(_ name: String, enabled: Bool) {
+        if enabled {
+            menuBarSpeedSelectedInterfaceNames.insert(name)
+        } else {
+            menuBarSpeedSelectedInterfaceNames.remove(name)
+        }
+    }
+
     func applyDefaultsToCurrentSession() {
         durationHours = defaultDurationHours
         sampleIntervalSeconds = defaultSampleIntervalSeconds
@@ -196,6 +261,14 @@ final class AppSettings: ObservableObject {
     func normalizeDefaultValues() {
         defaultDurationHours = min(max(defaultDurationHours, 0), 168)
         defaultSampleIntervalSeconds = min(max(defaultSampleIntervalSeconds, 1), 3_600)
+    }
+
+    func normalizeMenuBarSpeedValues() {
+        menuBarSpeedSampleIntervalSeconds = min(max(menuBarSpeedSampleIntervalSeconds, 1), 3_600)
+        menuBarSpeedActivityThresholdKilobytesPerSecond = min(
+            max(menuBarSpeedActivityThresholdKilobytesPerSecond, 0),
+            1_000_000
+        )
     }
 
     private func restoreOutputFolder() {
