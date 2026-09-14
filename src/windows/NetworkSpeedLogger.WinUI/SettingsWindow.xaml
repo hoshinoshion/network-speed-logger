@@ -34,15 +34,32 @@
           <TextBlock x:Name="PageSubtitleText" Text="管理每次启动时使用的默认值和文件保存位置"
                      Style="{StaticResource CaptionStyle}" />
         </StackPanel>
-      <TabView x:Name="SettingsTabView" Grid.Row="1" Margin="18,0,18,0"
-               IsAddTabButtonVisible="False" CanReorderTabs="False" TabWidthMode="Equal">
-        <TabViewItem IsClosable="False">
-          <TabViewItem.Header>
-            <TextBlock x:Name="GeneralTabText" Text="通用" />
-          </TabViewItem.Header>
-          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Padding="6,12,6,18" Spacing="14">
-        <StackPanel Spacing="6">
+
+      <NavigationView x:Name="SettingsNavigation" Grid.Row="1"
+                      PaneDisplayMode="Left" IsPaneOpen="True"
+                      IsPaneToggleButtonVisible="False" IsBackButtonVisible="Collapsed"
+                      IsSettingsVisible="False" AlwaysShowHeader="False"
+                      OpenPaneLength="188"
+                      SelectionChanged="SettingsNavigation_SelectionChanged">
+        <NavigationView.MenuItems>
+          <NavigationViewItem x:Name="GeneralNavigationItem" Tag="General" Content="通用" IsSelected="True">
+            <NavigationViewItem.Icon><SymbolIcon Symbol="Setting" /></NavigationViewItem.Icon>
+          </NavigationViewItem>
+          <NavigationViewItem x:Name="RecordingNavigationItem" Tag="Recording" Content="记录">
+            <NavigationViewItem.Icon><SymbolIcon Symbol="Document" /></NavigationViewItem.Icon>
+          </NavigationViewItem>
+          <NavigationViewItem x:Name="TaskbarNavigationItem" Tag="Taskbar" Content="任务栏">
+            <NavigationViewItem.Icon><SymbolIcon Symbol="ViewAll" /></NavigationViewItem.Icon>
+          </NavigationViewItem>
+          <NavigationViewItem x:Name="UpdatesNavigationItem" Tag="Updates" Content="更新">
+            <NavigationViewItem.Icon><SymbolIcon Symbol="Sync" /></NavigationViewItem.Icon>
+          </NavigationViewItem>
+        </NavigationView.MenuItems>
+
+        <Grid Background="{ThemeResource AppContentBrush}">
+          <ScrollViewer x:Name="GeneralSettingsPage" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Padding="20,12,20,18" Spacing="14">
+<StackPanel Spacing="6">
           <TextBlock x:Name="GeneralSectionText" Text="常规" Style="{StaticResource SectionTitleStyle}" />
           <Border Style="{StaticResource CardStyle}" Padding="14,9">
             <Grid ColumnSpacing="16">
@@ -101,15 +118,9 @@
         </StackPanel>
             </StackPanel>
           </ScrollViewer>
-        </TabViewItem>
-
-        <TabViewItem IsClosable="False">
-          <TabViewItem.Header>
-            <TextBlock x:Name="RecordingTabText" Text="记录" />
-          </TabViewItem.Header>
-          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Padding="6,12,6,18" Spacing="14">
-        <StackPanel Spacing="6">
+          <ScrollViewer x:Name="RecordingSettingsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Padding="20,12,20,18" Spacing="14">
+<StackPanel Spacing="6">
           <TextBlock x:Name="DefaultsSectionText" Text="启动默认值" Style="{StaticResource SectionTitleStyle}" />
           <TextBlock x:Name="DefaultsDescriptionText" Text="主窗口中的临时修改不会覆盖这些值"
                      Style="{StaticResource CaptionStyle}" />
@@ -165,7 +176,7 @@
           </Border>
         </StackPanel>
 
-        <StackPanel Spacing="6">
+<StackPanel Spacing="6">
           <TextBlock x:Name="FilesSectionText" Text="文件" Style="{StaticResource SectionTitleStyle}" />
           <Border Style="{StaticResource CardStyle}" Padding="14,10">
             <StackPanel Spacing="7">
@@ -194,15 +205,9 @@
         </StackPanel>
             </StackPanel>
           </ScrollViewer>
-        </TabViewItem>
-
-        <TabViewItem IsClosable="False">
-          <TabViewItem.Header>
-            <TextBlock x:Name="TaskbarTabText" Text="任务栏" />
-          </TabViewItem.Header>
-          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Padding="6,12,6,18" Spacing="14">
-        <StackPanel Spacing="6">
+          <ScrollViewer x:Name="TaskbarSettingsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Padding="20,12,20,18" Spacing="14">
+<StackPanel Spacing="6">
           <TextBlock x:Name="TaskbarSectionText" Text="任务栏网速" Style="{StaticResource SectionTitleStyle}" />
           <TextBlock x:Name="TaskbarSectionDescription" Text="在主任务栏上持续显示独立采样的实时下载和上传速度"
                      Style="{StaticResource CaptionStyle}" />
@@ -334,15 +339,9 @@
         </StackPanel>
             </StackPanel>
           </ScrollViewer>
-        </TabViewItem>
-
-        <TabViewItem IsClosable="False">
-          <TabViewItem.Header>
-            <TextBlock x:Name="UpdatesTabText" Text="更新" />
-          </TabViewItem.Header>
-          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Padding="6,12,6,18" Spacing="14">
-        <StackPanel Spacing="6">
+          <ScrollViewer x:Name="UpdatesSettingsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Padding="20,12,20,18" Spacing="14">
+<StackPanel Spacing="6">
           <TextBlock x:Name="UpdatesSectionText" Text="更新" Style="{StaticResource SectionTitleStyle}" />
           <Border Style="{StaticResource CardStyle}" Padding="14,9">
             <Grid ColumnSpacing="16">
@@ -391,7 +390,7 @@
           </InfoBar>
         </StackPanel>
 
-        <StackPanel Spacing="6">
+<StackPanel Spacing="6">
           <TextBlock x:Name="AboutSectionText" Text="关于" Style="{StaticResource SectionTitleStyle}" />
           <Border Style="{StaticResource CardStyle}" Padding="14,9">
             <Grid ColumnSpacing="16">
@@ -414,8 +413,8 @@
         </StackPanel>
             </StackPanel>
           </ScrollViewer>
-        </TabViewItem>
-      </TabView>
+        </Grid>
+      </NavigationView>
     </Grid>
 
     <InfoBar x:Name="ValidationInfoBar" Grid.Row="2" Margin="16,0,16,0"

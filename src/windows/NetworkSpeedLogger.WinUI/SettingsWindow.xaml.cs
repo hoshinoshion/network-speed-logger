@@ -86,6 +86,7 @@ public sealed partial class SettingsWindow : Window
         };
         LoadSettings();
         ApplyLanguage();
+        ShowSettingsPage("General");
     }
 
     private string T(string chinese, string english) => Localization.T(chinese, english);
@@ -137,10 +138,10 @@ public sealed partial class SettingsWindow : Window
         TitleBarText.Text = T("设置", "Settings");
         PageTitleText.Text = T("设置", "Settings");
         PageSubtitleText.Text = T("按类别管理应用行为、记录配置、系统栏显示与更新", "Manage app behavior, recording, system-bar display, and updates by category");
-        GeneralTabText.Text = T("通用", "General");
-        RecordingTabText.Text = T("记录", "Recording");
-        TaskbarTabText.Text = T("任务栏", "Taskbar");
-        UpdatesTabText.Text = T("更新", "Updates");
+        GeneralNavigationItem.Content = T("通用", "General");
+        RecordingNavigationItem.Content = T("记录", "Recording");
+        TaskbarNavigationItem.Content = T("任务栏", "Taskbar");
+        UpdatesNavigationItem.Content = T("更新", "Updates");
         GeneralSectionText.Text = T("常规", "General");
         LanguageLabel.Text = T("界面语言", "App language");
         LanguageDescription.Text = T("默认根据 Windows 显示语言自动选择", "By default, follows the Windows display language");
@@ -210,6 +211,29 @@ public sealed partial class SettingsWindow : Window
         CancelButton.Content = T("取消", "Cancel");
         SaveButton.Content = T("保存", "Save");
         UpdateTaskbarOptionsUi();
+    }
+
+    private void SettingsNavigation_SelectionChanged(
+        NavigationView sender,
+        NavigationViewSelectionChangedEventArgs args)
+    {
+        if (GeneralSettingsPage is null) return;
+        string page = Convert.ToString((args.SelectedItemContainer as NavigationViewItem)?.Tag) ?? "General";
+        ShowSettingsPage(page);
+    }
+
+    private void ShowSettingsPage(string page)
+    {
+        GeneralSettingsPage.Visibility = page == "General" ? Visibility.Visible : Visibility.Collapsed;
+        RecordingSettingsPage.Visibility = page == "Recording" ? Visibility.Visible : Visibility.Collapsed;
+        TaskbarSettingsPage.Visibility = page == "Taskbar" ? Visibility.Visible : Visibility.Collapsed;
+        UpdatesSettingsPage.Visibility = page == "Updates" ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void SelectSettingsPage(NavigationViewItem item)
+    {
+        SettingsNavigation.SelectedItem = item;
+        ShowSettingsPage(Convert.ToString(item.Tag) ?? "General");
     }
 
     private void TaskbarEnabledToggle_Toggled(object sender, RoutedEventArgs e)
@@ -407,13 +431,13 @@ public sealed partial class SettingsWindow : Window
         double taskbarIntervalValue = TaskbarIntervalNumber.Value;
         if (!AppSettingsStore.IsValidDuration(duration))
         {
-            ShowValidation(T("参数有误", "Invalid setting"), T("运行时长必须是 0 到 8760 之间的数字。", "Duration must be from 0 to 8760."));
+            ShowValidation(T("参数有误", "Invalid setting"), T("运行时长必须是 0 到 8760 之间的数字。", "Duration must be from 0 to 8760."), RecordingNavigationItem);
             DefaultDurationNumber.Focus(FocusState.Programmatic);
             return;
         }
         if (double.IsNaN(intervalValue) || intervalValue != Math.Truncate(intervalValue) || !AppSettingsStore.IsValidSampleInterval((int)intervalValue))
         {
-            ShowValidation(T("参数有误", "Invalid setting"), T("采样间隔必须是 1 到 3600 之间的整数秒。", "Sample interval must be an integer from 1 to 3600 seconds."));
+            ShowValidation(T("参数有误", "Invalid setting"), T("采样间隔必须是 1 到 3600 之间的整数秒。", "Sample interval must be an integer from 1 to 3600 seconds."), RecordingNavigationItem);
             DefaultIntervalNumber.Focus(FocusState.Programmatic);
             return;
         }
@@ -423,7 +447,8 @@ public sealed partial class SettingsWindow : Window
         {
             ShowValidation(
                 T("参数有误", "Invalid setting"),
-                T("任务栏网速的采样频率必须是 1 到 3600 之间的整数秒。", "The taskbar sample interval must be an integer from 1 to 3600 seconds."));
+                T("任务栏网速的采样频率必须是 1 到 3600 之间的整数秒。", "The taskbar sample interval must be an integer from 1 to 3600 seconds."),
+                TaskbarNavigationItem);
             TaskbarIntervalNumber.Focus(FocusState.Programmatic);
             return;
         }
@@ -435,12 +460,13 @@ public sealed partial class SettingsWindow : Window
         {
             ShowValidation(
                 T("无法开启任务栏网速", "Unable to enable taskbar speed"),
-                T("手动模式下请至少勾选一个网卡。", "Select at least one adapter in manual mode."));
+                T("手动模式下请至少勾选一个网卡。", "Select at least one adapter in manual mode."),
+                TaskbarNavigationItem);
             return;
         }
         if (!FolderService.TryValidate(OutputFolderText.Text, out string? folderError))
         {
-            ShowValidation(T("文件夹不可用", "Folder unavailable"), folderError ?? string.Empty);
+            ShowValidation(T("文件夹不可用", "Folder unavailable"), folderError ?? string.Empty, RecordingNavigationItem);
             return;
         }
 
@@ -470,8 +496,9 @@ public sealed partial class SettingsWindow : Window
         Close();
     }
 
-    private void ShowValidation(string title, string message)
+    private void ShowValidation(string title, string message, NavigationViewItem? page = null)
     {
+        if (page is not null) SelectSettingsPage(page);
         ValidationInfoBar.Title = title;
         ValidationInfoBar.Message = message;
         ValidationInfoBar.IsOpen = true;

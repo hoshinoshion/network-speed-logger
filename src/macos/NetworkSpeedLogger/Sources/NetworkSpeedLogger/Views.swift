@@ -959,39 +959,65 @@ private struct MetricCard: View {
     }
 }
 
+private enum PreferencesTab: Hashable {
+    case general
+    case recording
+    case menuBar
+    case updates
+}
+
 struct PreferencesView: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject var monitor: NetworkMonitor
     @ObservedObject var updateChecker: UpdateChecker
+    @State private var selectedTab = PreferencesTab.general
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             generalTab
                 .tabItem {
                     Label(settings.text("General", "通用"), systemImage: "gearshape")
                 }
+                .tag(PreferencesTab.general)
 
             recordingTab
                 .tabItem {
                     Label(settings.text("Recording", "记录"), systemImage: "record.circle")
                 }
+                .tag(PreferencesTab.recording)
 
             menuBarTab
                 .tabItem {
                     Label(settings.text("Menu Bar", "状态栏"), systemImage: "menubar.rectangle")
                 }
+                .tag(PreferencesTab.menuBar)
 
             updatesTab
                 .tabItem {
                     Label(settings.text("Updates", "更新"), systemImage: "arrow.triangle.2.circlepath")
                 }
+                .tag(PreferencesTab.updates)
         }
+        .frame(width: 560, height: preferredHeight, alignment: .top)
         .onAppear {
             monitor.refreshInterfaces()
         }
         .onDisappear {
             settings.normalizeDefaultValues()
             settings.normalizeMenuBarSpeedValues()
+        }
+    }
+
+    private var preferredHeight: CGFloat {
+        switch selectedTab {
+        case .general:
+            return 260
+        case .recording:
+            return 410
+        case .menuBar:
+            return settings.menuBarSpeedInterfaceMode == .manual ? 560 : 420
+        case .updates:
+            return 320
         }
     }
 

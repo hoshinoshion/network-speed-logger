@@ -696,6 +696,8 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    public void ActivateFromSecondaryLaunch() => RestoreFromTray();
+
     private void RestoreFromTray()
     {
         _trayIcon.Hide();
