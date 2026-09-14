@@ -1,4 +1,4 @@
-name: Pre-release v0.8.5 (Windows)
+name: Pre-release v0.8.6 (Windows)
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.8.5
+  APP_VERSION: 0.8.6
 
 jobs:
   release-check:
@@ -19,12 +19,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.8.5 already exists
+      - name: Check whether v0.8.6 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.8.5 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.8.6 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -196,6 +196,32 @@ jobs:
               [DllImport("user32.dll")]
               [return: MarshalAs(UnmanagedType.Bool)]
               public static extern bool SetForegroundWindow(IntPtr window);
+
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+              public static extern IntPtr CreateWindowEx(
+                  uint extendedStyle,
+                  string className,
+                  string windowName,
+                  uint style,
+                  int x,
+                  int y,
+                  int width,
+                  int height,
+                  IntPtr parent,
+                  IntPtr menu,
+                  IntPtr instance,
+                  IntPtr parameter);
+
+              [DllImport("user32.dll")]
+              [return: MarshalAs(UnmanagedType.Bool)]
+              public static extern bool ShowWindow(IntPtr window, int command);
+
+              [DllImport("user32.dll")]
+              [return: MarshalAs(UnmanagedType.Bool)]
+              public static extern bool DestroyWindow(IntPtr window);
+
+              [DllImport("user32.dll")]
+              public static extern int GetSystemMetrics(int index);
           }
           "@
           $overlayWindow = [NativeWindowLookup]::FindWindow("NetworkSpeedLogger.TaskbarSpeed.$($process.Id)", $null)
@@ -232,6 +258,51 @@ jobs:
             Start-Sleep -Seconds 2
             if (-not [NativeWindowLookup]::IsWindowVisible($overlayWindow)) {
               throw "The overlay disappeared when the taskbar received focus."
+            }
+          }
+
+          $normalWindow = [NativeWindowLookup]::CreateWindowEx(
+            0, "STATIC", "Network Speed Logger normal-window smoke test", 0x00CF0000,
+            100, 100, 800, 600, [IntPtr]::Zero, [IntPtr]::Zero, [IntPtr]::Zero, [IntPtr]::Zero)
+          if ($normalWindow -ne [IntPtr]::Zero) {
+            try {
+              [NativeWindowLookup]::ShowWindow($normalWindow, 3) | Out-Null
+              if ([NativeWindowLookup]::SetForegroundWindow($normalWindow)) {
+                Start-Sleep -Seconds 2
+                if (-not [NativeWindowLookup]::IsWindowVisible($overlayWindow)) {
+                  throw "The overlay mistook a maximized ordinary window for a full-screen application."
+                }
+              }
+            }
+            finally {
+              [NativeWindowLookup]::DestroyWindow($normalWindow) | Out-Null
+            }
+          }
+
+          $screenWidth = [NativeWindowLookup]::GetSystemMetrics(0)
+          $screenHeight = [NativeWindowLookup]::GetSystemMetrics(1)
+          $fullscreenWindow = [NativeWindowLookup]::CreateWindowEx(
+            [uint32]128, "STATIC", "Network Speed Logger full-screen smoke test", [uint32]2415919104,
+            0, 0, $screenWidth, $screenHeight,
+            [IntPtr]::Zero, [IntPtr]::Zero, [IntPtr]::Zero, [IntPtr]::Zero)
+          if ($fullscreenWindow -ne [IntPtr]::Zero) {
+            try {
+              [NativeWindowLookup]::ShowWindow($fullscreenWindow, 5) | Out-Null
+              if ([NativeWindowLookup]::SetForegroundWindow($fullscreenWindow)) {
+                Start-Sleep -Seconds 2
+                if ([NativeWindowLookup]::IsWindowVisible($overlayWindow)) {
+                  throw "The overlay remained visible over a genuine full-screen window."
+                }
+              }
+            }
+            finally {
+              [NativeWindowLookup]::DestroyWindow($fullscreenWindow) | Out-Null
+            }
+
+            [NativeWindowLookup]::SetForegroundWindow($taskbarWindow) | Out-Null
+            Start-Sleep -Seconds 2
+            if (-not [NativeWindowLookup]::IsWindowVisible($overlayWindow)) {
+              throw "The overlay did not return after leaving a full-screen window."
             }
           }
 
@@ -324,20 +395,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.8.5 Windows pre-release
+          Network Speed Logger 0.8.6 Windows pre-release
 
-          - Adds an optional single-line taskbar speed layout in Windows Settings while retaining the current two-line layout by default
-          - Shows upload followed by download from left to right in single-line mode, with a wider overlay and comfortable spacing between the values
-          - Preserves independent sampling settings, Widgets-area avoidance, modern typography, focus stability, theme adaptation, and full-screen hiding behavior
+          - Replaces the single-line toggle with a two-line/single-line layout drop-down in Windows Settings
+          - Enlarges single-line text, reduces the overlay width, and left-aligns upload before download with a consistent comfortable gap
+          - Prevents Start, taskbar controls, ordinary application windows, and desktop interactions from hiding the speed display by verifying actual foreground-window bounds before treating an app as full-screen
+          - Preserves independent sampling settings, Widgets-area avoidance, modern typography, theme adaptation, and genuine full-screen hiding behavior
           - Includes the self-contained Windows x64 installer
 
           This pre-release contains the Windows client only. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown.
           EOF
           )
-          gh release create v0.8.5 \
+          gh release create v0.8.6 \
             artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.8.5" \
+            --title "v0.8.6" \
             --prerelease \
             --notes "$notes"

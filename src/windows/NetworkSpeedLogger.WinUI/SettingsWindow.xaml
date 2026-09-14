@@ -57,16 +57,18 @@
               <Grid ColumnSpacing="16">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="*" />
-                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="230" />
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center" Spacing="3">
-                  <TextBlock x:Name="TaskbarSingleLineLabel" Text="单行布局" FontWeight="SemiBold" />
-                  <TextBlock x:Name="TaskbarSingleLineDescription"
-                             Text="上传和下载从左到右显示，并保持适度间距"
+                  <TextBlock x:Name="TaskbarLayoutLabel" Text="显示布局" FontWeight="SemiBold" />
+                  <TextBlock x:Name="TaskbarLayoutDescription"
+                             Text="选择上传和下载的排列方式"
                              Style="{StaticResource CaptionStyle}" />
                 </StackPanel>
-                <ToggleSwitch x:Name="TaskbarSingleLineToggle" Grid.Column="1"
-                              MinWidth="0" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                <ComboBox x:Name="TaskbarLayoutCombo" Grid.Column="1" HorizontalAlignment="Stretch">
+                  <ComboBoxItem x:Name="TaskbarLayoutTwoLineItem" Tag="TwoLine" Content="双行" />
+                  <ComboBoxItem x:Name="TaskbarLayoutSingleLineItem" Tag="SingleLine" Content="单行" />
+                </ComboBox>
               </Grid>
             </Border>
 

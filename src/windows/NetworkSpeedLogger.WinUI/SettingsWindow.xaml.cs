@@ -118,7 +118,7 @@ public sealed partial class SettingsWindow : Window
         SelectComboByTag(DefaultUnitCombo, _settings.Defaults.SpeedUnit);
         TaskbarIntervalNumber.Value = _settings.TaskbarSpeed.SampleIntervalSeconds;
         SelectComboByTag(TaskbarUnitCombo, _settings.TaskbarSpeed.SpeedUnit);
-        TaskbarSingleLineToggle.IsOn = _settings.TaskbarSpeed.SingleLine;
+        SelectComboByTag(TaskbarLayoutCombo, _settings.TaskbarSpeed.SingleLine ? "SingleLine" : "TwoLine");
         TaskbarAutoModeRadio.IsChecked = !_settings.TaskbarSpeed.ManualMode;
         TaskbarManualModeRadio.IsChecked = _settings.TaskbarSpeed.ManualMode;
         RefreshTaskbarAdapters(false);
@@ -160,10 +160,12 @@ public sealed partial class SettingsWindow : Window
         TaskbarEnabledDescription.Text = T(
             "应用运行期间显示；内容不会响应点击",
             "Shown while the app is running; the display does not respond to clicks");
-        TaskbarSingleLineLabel.Text = T("单行布局", "Single-line layout");
-        TaskbarSingleLineDescription.Text = T(
-            "上传和下载从左到右显示，并保持适度间距",
-            "Shows upload and download from left to right with comfortable spacing");
+        TaskbarLayoutLabel.Text = T("显示布局", "Display layout");
+        TaskbarLayoutDescription.Text = T(
+            "选择上传和下载的排列方式",
+            "Choose how upload and download speeds are arranged");
+        TaskbarLayoutTwoLineItem.Content = T("双行（上传在上）", "Two lines (upload on top)");
+        TaskbarLayoutSingleLineItem.Content = T("单行（上传在左）", "Single line (upload on left)");
         TaskbarIntervalLabel.Text = T("采样频率", "Sample interval");
         TaskbarIntervalDescription.Text = T("1 到 3600 秒；默认为 1 秒", "1 to 3600 seconds; default is 1 second");
         TaskbarUnitLabel.Text = T("速度单位", "Speed unit");
@@ -452,7 +454,7 @@ public sealed partial class SettingsWindow : Window
         candidate.TaskbarSpeed.Enabled = TaskbarEnabledToggle.IsOn;
         candidate.TaskbarSpeed.SampleIntervalSeconds = (int)taskbarIntervalValue;
         candidate.TaskbarSpeed.SpeedUnit = ReadComboTag(TaskbarUnitCombo, "Byte");
-        candidate.TaskbarSpeed.SingleLine = TaskbarSingleLineToggle.IsOn;
+        candidate.TaskbarSpeed.SingleLine = ReadComboTag(TaskbarLayoutCombo, "TwoLine") == "SingleLine";
         candidate.TaskbarSpeed.ManualMode = TaskbarManualModeRadio.IsChecked == true;
         candidate.TaskbarSpeed.SelectedAdapterIds = taskbarSelectedAdapterIds;
         candidate.Defaults.DurationHours = duration;
