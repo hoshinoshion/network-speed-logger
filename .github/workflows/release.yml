@@ -1,4 +1,4 @@
-name: Pre-release v0.8.8 (Windows)
+name: Release v0.8.9
 
 on:
   push:
@@ -10,7 +10,8 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.8.8
+  APP_VERSION: 0.8.9
+  APP_BUILD_NUMBER: 29
 
 jobs:
   release-check:
@@ -19,16 +20,109 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.8.8 already exists
+      - name: Check whether v0.8.9 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.8.8 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.8.9 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
+
+  build-macos:
+    needs: release-check
+    if: needs.release-check.outputs.exists != 'true'
+    runs-on: macos-26
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build Universal macOS application and DMG
+        run: bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh "$APP_VERSION" "$APP_BUILD_NUMBER"
+
+      - name: Verify macOS artifact and icon
+        run: |
+          lipo dist/NetworkSpeedLogger.app/Contents/MacOS/NetworkSpeedLogger -verify_arch arm64 x86_64
+          actual_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' dist/NetworkSpeedLogger.app/Contents/Info.plist)
+          actual_build=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' dist/NetworkSpeedLogger.app/Contents/Info.plist)
+          if [[ "$actual_version" != "$APP_VERSION" ]]; then
+            echo "Unexpected application version: $actual_version" >&2
+            exit 1
+          fi
+          if [[ "$actual_build" != "$APP_BUILD_NUMBER" ]]; then
+            echo "Unexpected application build number: $actual_build" >&2
+            exit 1
+          fi
+          icon_path=dist/NetworkSpeedLogger.app/Contents/Resources/AppIcon.icns
+          if [[ ! -s "$icon_path" ]]; then
+            echo "The application icon is missing or empty." >&2
+            exit 1
+          fi
+          iconutil -c iconset "$icon_path" -o dist/VerifiedAppIcon.iconset
+          if [[ ! -s dist/VerifiedAppIcon.iconset/icon_512x512@2x.png ]]; then
+            echo "The 1024-pixel icon representation could not be decoded." >&2
+            exit 1
+          fi
+          if [[ ! -s dist/NetworkSpeedLogger.dmg ]]; then
+            echo "The DMG is missing or empty." >&2
+            exit 1
+          fi
+
+      - name: Smoke-test macOS application startup
+        run: |
+          app_path="dist/NetworkSpeedLogger.app"
+          executable="dist/NetworkSpeedLogger.app/Contents/MacOS/NetworkSpeedLogger"
+          log_path="$RUNNER_TEMP/network-speed-logger-startup.log"
+          "$executable" >"$log_path" 2>&1 &
+          app_pid=$!
+
+          cleanup() {
+            if kill -0 "$app_pid" >/dev/null 2>&1; then
+              kill -TERM "$app_pid" >/dev/null 2>&1 || true
+            fi
+            wait "$app_pid" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          for _ in {1..5}; do
+            sleep 1
+            if ! kill -0 "$app_pid" >/dev/null 2>&1; then
+              set +e
+              wait "$app_pid"
+              exit_code=$?
+              set -e
+              cat "$log_path"
+              echo "The macOS application exited during the startup smoke test with code $exit_code." >&2
+              exit 1
+            fi
+          done
+
+          /usr/bin/open "$app_path"
+          for _ in {1..3}; do
+            sleep 1
+            if ! kill -0 "$app_pid" >/dev/null 2>&1; then
+              set +e
+              wait "$app_pid"
+              exit_code=$?
+              set -e
+              cat "$log_path"
+              echo "The macOS application exited after a system reopen request with code $exit_code." >&2
+              exit 1
+            fi
+          done
+
+          cleanup
+          trap - EXIT
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-release
+          path: dist/NetworkSpeedLogger.dmg
+          if-no-files-found: error
 
   build-windows:
     needs: release-check
@@ -337,6 +431,40 @@ jobs:
           }
           Stop-Process -Id $process.Id -Force
 
+          $settingsPath = Join-Path $settingsDir "settings.json"
+          $savedSettings = Get-Content $settingsPath -Raw | ConvertFrom-Json
+          $savedSettings.taskbarSpeed.singleLine = $false
+          $savedSettings | ConvertTo-Json -Depth 4 | Set-Content $settingsPath -Encoding utf8
+
+          $twoLineProcess = Start-Process $app.FullName -PassThru
+          try {
+            Start-Sleep -Seconds 8
+            if ($twoLineProcess.HasExited) {
+              throw "The application exited while smoke-testing the two-line taskbar layout with code $($twoLineProcess.ExitCode)."
+            }
+            $twoLineOverlay = [NativeWindowLookup]::FindWindow("NetworkSpeedLogger.TaskbarSpeed.$($twoLineProcess.Id)", $null)
+            if ($twoLineOverlay -eq [IntPtr]::Zero) {
+              throw "The two-line taskbar speed overlay window was not created."
+            }
+            $twoLineRect = New-Object NativeWindowLookup+Rect
+            if (-not [NativeWindowLookup]::GetWindowRect($twoLineOverlay, [ref]$twoLineRect)) {
+              throw "Unable to read the two-line taskbar overlay position."
+            }
+            $singleLineWidth = $singleLineRect.Right - $singleLineRect.Left
+            $twoLineWidth = $twoLineRect.Right - $twoLineRect.Left
+            if ($twoLineWidth -lt 100 -or $twoLineWidth -ge $singleLineWidth) {
+              throw "The two-line taskbar layout did not use the expected narrower overlay."
+            }
+            if (-not [NativeWindowLookup]::IsWindowVisible($twoLineOverlay)) {
+              throw "The two-line taskbar speed overlay was not visible."
+            }
+          }
+          finally {
+            if (-not $twoLineProcess.HasExited) {
+              Stop-Process -Id $twoLineProcess.Id -Force
+            }
+          }
+
           $uninstaller = Join-Path $installDir "unins000.exe"
           $uninstallProcess = Start-Process $uninstaller `
             -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART") `
@@ -353,14 +481,21 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [release-check, build-windows]
+    needs: [release-check, build-macos, build-windows]
     if: >-
       github.ref == 'refs/heads/main' &&
       needs.release-check.outputs.exists != 'true' &&
+      needs.build-macos.result == 'success' &&
       needs.build-windows.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-release
+          path: artifacts
+
       - name: Download Windows installer
         uses: actions/download-artifact@v4
         with:
@@ -372,22 +507,36 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.8.8 Windows pre-release
+          Network Speed Logger 0.8.9
 
-          - Refines single-line text with 4x grayscale supersampling for smoother glyph edges at taskbar size
-          - Uses Windows 11's Segoe UI Variable Text face at regular weight, with Segoe UI fallback on Windows 10
-          - Removes the single-line drop shadow for a flatter appearance consistent with built-in taskbar components
-          - Preserves the current 15 DIP single-line size, comfortable upload/download spacing, and all taskbar visibility fixes
-          - Preserves layout selection, independent sampling settings, Widgets-area avoidance, and light/dark/high-contrast adaptation
-          - Includes the self-contained Windows x64 installer
+          - Adds the optional Windows taskbar upload/download speed display with independent adapter mode, sampling interval, Byte/bit unit, and single-line/two-line layout settings
+          - Keeps the taskbar display visible through Start, notification center, tray, desktop, and ordinary application interactions, while avoiding the centered Widgets area
+          - Applies 4x grayscale supersampling, regular Segoe UI Variable typography, and a shadow-free system-style appearance to both taskbar layouts
+          - Simplifies Windows Settings to one Save action that applies available settings immediately
+          - Includes the Universal macOS DMG for Apple silicon and Intel Macs and the self-contained Windows x64 installer
 
-          This pre-release contains the Windows client only. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown.
+          The macOS application is ad-hoc signed and is not notarized. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown. Follow the README instructions if macOS Gatekeeper blocks the first launch.
           EOF
           )
-          gh release create v0.8.8 \
+          gh release create v0.8.9 \
+            artifacts/NetworkSpeedLogger.dmg \
             artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.8.8" \
-            --prerelease \
+            --title "v0.8.9" \
             --notes "$notes"
+
+      - name: Delete previous pre-releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.prerelease == true) | .tag_name' |
+          while IFS= read -r tag; do
+            if [[ -n "$tag" ]]; then
+              gh release delete "$tag" \
+                --repo "$GITHUB_REPOSITORY" \
+                --cleanup-tag \
+                --yes
+            fi
+          done

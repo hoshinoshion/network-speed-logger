@@ -17,14 +17,12 @@ namespace NetworkSpeedLogger;
 
 public sealed class SettingsSavedEventArgs : EventArgs
 {
-    public SettingsSavedEventArgs(AppSettingsData settings, bool applyDefaultsNow)
+    public SettingsSavedEventArgs(AppSettingsData settings)
     {
         Settings = settings;
-        ApplyDefaultsNow = applyDefaultsNow;
     }
 
     public AppSettingsData Settings { get; }
-    public bool ApplyDefaultsNow { get; }
 }
 
 public sealed partial class SettingsWindow : Window
@@ -204,10 +202,9 @@ public sealed partial class SettingsWindow : Window
         ViewUpdateButtonText.Text = T("查看更新", "View update");
         AboutSectionText.Text = T("关于", "About");
         RepositoryButtonText.Text = T("GitHub 仓库", "GitHub repository");
-        SaveHintText.Text = T("保存后将在下次启动时使用", "Saved values are used at the next launch");
+        SaveHintText.Text = T("保存后立即应用可用设置", "Available settings are applied immediately after saving");
         CancelButton.Content = T("取消", "Cancel");
         SaveButton.Content = T("保存", "Save");
-        ApplyDefaultsButton.Content = T("保存并立即应用", "Save and apply now");
         UpdateTaskbarOptionsUi();
     }
 
@@ -397,11 +394,9 @@ public sealed partial class SettingsWindow : Window
         _themeController?.ApplyPreference(ReadComboTag(ThemeCombo, "Auto"));
     }
 
-    private void SaveButton_Click(object sender, RoutedEventArgs e) => Save(false);
+    private void SaveButton_Click(object sender, RoutedEventArgs e) => Save();
 
-    private void ApplyDefaultsButton_Click(object sender, RoutedEventArgs e) => Save(true);
-
-    private void Save(bool applyDefaultsNow)
+    private void Save()
     {
         double duration = DefaultDurationNumber.Value;
         double intervalValue = DefaultIntervalNumber.Value;
@@ -467,7 +462,7 @@ public sealed partial class SettingsWindow : Window
         }
 
         _settings = candidate;
-        SettingsSaved?.Invoke(this, new SettingsSavedEventArgs(candidate.Clone(), applyDefaultsNow));
+        SettingsSaved?.Invoke(this, new SettingsSavedEventArgs(candidate.Clone()));
         Close();
     }
 
