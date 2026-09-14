@@ -53,9 +53,17 @@ struct InterfaceProvider {
             let isUp = (flags & UInt32(IFF_UP)) != 0
             let isRunning = (flags & UInt32(IFF_RUNNING)) != 0
             let hasIPAddress = interfacesWithIPAddress.contains(name)
-            let hasUsableLink = linkStatusByName[name] ?? hasIPAddress
+            // An assigned address plus UP/RUNNING flags is sufficient evidence
+            // that traffic can flow. Some macOS versions report a stale false
+            // Link/Active value for Wi-Fi, which previously left auto mode with
+            // no selected counters and therefore a permanent zero rate.
+            let hasUsableLink = (linkStatusByName[name] ?? false) || hasIPAddress
             let isVirtual = Self.virtualPrefixes.contains { name.hasPrefix($0) }
-            let isPhysical = hardware[name] != nil && !isVirtual
+            // SCNetworkInterfaceCopyAll can temporarily omit an active built-in
+            // interface on newer macOS releases. BSD en* interfaces are the
+            // system's Ethernet/Wi-Fi family, so keep them monitorable when that
+            // metadata is unavailable instead of producing an empty auto set.
+            let isPhysical = !isVirtual && (hardware[name] != nil || name.hasPrefix("en"))
             return NetworkInterfaceInfo(
                 name: name,
                 displayName: hardware[name] ?? friendlyFallbackName(for: name),

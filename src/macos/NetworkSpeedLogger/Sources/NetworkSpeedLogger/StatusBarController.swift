@@ -10,19 +10,16 @@ final class StatusBarController: NSObject, ObservableObject {
     private var isInStatusBarMode = false
 
     private let interfaceProvider = InterfaceProvider()
-    private var speedSamplingTask: Task<Void, Never>?
+    private var speedSamplingTimer: DispatchSourceTimer?
     private var speedConfiguration: SpeedConfiguration?
-    private var previousSpeedCounters: [String: InterfaceCounter] = [:]
-    private var lastSpeedSampleDate: Date?
+    private var speedRateTracker = NetworkRateTracker()
     private var currentDownloadBytesPerSecond: Double = 0
     private var currentUploadBytesPerSecond: Double = 0
 
     private struct SpeedConfiguration: Equatable {
         let sampleIntervalSeconds: Int
-        let unit: MenuBarSpeedUnit
         let interfaceMode: InterfaceSelectionMode
         let manualInterfaceNames: Set<String>
-        let activityThresholdBytesPerSecond: Double
     }
 
     override init() {
@@ -30,7 +27,7 @@ final class StatusBarController: NSObject, ObservableObject {
     }
 
     deinit {
-        speedSamplingTask?.cancel()
+        speedSamplingTimer?.cancel()
     }
 
     func configure(settings: AppSettings, monitor: NetworkMonitor) {
@@ -235,14 +232,11 @@ final class StatusBarController: NSObject, ObservableObject {
 
         let configuration = SpeedConfiguration(
             sampleIntervalSeconds: min(max(settings.menuBarSpeedSampleIntervalSeconds, 1), 3_600),
-            unit: settings.menuBarSpeedUnit,
             interfaceMode: settings.menuBarSpeedInterfaceMode,
-            manualInterfaceNames: settings.menuBarSpeedSelectedInterfaceNames,
-            activityThresholdBytesPerSecond:
-                Double(settings.menuBarSpeedActivityThresholdKilobytesPerSecond) * 1_000
+            manualInterfaceNames: settings.menuBarSpeedSelectedInterfaceNames
         )
 
-        guard configuration != speedConfiguration || speedSamplingTask == nil else {
+        guard configuration != speedConfiguration || speedSamplingTimer == nil else {
             refreshStatusItemAppearance()
             return
         }
@@ -251,7 +245,7 @@ final class StatusBarController: NSObject, ObservableObject {
     }
 
     private func startSpeedSampling(configuration: SpeedConfiguration) {
-        speedSamplingTask?.cancel()
+        speedSamplingTimer?.cancel()
         speedConfiguration = configuration
 
         let capture = interfaceProvider.capture()
@@ -260,46 +254,40 @@ final class StatusBarController: NSObject, ObservableObject {
             mode: configuration.interfaceMode,
             manuallySelected: configuration.manualInterfaceNames
         )
-        previousSpeedCounters = counters(for: selectedNames, in: capture)
-        lastSpeedSampleDate = Date()
+        speedRateTracker.reset(
+            counters: capture.counters,
+            selectedNames: selectedNames,
+            at: Date()
+        )
         currentDownloadBytesPerSecond = 0
         currentUploadBytesPerSecond = 0
         refreshStatusItemAppearance()
 
-        speedSamplingTask = Task { [weak self] in
-            guard let self else { return }
-            while !Task.isCancelled {
-                do {
-                    try await Task.sleep(
-                        nanoseconds: UInt64(configuration.sampleIntervalSeconds) * 1_000_000_000
-                    )
-                } catch {
-                    return
-                }
-                guard !Task.isCancelled else { return }
-                self.captureSpeedSample(configuration: configuration)
-            }
+        let timer = DispatchSource.makeTimerSource(queue: .main)
+        let interval = DispatchTimeInterval.seconds(configuration.sampleIntervalSeconds)
+        timer.schedule(
+            deadline: .now() + interval,
+            repeating: interval,
+            leeway: .milliseconds(min(configuration.sampleIntervalSeconds * 50, 250))
+        )
+        timer.setEventHandler { [weak self] in
+            self?.captureSpeedSample(configuration: configuration)
         }
+        speedSamplingTimer = timer
+        timer.resume()
     }
 
     private func stopSpeedSampling() {
-        speedSamplingTask?.cancel()
-        speedSamplingTask = nil
+        speedSamplingTimer?.cancel()
+        speedSamplingTimer = nil
         speedConfiguration = nil
-        previousSpeedCounters = [:]
-        lastSpeedSampleDate = nil
+        speedRateTracker = NetworkRateTracker()
         currentDownloadBytesPerSecond = 0
         currentUploadBytesPerSecond = 0
     }
 
     private func captureSpeedSample(configuration: SpeedConfiguration) {
         let now = Date()
-        guard let previousDate = lastSpeedSampleDate else {
-            lastSpeedSampleDate = now
-            return
-        }
-
-        let interval = now.timeIntervalSince(previousDate)
         let capture = interfaceProvider.capture()
         let selectedNames = interfaceProvider.selectedNames(
             from: capture,
@@ -311,44 +299,15 @@ final class StatusBarController: NSObject, ObservableObject {
             Double(configuration.sampleIntervalSeconds) + 10
         )
 
-        guard interval > 0, interval <= discontinuityThreshold else {
-            previousSpeedCounters = counters(for: selectedNames, in: capture)
-            lastSpeedSampleDate = now
-            currentDownloadBytesPerSecond = 0
-            currentUploadBytesPerSecond = 0
-            refreshStatusItemAppearance()
-            return
-        }
-
-        var receivedDelta: UInt64 = 0
-        var sentDelta: UInt64 = 0
-
-        for (name, previous) in previousSpeedCounters {
-            guard let current = capture.counters[name] else { continue }
-            if current.receivedBytes >= previous.receivedBytes {
-                receivedDelta = receivedDelta.addingWithoutOverflow(
-                    current.receivedBytes - previous.receivedBytes
-                )
-            }
-            if current.sentBytes >= previous.sentBytes {
-                sentDelta = sentDelta.addingWithoutOverflow(current.sentBytes - previous.sentBytes)
-            }
-        }
-
-        currentDownloadBytesPerSecond = Double(receivedDelta) / interval
-        currentUploadBytesPerSecond = Double(sentDelta) / interval
-        previousSpeedCounters = counters(for: selectedNames, in: capture)
-        lastSpeedSampleDate = now
+        let rate = speedRateTracker.sample(
+            counters: capture.counters,
+            selectedNames: selectedNames,
+            at: now,
+            maximumInterval: discontinuityThreshold
+        )
+        currentDownloadBytesPerSecond = rate.downloadBytesPerSecond
+        currentUploadBytesPerSecond = rate.uploadBytesPerSecond
         refreshStatusItemAppearance()
-    }
-
-    private func counters(
-        for names: [String],
-        in capture: InterfaceCapture
-    ) -> [String: InterfaceCounter] {
-        Dictionary(uniqueKeysWithValues: names.compactMap { name in
-            capture.counters[name].map { (name, $0) }
-        })
     }
 
     private static func makeStatusBarImage() -> NSImage {

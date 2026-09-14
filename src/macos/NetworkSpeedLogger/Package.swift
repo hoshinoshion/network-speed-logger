@@ -19,6 +19,11 @@ let package = Package(
                 .linkedFramework("Charts"),
                 .linkedFramework("SystemConfiguration")
             ]
+        ),
+        .testTarget(
+            name: "NetworkSpeedLoggerTests",
+            dependencies: ["NetworkSpeedLogger"],
+            path: "Tests/NetworkSpeedLoggerTests"
         )
     ]
 )

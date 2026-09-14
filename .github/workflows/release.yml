@@ -1,4 +1,4 @@
-name: Release v0.8.10 macOS pre-release
+name: Release v0.8.11 macOS pre-release
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.8.10
-  APP_BUILD_NUMBER: 30
+  APP_VERSION: 0.8.11
+  APP_BUILD_NUMBER: 31
 
 jobs:
   release-check:
@@ -20,12 +20,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.8.10 already exists
+      - name: Check whether v0.8.11 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.8.10 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.8.11 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -39,6 +39,10 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
+      - name: Test macOS traffic-rate sampling
+        working-directory: src/macos/NetworkSpeedLogger
+        run: swift test
 
       - name: Build Universal macOS application and DMG
         run: bash src/macos/NetworkSpeedLogger/Scripts/build-release.sh "$APP_VERSION" "$APP_BUILD_NUMBER"
@@ -504,21 +508,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.8.10 macOS Pre-release
+          Network Speed Logger 0.8.11 macOS Pre-release
 
-          - Adds an optional always-visible macOS menu-bar upload/download speed display
-          - Shows upload above download with B, K, M, G, and T prefixes that adapt to the current speed
-          - Adds independent automatic/manual interface selection, sampling interval, and Byte/bit unit settings
-          - Uses a configurable 50 KB/s default threshold to make each direction arrow opaque for active traffic and translucent below the threshold
+          - Fixes the macOS menu-bar upload and download values remaining at zero
+          - Moves live sampling to a stable main-queue timer that remains active through window and menu-bar state changes
+          - Keeps active Ethernet and Wi-Fi interfaces monitorable when macOS returns stale or missing SystemConfiguration link metadata
+          - Adds rate-delta, interface-switching, sleep/reset, and live outgoing-interface counter regression tests
           - Preserves the existing left-click, right-click menu, close-window background mode, and Dock behavior
 
           This pre-release contains the Universal macOS DMG for Apple silicon and Intel Macs. The application is ad-hoc signed and is not notarized; follow the README instructions if Gatekeeper blocks the first launch.
           EOF
           )
-          gh release create v0.8.10 \
+          gh release create v0.8.11 \
             artifacts/NetworkSpeedLogger.dmg \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.8.10" \
+            --title "v0.8.11" \
             --notes "$notes" \
             --prerelease
