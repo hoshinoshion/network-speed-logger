@@ -1,4 +1,4 @@
-name: Release v0.8.12 macOS pre-release
+name: Release v0.9.0
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.8.12
-  APP_BUILD_NUMBER: 32
+  APP_VERSION: 0.9.0
+  APP_BUILD_NUMBER: 33
 
 jobs:
   release-check:
@@ -20,12 +20,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.8.12 already exists
+      - name: Check whether v0.9.0 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.8.12 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.9.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -134,7 +134,7 @@ jobs:
 
   build-windows:
     needs: release-check
-    if: ${{ false }}
+    if: needs.release-check.outputs.exists != 'true'
     runs-on: windows-latest
 
     steps:
@@ -489,11 +489,12 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [release-check, build-macos]
+    needs: [release-check, build-macos, build-windows]
     if: >-
       github.ref == 'refs/heads/main' &&
       needs.release-check.outputs.exists != 'true' &&
-      needs.build-macos.result == 'success'
+      needs.build-macos.result == 'success' &&
+      needs.build-windows.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
@@ -503,26 +504,48 @@ jobs:
           name: macos-release
           path: artifacts
 
+      - name: Download Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-installer
+          path: artifacts
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.8.12 macOS Pre-release
+          Network Speed Logger 0.9.0
 
-          - Keeps the macOS menu-bar item at a fixed width as live values and SI prefixes change
-          - Uses three numeric digits with dynamic decimal places: 0.00, 9.99, 10.0, and 100
-          - Adds regression coverage proving image width remains constant across Byte/bit units and representative speeds
-          - Retains the geometrically centered two-arrow icon without introducing a downward offset
-          - Preserves the existing left-click, right-click menu, close-window background mode, and Dock behavior
+          - Brings the real-time speed display to both the Windows taskbar and macOS menu bar
+          - Slightly reduces the Windows single-line taskbar font from 15 DIP to 14 DIP while retaining the larger single-line hierarchy
+          - Keeps the refined system typography, 4x grayscale supersampling, two-line option, stable taskbar placement, and persistent overlay behavior on Windows
+          - Includes independent interface selection, sampling interval, and Byte/bit settings for the platform speed displays
+          - Keeps the fixed-width three-digit macOS menu-bar values and activity-sensitive arrow opacity
+          - Includes the Universal macOS DMG for Apple silicon and Intel Macs and the self-contained Windows x64 installer
 
-          This pre-release contains the Universal macOS DMG for Apple silicon and Intel Macs. The application is ad-hoc signed and is not notarized; follow the README instructions if Gatekeeper blocks the first launch.
+          The macOS application is ad-hoc signed and is not notarized. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown. Follow the README instructions if macOS Gatekeeper blocks the first launch.
           EOF
           )
-          gh release create v0.8.12 \
+          gh release create v0.9.0 \
             artifacts/NetworkSpeedLogger.dmg \
+            artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.8.12" \
-            --notes "$notes" \
-            --prerelease
+            --title "v0.9.0" \
+            --notes "$notes"
+
+      - name: Delete previous pre-releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.prerelease == true) | .tag_name' |
+          while IFS= read -r tag; do
+            if [[ -n "$tag" ]]; then
+              gh release delete "$tag" \
+                --repo "$GITHUB_REPOSITORY" \
+                --cleanup-tag \
+                --yes
+            fi
+          done

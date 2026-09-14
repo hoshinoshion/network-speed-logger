@@ -243,7 +243,7 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
     private const int SingleLineWidthDip = 236;
     private const int SingleLineGapDip = 18;
     private const int TwoLineFontSizeDip = 12;
-    private const int SingleLineFontSizeDip = 15;
+    private const int SingleLineFontSizeDip = 14;
     private const int TextRenderScale = 4;
     private const string TaskbarAlignmentPath = @"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced";
     private static readonly nint HwndTop = 0;
