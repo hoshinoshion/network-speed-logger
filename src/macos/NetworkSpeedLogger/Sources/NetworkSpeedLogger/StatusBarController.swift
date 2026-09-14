@@ -16,6 +16,10 @@ final class StatusBarController: NSObject, ObservableObject {
     private var currentDownloadBytesPerSecond: Double = 0
     private var currentUploadBytesPerSecond: Double = 0
 
+    // Keep the arrow pair centered while giving the two glyphs slightly more vertical separation.
+    static let upperArrowCenterY: CGFloat = 12
+    static let lowerArrowCenterY: CGFloat = 6
+
     private struct SpeedConfiguration: Equatable {
         let sampleIntervalSeconds: Int
         let interfaceMode: InterfaceSelectionMode
@@ -314,14 +318,14 @@ final class StatusBarController: NSObject, ObservableObject {
         let size = NSSize(width: 18, height: 18)
         let image = NSImage(size: size, flipped: false) { _ in
             drawArrow(
-                center: NSPoint(x: 6, y: 11.5),
+                center: NSPoint(x: 6, y: upperArrowCenterY),
                 width: 5.4,
                 height: 7,
                 pointsUp: true,
                 alpha: 1
             )
             drawArrow(
-                center: NSPoint(x: 12, y: 6.5),
+                center: NSPoint(x: 12, y: lowerArrowCenterY),
                 width: 5.4,
                 height: 7,
                 pointsUp: false,
@@ -378,14 +382,14 @@ final class StatusBarController: NSObject, ObservableObject {
 
             let iconOriginX = textWidth + textToIconSpacing
             drawArrow(
-                center: NSPoint(x: iconOriginX + 6, y: 11.5),
+                center: NSPoint(x: iconOriginX + 6, y: upperArrowCenterY),
                 width: 5.4,
                 height: 7,
                 pointsUp: true,
                 alpha: uploadBytesPerSecond >= activityThresholdBytesPerSecond ? 1 : 0.32
             )
             drawArrow(
-                center: NSPoint(x: iconOriginX + 12, y: 6.5),
+                center: NSPoint(x: iconOriginX + 12, y: lowerArrowCenterY),
                 width: 5.4,
                 height: 7,
                 pointsUp: false,

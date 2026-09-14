@@ -17,6 +17,15 @@ final class MenuBarSpeedPresentationTests: XCTestCase {
         }
     }
 
+    func testArrowPairKeepsItsCenterWhileIncreasingVerticalSeparation() async {
+        await MainActor.run {
+            XCTAssertEqual(StatusBarController.upperArrowCenterY, 12)
+            XCTAssertEqual(StatusBarController.lowerArrowCenterY, 6)
+            XCTAssertEqual(StatusBarController.upperArrowCenterY - StatusBarController.lowerArrowCenterY, 6)
+            XCTAssertEqual((StatusBarController.upperArrowCenterY + StatusBarController.lowerArrowCenterY) / 2, 9)
+        }
+    }
+
     func testStatusItemImageWidthDoesNotChangeWithSpeedOrUnit() async {
         await MainActor.run {
             let byteSpeeds: [Double] = [0, 9, 12, 123, 1_000, 12_000, 123_000, 1_000_000]
