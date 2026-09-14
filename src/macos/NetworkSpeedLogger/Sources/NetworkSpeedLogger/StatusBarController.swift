@@ -333,7 +333,7 @@ final class StatusBarController: NSObject, ObservableObject {
         return image
     }
 
-    private static func makeSpeedStatusBarImage(
+    static func makeSpeedStatusBarImage(
         uploadBytesPerSecond: Double,
         downloadBytesPerSecond: Double,
         unit: MenuBarSpeedUnit,
@@ -349,10 +349,16 @@ final class StatusBarController: NSObject, ObservableObject {
             .foregroundColor: NSColor.black,
             .paragraphStyle: paragraph
         ]
-        let textWidth = ceil(max(
-            (uploadText as NSString).size(withAttributes: attributes).width,
-            (downloadText as NSString).size(withAttributes: attributes).width
-        ))
+        // Reserve the widest possible three-digit presentation so the status
+        // item and every neighboring menu-bar click target stay stationary as
+        // the value and SI prefix change.
+        let fixedWidthSamples = [
+            "0.00 B/s", "0.00 KB/s", "0.00 MB/s", "0.00 GB/s", "0.00 TB/s",
+            "0.00 b/s", "0.00 Kb/s", "0.00 Mb/s", "0.00 Gb/s", "0.00 Tb/s"
+        ]
+        let textWidth = ceil(fixedWidthSamples.reduce(CGFloat.zero) { width, sample in
+            max(width, (sample as NSString).size(withAttributes: attributes).width)
+        })
         let textToIconSpacing: CGFloat = 3
         let iconWidth: CGFloat = 18
         let imageSize = NSSize(
@@ -391,7 +397,7 @@ final class StatusBarController: NSObject, ObservableObject {
         return image
     }
 
-    private static func formatSpeed(
+    static func formatSpeed(
         _ bytesPerSecond: Double,
         unit: MenuBarSpeedUnit
     ) -> String {
@@ -407,15 +413,17 @@ final class StatusBarController: NSObject, ObservableObject {
         }
 
         var suffixIndex = 0
-        while value >= 1_000, suffixIndex < suffixes.count - 1 {
+        // Promote just before rounding would produce a four-digit value such
+        // as 1000 KB/s, keeping the numeric field at three digits.
+        while value >= 999.5, suffixIndex < suffixes.count - 1 {
             value /= 1_000
             suffixIndex += 1
         }
 
         let number: String
-        if suffixIndex == 0 || value >= 100 {
+        if value >= 99.95 {
             number = String(format: "%.0f", value)
-        } else if value >= 10 {
+        } else if value >= 9.995 {
             number = String(format: "%.1f", value)
         } else {
             number = String(format: "%.2f", value)
