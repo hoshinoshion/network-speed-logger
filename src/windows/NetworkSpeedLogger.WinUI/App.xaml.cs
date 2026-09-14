@@ -1,13 +1,17 @@
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 
 namespace NetworkSpeedLogger;
 
 public partial class App : Application
 {
+    private readonly DispatcherQueue _dispatcherQueue;
     private Window? _window;
+    private bool _redirectedActivationPending;
 
     public App()
     {
+        _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
             WriteCrashLog("AppDomain.UnhandledException", args.ExceptionObject as Exception);
         UnhandledException += OnUnhandledException;
@@ -18,14 +22,35 @@ public partial class App : Application
     {
         try
         {
-            _window = new MainWindow();
-            _window.Activate();
+            var mainWindow = new MainWindow();
+            _window = mainWindow;
+            mainWindow.Activate();
+            if (_redirectedActivationPending)
+            {
+                _redirectedActivationPending = false;
+                mainWindow.ActivateFromSecondaryLaunch();
+            }
         }
         catch (Exception exception)
         {
             WriteCrashLog("App.OnLaunched", exception);
             throw;
         }
+    }
+
+    internal void HandleRedirectedActivation()
+    {
+        _dispatcherQueue.TryEnqueue(() =>
+        {
+            if (_window is MainWindow mainWindow)
+            {
+                mainWindow.ActivateFromSecondaryLaunch();
+            }
+            else
+            {
+                _redirectedActivationPending = true;
+            }
+        });
     }
 
     private static void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
