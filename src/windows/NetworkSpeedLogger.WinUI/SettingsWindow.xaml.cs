@@ -136,7 +136,11 @@ public sealed partial class SettingsWindow : Window
         Title = T("设置", "Settings");
         TitleBarText.Text = T("设置", "Settings");
         PageTitleText.Text = T("设置", "Settings");
-        PageSubtitleText.Text = T("管理每次启动时使用的默认值和文件保存位置", "Manage launch defaults and file locations");
+        PageSubtitleText.Text = T("按类别管理应用行为、记录配置、系统栏显示与更新", "Manage app behavior, recording, system-bar display, and updates by category");
+        GeneralTabText.Text = T("通用", "General");
+        RecordingTabText.Text = T("记录", "Recording");
+        TaskbarTabText.Text = T("任务栏", "Taskbar");
+        UpdatesTabText.Text = T("更新", "Updates");
         GeneralSectionText.Text = T("常规", "General");
         LanguageLabel.Text = T("界面语言", "App language");
         LanguageDescription.Text = T("默认根据 Windows 显示语言自动选择", "By default, follows the Windows display language");

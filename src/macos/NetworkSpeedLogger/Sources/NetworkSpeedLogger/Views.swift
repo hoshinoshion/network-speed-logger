@@ -965,6 +965,37 @@ struct PreferencesView: View {
     @ObservedObject var updateChecker: UpdateChecker
 
     var body: some View {
+        TabView {
+            generalTab
+                .tabItem {
+                    Label(settings.text("General", "通用"), systemImage: "gearshape")
+                }
+
+            recordingTab
+                .tabItem {
+                    Label(settings.text("Recording", "记录"), systemImage: "record.circle")
+                }
+
+            menuBarTab
+                .tabItem {
+                    Label(settings.text("Menu Bar", "状态栏"), systemImage: "menubar.rectangle")
+                }
+
+            updatesTab
+                .tabItem {
+                    Label(settings.text("Updates", "更新"), systemImage: "arrow.triangle.2.circlepath")
+                }
+        }
+        .onAppear {
+            monitor.refreshInterfaces()
+        }
+        .onDisappear {
+            settings.normalizeDefaultValues()
+            settings.normalizeMenuBarSpeedValues()
+        }
+    }
+
+    private var generalTab: some View {
         Form {
             Section(settings.text("General", "通用")) {
                 Picker(settings.text("Language", "语言"), selection: $settings.language) {
@@ -987,7 +1018,65 @@ struct PreferencesView: View {
                     isOn: $settings.keepsRunningInMenuBar
                 )
             }
+        }
+        .formStyle(.grouped)
+        .padding(20)
+    }
 
+    private var recordingTab: some View {
+        Form {
+            Section(settings.text("Session Defaults", "记录默认配置")) {
+                DurationInputRow(
+                    title: settings.text("Duration", "记录时长"),
+                    value: $settings.defaultDurationHours,
+                    unlimitedText: settings.text("0 = unlimited", "0 表示不限时")
+                )
+
+                IntervalInputRow(
+                    title: settings.text("Sample interval", "采样间隔"),
+                    value: $settings.defaultSampleIntervalSeconds
+                )
+
+                Picker(settings.text("Speed unit", "速度单位"), selection: $settings.defaultSpeedUnit) {
+                    Text("MB/s").tag(SpeedUnit.megabytesPerSecond)
+                    Text("Mbps").tag(SpeedUnit.megabitsPerSecond)
+                }
+                .pickerStyle(.segmented)
+
+                Text(settings.text(
+                    "These values are loaded when the app starts. Changes made in the main window apply only to the current launch.",
+                    "应用每次启动时都会载入这些值；主窗口中的临时修改只在本次启动期间有效。"
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                Button(settings.text("Apply Defaults Now", "立即应用默认配置")) {
+                    settings.applyDefaultsToCurrentSession()
+                }
+                .disabled(monitor.state.isRunning)
+            }
+
+            Section(settings.text("Files", "文件")) {
+                LabeledContent(settings.text("Output folder", "保存文件夹")) {
+                    HStack {
+                        Text(settings.outputFolderURL?.path ?? "—")
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .foregroundStyle(.secondary)
+                        Button(settings.text("Change…", "更改…")) {
+                            settings.chooseOutputFolder()
+                        }
+                        .disabled(monitor.state.isRunning)
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding(20)
+    }
+
+    private var menuBarTab: some View {
+        Form {
             Section(settings.text("Menu Bar Speed", "状态栏网速")) {
                 Toggle(
                     settings.text(
@@ -1092,53 +1181,13 @@ struct PreferencesView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
+        }
+        .formStyle(.grouped)
+        .padding(20)
+    }
 
-            Section(settings.text("Session Defaults", "记录默认配置")) {
-                DurationInputRow(
-                    title: settings.text("Duration", "记录时长"),
-                    value: $settings.defaultDurationHours,
-                    unlimitedText: settings.text("0 = unlimited", "0 表示不限时")
-                )
-
-                IntervalInputRow(
-                    title: settings.text("Sample interval", "采样间隔"),
-                    value: $settings.defaultSampleIntervalSeconds
-                )
-
-                Picker(settings.text("Speed unit", "速度单位"), selection: $settings.defaultSpeedUnit) {
-                    Text("MB/s").tag(SpeedUnit.megabytesPerSecond)
-                    Text("Mbps").tag(SpeedUnit.megabitsPerSecond)
-                }
-                .pickerStyle(.segmented)
-
-                Text(settings.text(
-                    "These values are loaded when the app starts. Changes made in the main window apply only to the current launch.",
-                    "应用每次启动时都会载入这些值；主窗口中的临时修改只在本次启动期间有效。"
-                ))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-                Button(settings.text("Apply Defaults Now", "立即应用默认配置")) {
-                    settings.applyDefaultsToCurrentSession()
-                }
-                .disabled(monitor.state.isRunning)
-            }
-
-            Section(settings.text("Files", "文件")) {
-                LabeledContent(settings.text("Output folder", "保存文件夹")) {
-                    HStack {
-                        Text(settings.outputFolderURL?.path ?? "—")
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .foregroundStyle(.secondary)
-                        Button(settings.text("Change…", "更改…")) {
-                            settings.chooseOutputFolder()
-                        }
-                        .disabled(monitor.state.isRunning)
-                    }
-                }
-            }
-
+    private var updatesTab: some View {
+        Form {
             Section(settings.text("Updates", "更新")) {
                 Toggle(
                     settings.text("Automatically check for updates", "自动检查更新"),
@@ -1181,13 +1230,7 @@ struct PreferencesView: View {
             }
         }
         .formStyle(.grouped)
-        .onAppear {
-            monitor.refreshInterfaces()
-        }
-        .onDisappear {
-            settings.normalizeDefaultValues()
-            settings.normalizeMenuBarSpeedValues()
-        }
+        .padding(20)
     }
 
     private var updateStatusText: String? {

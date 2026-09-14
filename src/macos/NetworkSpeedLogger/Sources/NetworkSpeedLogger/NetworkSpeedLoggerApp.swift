@@ -75,8 +75,7 @@ struct NetworkSpeedLoggerApp: App {
 
         Settings {
             PreferencesView(settings: settings, monitor: monitor, updateChecker: updateChecker)
-                .frame(width: 520)
-                .padding(24)
+                .frame(width: 560, height: 500)
         }
     }
 }
