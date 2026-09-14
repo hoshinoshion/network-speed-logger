@@ -235,11 +235,14 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
     private const uint SpiGetHighContrast = 0x0042;
     private const uint HcfHighContrastOn = 0x00000001;
     private const uint MonitorDefaultToNearest = 2;
+    private const uint DwmExtendedFrameBounds = 9;
     private const int CenteredTaskbarLeftReserveDip = 184;
     private const int TaskbarControlGapDip = 8;
     private const int TwoLineWidthDip = 164;
-    private const int SingleLineWidthDip = 260;
-    private const int SingleLineGapDip = 20;
+    private const int SingleLineWidthDip = 236;
+    private const int SingleLineGapDip = 18;
+    private const int TwoLineFontSizeDip = 12;
+    private const int SingleLineFontSizeDip = 15;
     private const string TaskbarAlignmentPath = @"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced";
     private static readonly nint HwndTopmost = new(-1);
     private static readonly bool Windows11OrLater = DetectWindows11OrLater();
@@ -250,7 +253,6 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
     private readonly nint _windowHandle;
     private readonly WinEventProcedureDelegate _foregroundChanged;
     private nint _foregroundHook;
-    private long _fullscreenCandidateTimestamp;
     private bool _registeredClass;
     private bool _disposed;
 
@@ -303,7 +305,7 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
     public void Update(string topText, string bottomText, bool singleLine)
     {
         if (_disposed || _windowHandle == 0) return;
-        if (ShouldHideForFullscreen())
+        if (IsFullscreenApplicationRunning())
         {
             Hide();
             return;
@@ -315,24 +317,6 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
         }
 
         Render(topText, bottomText, singleLine, placement);
-    }
-
-    private bool ShouldHideForFullscreen()
-    {
-        if (!IsFullscreenApplicationRunning())
-        {
-            _fullscreenCandidateTimestamp = 0;
-            return false;
-        }
-
-        long now = Stopwatch.GetTimestamp();
-        if (_fullscreenCandidateTimestamp == 0)
-        {
-            _fullscreenCandidateTimestamp = now;
-            return false;
-        }
-
-        return Stopwatch.GetElapsedTime(_fullscreenCandidateTimestamp, now) >= TimeSpan.FromMilliseconds(750);
     }
 
     public void Hide()
@@ -406,7 +390,10 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
             previousBitmap = SelectObject(memoryDc, bitmap);
             PatBlt(memoryDc, 0, 0, placement.Width, placement.Height, 0x00000042);
 
-            int fontHeight = -ScaleDip(12, placement.Dpi);
+            int fontSizeDip = singleLine && !placement.IsVertical
+                ? SingleLineFontSizeDip
+                : TwoLineFontSizeDip;
+            int fontHeight = -ScaleDip(fontSizeDip, placement.Dpi);
             font = CreateFontW(
                 fontHeight,
                 0,
@@ -432,14 +419,17 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
             if (singleLine && !placement.IsVertical)
             {
                 int gap = ScaleDip(SingleLineGapDip, placement.Dpi);
-                int middle = placement.Width / 2;
-                var uploadRect = new NativeRect(inset, 0, middle - gap / 2, placement.Height);
+                int uploadWidth = MeasureTextWidth(memoryDc, topText);
+                int downloadLeft = Math.Min(
+                    placement.Width - inset,
+                    inset + uploadWidth + gap);
+                var uploadRect = new NativeRect(inset, 0, placement.Width - inset, placement.Height);
                 var downloadRect = new NativeRect(
-                    middle + (gap + 1) / 2,
+                    downloadLeft,
                     0,
                     placement.Width - inset,
                     placement.Height);
-                DrawTextW(memoryDc, topText, -1, ref uploadRect, baseFlags | DtRight);
+                DrawTextW(memoryDc, topText, -1, ref uploadRect, baseFlags);
                 DrawTextW(memoryDc, bottomText, -1, ref downloadRect, baseFlags);
             }
             else
@@ -534,6 +524,13 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
             if (memoryDc != 0) DeleteDC(memoryDc);
             ReleaseDC(0, screenDc);
         }
+    }
+
+    private static int MeasureTextWidth(nint deviceContext, string text)
+    {
+        return GetTextExtentPoint32W(deviceContext, text, text.Length, out NativeSize size)
+            ? Math.Max(0, size.Width)
+            : 0;
     }
 
     private static bool TryGetPlacement(bool singleLine, out TaskbarPlacement placement)
@@ -702,8 +699,83 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
 
     private static bool IsFullscreenApplicationRunning()
     {
-        if (SHQueryUserNotificationState(out QueryUserNotificationState state) != 0) return false;
-        return state is QueryUserNotificationState.Busy or QueryUserNotificationState.RunningDirect3dFullScreen;
+        nint taskbar = FindWindowW("Shell_TrayWnd", null);
+        nint foreground = GetForegroundWindow();
+        if (taskbar == 0 || foreground == 0 || foreground == taskbar || !IsWindowVisible(foreground) ||
+            IsShellSurface(foreground))
+            return false;
+
+        nint taskbarMonitor = MonitorFromWindow(taskbar, MonitorDefaultToNearest);
+        nint foregroundMonitor = MonitorFromWindow(foreground, MonitorDefaultToNearest);
+        if (taskbarMonitor == 0 || foregroundMonitor != taskbarMonitor) return false;
+
+        if (SHQueryUserNotificationState(out QueryUserNotificationState state) == 0 &&
+            state == QueryUserNotificationState.RunningDirect3dFullScreen)
+            return true;
+
+        var monitorInfo = new MonitorInfo { Size = (uint)Marshal.SizeOf<MonitorInfo>() };
+        if (!GetMonitorInfoW(foregroundMonitor, ref monitorInfo) ||
+            !TryGetVisibleWindowBounds(foreground, out NativeRect windowRect))
+            return false;
+
+        const int tolerance = 2;
+        return windowRect.Left <= monitorInfo.Monitor.Left + tolerance &&
+               windowRect.Top <= monitorInfo.Monitor.Top + tolerance &&
+               windowRect.Right >= monitorInfo.Monitor.Right - tolerance &&
+               windowRect.Bottom >= monitorInfo.Monitor.Bottom - tolerance;
+    }
+
+    private static bool TryGetVisibleWindowBounds(nint window, out NativeRect rectangle)
+    {
+        if (DwmGetWindowAttribute(
+                window,
+                DwmExtendedFrameBounds,
+                out rectangle,
+                Marshal.SizeOf<NativeRect>()) == 0 &&
+            rectangle.Width > 0 && rectangle.Height > 0)
+            return true;
+
+        if (GetClientRect(window, out NativeRect clientRect))
+        {
+            var clientOrigin = new NativePoint(clientRect.Left, clientRect.Top);
+            if (ClientToScreen(window, ref clientOrigin))
+            {
+                rectangle = new NativeRect(
+                    clientOrigin.X,
+                    clientOrigin.Y,
+                    clientOrigin.X + clientRect.Width,
+                    clientOrigin.Y + clientRect.Height);
+                return rectangle.Width > 0 && rectangle.Height > 0;
+            }
+        }
+
+        rectangle = default;
+        return false;
+    }
+
+    private static bool IsShellSurface(nint window)
+    {
+        var className = new StringBuilder(128);
+        GetClassNameW(window, className, className.Capacity);
+        if (className.ToString() is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd" or "Progman" or "WorkerW")
+            return true;
+
+        GetWindowThreadProcessId(window, out uint processId);
+        if (processId == 0) return false;
+        try
+        {
+            using Process process = Process.GetProcessById((int)processId);
+            string processName = process.ProcessName;
+            return processName.Equals("StartMenuExperienceHost", StringComparison.OrdinalIgnoreCase) ||
+                   processName.Equals("SearchHost", StringComparison.OrdinalIgnoreCase) ||
+                   processName.Equals("SearchApp", StringComparison.OrdinalIgnoreCase) ||
+                   processName.Equals("ShellExperienceHost", StringComparison.OrdinalIgnoreCase) ||
+                   processName.Equals("TextInputHost", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static nint FindTaskbarDescendant(nint taskbar, string className)
@@ -999,6 +1071,20 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
     private static extern int GetClassNameW(nint window, StringBuilder className, int maximumCount);
 
     [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern nint GetForegroundWindow();
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern uint GetWindowThreadProcessId(nint window, out uint processId);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetClientRect(nint window, out NativeRect rectangle);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ClientToScreen(nint window, ref NativePoint point);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
     private static extern nint MonitorFromWindow(nint window, uint flags);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
@@ -1067,6 +1153,14 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
     [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     private static extern int DrawTextW(nint deviceContext, string text, int count, ref NativeRect rectangle, uint format);
 
+    [DllImport("gdi32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetTextExtentPoint32W(
+        nint deviceContext,
+        string text,
+        int count,
+        out NativeSize size);
+
     [DllImport("user32.dll", ExactSpelling = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool UpdateLayeredWindow(
@@ -1092,4 +1186,11 @@ internal sealed class TaskbarSpeedOverlay : IDisposable
 
     [DllImport("shell32.dll", ExactSpelling = true)]
     private static extern int SHQueryUserNotificationState(out QueryUserNotificationState state);
+
+    [DllImport("dwmapi.dll", ExactSpelling = true)]
+    private static extern int DwmGetWindowAttribute(
+        nint window,
+        uint attribute,
+        out NativeRect value,
+        int valueSize);
 }
