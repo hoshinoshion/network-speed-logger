@@ -486,7 +486,9 @@ jobs:
         with:
           name: windows-installer
           path: dist/NetworkSpeedLogger-Setup.exe
-            publish:
+          if-no-files-found: error
+
+  publish:
     needs: [release-check, build-macos, build-windows]
     if: >-
       github.ref == 'refs/heads/main' &&
