@@ -325,6 +325,15 @@ jobs:
               [return: MarshalAs(UnmanagedType.Bool)]
               public static extern bool IsWindowVisible(IntPtr window);
 
+              public delegate bool EnumWindowsProcedure(IntPtr window, IntPtr parameter);
+
+              [DllImport("user32.dll")]
+              [return: MarshalAs(UnmanagedType.Bool)]
+              public static extern bool EnumWindows(EnumWindowsProcedure callback, IntPtr parameter);
+
+              [DllImport("user32.dll")]
+              public static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+
               [DllImport("user32.dll")]
               [return: MarshalAs(UnmanagedType.Bool)]
               public static extern bool SetForegroundWindow(IntPtr window);
@@ -354,6 +363,22 @@ jobs:
               [DllImport("user32.dll")]
               [return: MarshalAs(UnmanagedType.Bool)]
               public static extern bool DestroyWindow(IntPtr window);
+
+              public static bool HasVisibleWindowForProcess(int processId)
+              {
+                  bool found = false;
+                  EnumWindows((window, parameter) =>
+                  {
+                      GetWindowThreadProcessId(window, out uint ownerProcessId);
+                      if (ownerProcessId == (uint)processId && IsWindowVisible(window))
+                      {
+                          found = true;
+                          return false;
+                      }
+                      return true;
+                  }, IntPtr.Zero);
+                  return found;
+              }
 
           }
           "@
@@ -522,11 +547,7 @@ jobs:
               throw "The per-user Run registration does not point to the installed application with its sign-in argument."
             }
 
-            $loginWindow = [NativeWindowLookup]::FindWindow($null, "Network Speed Logger")
-            if ($loginWindow -eq [IntPtr]::Zero) {
-              throw "The application window was not created during the sign-in launch smoke test."
-            }
-            if ([NativeWindowLookup]::IsWindowVisible($loginWindow)) {
+            if ([NativeWindowLookup]::HasVisibleWindowForProcess($loginProcess.Id)) {
               throw "The sign-in launch opened the main window instead of starting in the notification area."
             }
           }
