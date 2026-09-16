@@ -29,6 +29,11 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func captureLoginItemLaunch() {
+        if ProcessInfo.processInfo.environment["NETWORK_SPEED_LOGGER_LOGIN_ITEM_TEST"] == "1" {
+            launchedAsLoginItem = true
+            return
+        }
+
         guard let event = NSAppleEventManager.shared().currentAppleEvent,
               event.eventID == kAEOpenApplication,
               event.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue
@@ -38,12 +43,28 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
 }
 
 @main
+@MainActor
 struct NetworkSpeedLoggerApp: App {
     @NSApplicationDelegateAdaptor(ApplicationDelegate.self) private var applicationDelegate
-    @StateObject private var settings = AppSettings()
-    @StateObject private var monitor = NetworkMonitor()
-    @StateObject private var updateChecker = UpdateChecker()
-    @StateObject private var statusBarController = StatusBarController()
+    @StateObject private var settings: AppSettings
+    @StateObject private var monitor: NetworkMonitor
+    @StateObject private var updateChecker: UpdateChecker
+    @StateObject private var statusBarController: StatusBarController
+
+    init() {
+        let settings = AppSettings()
+        let monitor = NetworkMonitor()
+        let updateChecker = UpdateChecker()
+        let statusBarController = StatusBarController()
+
+        statusBarController.configure(settings: settings, monitor: monitor)
+
+        _settings = StateObject(wrappedValue: settings)
+        _monitor = StateObject(wrappedValue: monitor)
+        _updateChecker = StateObject(wrappedValue: updateChecker)
+        _statusBarController = StateObject(wrappedValue: statusBarController)
+        applicationDelegate.statusBarController = statusBarController
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -54,12 +75,6 @@ struct NetworkSpeedLoggerApp: App {
                 statusBarController: statusBarController
             )
                 .frame(minWidth: 1_040, minHeight: 700)
-                .onAppear {
-                    applicationDelegate.statusBarController = statusBarController
-                    if applicationDelegate.launchedAsLoginItem {
-                        statusBarController.enterStatusBarModeAfterLoginLaunch()
-                    }
-                }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
                     monitor.stop(reason: .applicationQuit)
                 }

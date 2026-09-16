@@ -1,4 +1,4 @@
-name: Release v0.9.6 dual-platform pre-release
+name: Release v0.9.7 macOS pre-release
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.9.6
-  APP_BUILD_NUMBER: 39
+  APP_VERSION: 0.9.7
+  APP_BUILD_NUMBER: 40
 
 jobs:
   release-check:
@@ -20,12 +20,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.9.6 already exists
+      - name: Check whether v0.9.7 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.9.6 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.9.7 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -125,6 +125,53 @@ jobs:
           cleanup
           trap - EXIT
 
+      - name: Smoke-test macOS login-item presentation
+        run: |
+          executable="dist/NetworkSpeedLogger.app/Contents/MacOS/NetworkSpeedLogger"
+          log_path="$RUNNER_TEMP/network-speed-logger-login-item.log"
+          result_path="$RUNNER_TEMP/network-speed-logger-login-item-result.txt"
+          defaults write com.hoshinoshion.network-speed-logger keepsRunningInMenuBar -bool true
+          defaults write com.hoshinoshion.network-speed-logger showsNetworkSpeedInMenuBar -bool false
+          rm -f "$result_path"
+
+          NETWORK_SPEED_LOGGER_LOGIN_ITEM_TEST=1 \
+          NETWORK_SPEED_LOGGER_LOGIN_ITEM_TEST_RESULT="$result_path" \
+            "$executable" >"$log_path" 2>&1 &
+          app_pid=$!
+
+          cleanup() {
+            if kill -0 "$app_pid" >/dev/null 2>&1; then
+              kill -TERM "$app_pid" >/dev/null 2>&1 || true
+            fi
+            wait "$app_pid" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          for _ in {1..15}; do
+            if [[ -s "$result_path" ]]; then
+              break
+            fi
+            if ! kill -0 "$app_pid" >/dev/null 2>&1; then
+              cat "$log_path"
+              echo "The macOS application exited during the login-item smoke test." >&2
+              exit 1
+            fi
+            sleep 1
+          done
+
+          if [[ ! -s "$result_path" ]]; then
+            cat "$log_path"
+            echo "The login-item presentation did not become ready." >&2
+            exit 1
+          fi
+          cat "$result_path"
+          grep -Fx 'statusItemInstalled=true' "$result_path"
+          grep -Fx 'activationPolicyAccessory=true' "$result_path"
+          grep -Fx 'mainWindowVisible=false' "$result_path"
+
+          cleanup
+          trap - EXIT
+
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
@@ -134,7 +181,7 @@ jobs:
 
   build-windows:
     needs: release-check
-    if: needs.release-check.outputs.exists != 'true'
+    if: ${{ false }}
     runs-on: windows-latest
 
     steps:
@@ -593,12 +640,11 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [release-check, build-macos, build-windows]
+    needs: [release-check, build-macos]
     if: >-
       github.ref == 'refs/heads/main' &&
       needs.release-check.outputs.exists != 'true' &&
-      needs.build-macos.result == 'success' &&
-      needs.build-windows.result == 'success'
+      needs.build-macos.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
@@ -608,34 +654,26 @@ jobs:
           name: macos-release
           path: artifacts
 
-      - name: Download Windows installer
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-installer
-          path: artifacts
-
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.9.6 Pre-release
+          Network Speed Logger 0.9.7 macOS Pre-release
 
-          - Adds a standard Open at Login setting to the macOS client using Service Management
-          - Adds a standard per-user Run at sign-in setting to the Windows client
-          - Enabling login launch also enables menu-bar or notification-area background running
-          - Login launches go directly to the menu bar or notification area without opening the main window
-          - Disabling the setting removes the corresponding system startup registration
-          - Includes the Universal macOS DMG and self-contained Windows x64 installer
+          - Fixes macOS login launch getting stuck in the Dock without a menu-bar item
+          - Initializes the menu-bar controller before SwiftUI creates or activates the main window
+          - Keeps delayed main-window activation events from leaving menu-bar mode during login launch
+          - Adds a login-item presentation smoke test covering the status item, Dock policy, and hidden main window
+          - Includes the Universal macOS DMG for Apple silicon and Intel Macs
 
-          The applications and installer are not Developer ID/code-signed, so the operating system may identify the publisher as unknown.
+          This pre-release contains the macOS client only. The application is ad-hoc signed, is not notarized, and may require Open Anyway in System Settings > Privacy & Security on first launch.
           EOF
           )
-          gh release create v0.9.6 \
+          gh release create v0.9.7 \
             artifacts/NetworkSpeedLogger.dmg \
-            artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.9.6" \
+            --title "v0.9.7" \
             --notes "$notes" \
             --prerelease

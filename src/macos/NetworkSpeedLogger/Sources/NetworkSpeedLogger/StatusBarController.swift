@@ -9,6 +9,7 @@ final class StatusBarController: NSObject, ObservableObject {
     private var statusItem: NSStatusItem?
     private var isInStatusBarMode = false
     private var shouldEnterStatusBarModeAfterLoginLaunch = false
+    private var loginLaunchVerificationWorkItem: DispatchWorkItem?
 
     private let interfaceProvider = InterfaceProvider()
     private var speedSamplingTimer: DispatchSourceTimer?
@@ -33,6 +34,7 @@ final class StatusBarController: NSObject, ObservableObject {
 
     deinit {
         speedSamplingTimer?.cancel()
+        loginLaunchVerificationWorkItem?.cancel()
     }
 
     func configure(settings: AppSettings, monitor: NetworkMonitor) {
@@ -40,12 +42,12 @@ final class StatusBarController: NSObject, ObservableObject {
         self.monitor = monitor
         reconcileSpeedSampling()
         reconcileStatusItem()
-        scheduleLoginLaunchPresentationIfReady()
+        enterStatusBarModeAfterLoginLaunchIfReady()
     }
 
     func enterStatusBarModeAfterLoginLaunch() {
         shouldEnterStatusBarModeAfterLoginLaunch = true
-        scheduleLoginLaunchPresentationIfReady()
+        enterStatusBarModeAfterLoginLaunchIfReady()
     }
 
     func handleMainWindowClose(_ window: NSWindow) -> Bool {
@@ -61,7 +63,7 @@ final class StatusBarController: NSObject, ObservableObject {
     func handleMainWindowBecameActive(_ window: NSWindow) {
         mainWindow = window
         if isInStatusBarMode {
-            leaveStatusBarMode()
+            keepMainWindowHiddenInStatusBarMode(window)
         } else {
             reconcileStatusItem()
         }
@@ -69,23 +71,20 @@ final class StatusBarController: NSObject, ObservableObject {
 
     func registerMainWindow(_ window: NSWindow) {
         mainWindow = window
-        if isInStatusBarMode, window.isVisible {
-            leaveStatusBarMode()
+        if isInStatusBarMode {
+            keepMainWindowHiddenInStatusBarMode(window)
         } else {
             reconcileStatusItem()
         }
-        scheduleLoginLaunchPresentationIfReady()
+        scheduleLoginLaunchVerificationIfRequested()
     }
 
-    private func scheduleLoginLaunchPresentationIfReady() {
+    private func enterStatusBarModeAfterLoginLaunchIfReady() {
         guard shouldEnterStatusBarModeAfterLoginLaunch,
-              settings != nil,
-              mainWindow != nil else { return }
+              settings != nil else { return }
 
         shouldEnterStatusBarModeAfterLoginLaunch = false
-        DispatchQueue.main.async { [weak self] in
-            self?.enterStatusBarMode()
-        }
+        enterStatusBarMode()
     }
 
     func handleApplicationReopen() -> Bool {
@@ -102,6 +101,14 @@ final class StatusBarController: NSObject, ObservableObject {
             window.orderOut(nil)
         }
         NSApp.setActivationPolicy(.accessory)
+        scheduleLoginLaunchVerificationIfRequested()
+    }
+
+    private func keepMainWindowHiddenInStatusBarMode(_ window: NSWindow) {
+        window.orderOut(nil)
+        NSApp.setActivationPolicy(.accessory)
+        reconcileStatusItem()
+        scheduleLoginLaunchVerificationIfRequested()
     }
 
     private func leaveStatusBarMode() {
@@ -245,6 +252,28 @@ final class StatusBarController: NSObject, ObservableObject {
         mainWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         reconcileStatusItem()
+    }
+
+    private func scheduleLoginLaunchVerificationIfRequested() {
+        guard isInStatusBarMode,
+              mainWindow != nil,
+              let resultPath = ProcessInfo.processInfo.environment[
+                "NETWORK_SPEED_LOGGER_LOGIN_ITEM_TEST_RESULT"
+              ],
+              !resultPath.isEmpty else { return }
+
+        loginLaunchVerificationWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            let result = [
+                "statusItemInstalled=\(self.statusItem != nil)",
+                "activationPolicyAccessory=\(NSRunningApplication.current.activationPolicy == .accessory)",
+                "mainWindowVisible=\(self.mainWindow?.isVisible == true)"
+            ].joined(separator: "\n") + "\n"
+            try? result.write(toFile: resultPath, atomically: true, encoding: .utf8)
+        }
+        loginLaunchVerificationWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(750), execute: workItem)
     }
 
     private func reconcileSpeedSampling() {
@@ -553,22 +582,18 @@ private final class MainWindowDelegateProxy: NSObject, NSWindowDelegate {
 
 struct MainWindowBridge: NSViewRepresentable {
     let controller: StatusBarController
-    let settings: AppSettings
-    let monitor: NetworkMonitor
 
     func makeCoordinator() -> Coordinator {
         Coordinator(controller: controller)
     }
 
     func makeNSView(context: Context) -> NSView {
-        controller.configure(settings: settings, monitor: monitor)
         let view = NSView(frame: .zero)
         context.coordinator.attach(to: view)
         return view
     }
 
     func updateNSView(_ view: NSView, context: Context) {
-        controller.configure(settings: settings, monitor: monitor)
         context.coordinator.attach(to: view)
     }
 
