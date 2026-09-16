@@ -4,18 +4,20 @@ import SwiftUI
 
 @MainActor
 final class ApplicationDelegate: NSObject, NSApplicationDelegate {
-    var statusBarController: StatusBarController?
+    var statusBarController: StatusBarController? {
+        didSet { deliverLoginItemLaunchIfReady() }
+    }
     private(set) var launchedAsLoginItem = false
+    private var deliveredLoginItemLaunch = false
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         captureLoginItemLaunch()
+        deliverLoginItemLaunchIfReady()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         captureLoginItemLaunch()
-        if launchedAsLoginItem {
-            statusBarController?.enterStatusBarModeAfterLoginLaunch()
-        }
+        deliverLoginItemLaunchIfReady()
     }
 
     func applicationShouldHandleReopen(
@@ -39,6 +41,15 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
               event.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue
                 == keyAELaunchedAsLogInItem else { return }
         launchedAsLoginItem = true
+    }
+
+    private func deliverLoginItemLaunchIfReady() {
+        guard launchedAsLoginItem,
+              !deliveredLoginItemLaunch,
+              let statusBarController else { return }
+
+        deliveredLoginItemLaunch = true
+        statusBarController.enterStatusBarModeAfterLoginLaunch()
     }
 }
 
