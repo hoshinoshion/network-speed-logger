@@ -75,6 +75,10 @@ struct NetworkSpeedLoggerApp: App {
         _updateChecker = StateObject(wrappedValue: updateChecker)
         _statusBarController = StateObject(wrappedValue: statusBarController)
         applicationDelegate.statusBarController = statusBarController
+
+        if ProcessInfo.processInfo.environment["NETWORK_SPEED_LOGGER_LOGIN_ITEM_TEST"] == "1" {
+            statusBarController.enterStatusBarModeAfterLoginLaunch()
+        }
     }
 
     var body: some Scene {
