@@ -3,8 +3,8 @@ import SwiftUI
 
 @MainActor
 final class StatusBarController: NSObject, ObservableObject {
-    private weak var settings: AppSettings?
-    private weak var monitor: NetworkMonitor?
+    private var settings: AppSettings?
+    private var monitor: NetworkMonitor?
     private weak var mainWindow: NSWindow?
     private var statusItem: NSStatusItem?
     private var isInStatusBarMode = false

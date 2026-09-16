@@ -4,7 +4,7 @@ import SwiftUI
 
 @MainActor
 final class ApplicationDelegate: NSObject, NSApplicationDelegate {
-    weak var statusBarController: StatusBarController?
+    var statusBarController: StatusBarController?
     private(set) var launchedAsLoginItem = false
 
     func applicationWillFinishLaunching(_ notification: Notification) {
