@@ -68,6 +68,9 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename:
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(AppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
+[Registry]
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "NetworkSpeedLogger"; Flags: uninsdeletevalue dontcreatekey
+
 [UninstallDelete]
 Type: files; Name: "{localappdata}\NetworkSpeedLogger\settings.json"
 Type: files; Name: "{localappdata}\NetworkSpeedLogger\settings.json.tmp"

@@ -127,6 +127,7 @@ public sealed partial class SettingsWindow : Window
         OpenFolderButton.IsEnabled = Directory.Exists(_settings.OutputFolder);
         AutomaticUpdatesToggle.IsOn = _settings.AutomaticallyCheckForUpdates;
         MinimizeToTrayToggle.IsOn = _settings.MinimizeToTray;
+        LaunchAtLoginToggle.IsOn = _settings.LaunchAtLogin;
         string version = UpdateService.CurrentVersionText;
         VersionText.Text = T("版本 ", "Version ") + version + " · WinUI 3";
         UpdateStatusText.Text = version + " · WinUI 3";
@@ -155,6 +156,10 @@ public sealed partial class SettingsWindow : Window
         MinimizeToTrayDescription.Text = T(
             "开启后，点击关闭按钮会让应用继续在后台运行",
             "When enabled, the Close button keeps the app running in the background");
+        LaunchAtLoginLabel.Text = T("开机运行", "Run at sign-in");
+        LaunchAtLoginDescription.Text = T(
+            "登录 Windows 后自动启动并直接在托盘运行",
+            "Start automatically after Windows sign-in and go directly to the notification area");
         TaskbarSectionText.Text = T("任务栏网速", "Taskbar speed");
         TaskbarSectionDescription.Text = T(
             "在主任务栏上持续显示独立采样的实时下载和上传速度",
@@ -422,6 +427,12 @@ public sealed partial class SettingsWindow : Window
         _themeController?.ApplyPreference(ReadComboTag(ThemeCombo, "Auto"));
     }
 
+    private void LaunchAtLoginToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (LaunchAtLoginToggle.IsOn)
+            MinimizeToTrayToggle.IsOn = true;
+    }
+
     private void SaveButton_Click(object sender, RoutedEventArgs e) => Save();
 
     private void Save()
@@ -475,7 +486,8 @@ public sealed partial class SettingsWindow : Window
         candidate.Theme = ReadComboTag(ThemeCombo, "Auto");
         candidate.OutputFolder = FolderService.NormalizePath(OutputFolderText.Text);
         candidate.AutomaticallyCheckForUpdates = AutomaticUpdatesToggle.IsOn;
-        candidate.MinimizeToTray = MinimizeToTrayToggle.IsOn;
+        candidate.LaunchAtLogin = LaunchAtLoginToggle.IsOn;
+        candidate.MinimizeToTray = MinimizeToTrayToggle.IsOn || candidate.LaunchAtLogin;
         candidate.TaskbarSpeed.Enabled = TaskbarEnabledToggle.IsOn;
         candidate.TaskbarSpeed.SampleIntervalSeconds = (int)taskbarIntervalValue;
         candidate.TaskbarSpeed.SpeedUnit = ReadComboTag(TaskbarUnitCombo, "Byte");
@@ -485,8 +497,17 @@ public sealed partial class SettingsWindow : Window
         candidate.Defaults.DurationHours = duration;
         candidate.Defaults.SampleIntervalSeconds = (int)intervalValue;
         candidate.Defaults.SpeedUnit = ReadComboTag(DefaultUnitCombo, "MB/s");
+        if (!LaunchAtLoginService.TrySetEnabled(candidate.LaunchAtLogin, out string? launchError))
+        {
+            ShowValidation(
+                T("无法更改开机运行", "Unable to change sign-in launch"),
+                launchError ?? string.Empty,
+                GeneralNavigationItem);
+            return;
+        }
         if (!AppSettingsStore.TrySave(candidate, out string? saveError))
         {
+            _ = LaunchAtLoginService.TrySetEnabled(_settings.LaunchAtLogin, out _);
             ShowValidation(T("保存失败", "Save failed"), saveError ?? string.Empty);
             return;
         }

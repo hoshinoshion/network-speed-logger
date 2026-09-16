@@ -17,6 +17,8 @@ let package = Package(
             linkerSettings: [
                 .linkedFramework("AppKit"),
                 .linkedFramework("Charts"),
+                .linkedFramework("CoreServices"),
+                .linkedFramework("ServiceManagement"),
                 .linkedFramework("SystemConfiguration")
             ]
         ),

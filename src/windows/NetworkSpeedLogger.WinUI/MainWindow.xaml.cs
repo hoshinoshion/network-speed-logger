@@ -47,6 +47,7 @@ public sealed partial class MainWindow : Window
         RootGrid.Loaded += RootGrid_Loaded;
 
         _settings = AppSettingsStore.Load();
+        _ = LaunchAtLoginService.TrySetEnabled(_settings.LaunchAtLogin, out _);
         Localization.ApplyPreference(_settings.Language);
 
         ExtendsContentIntoTitleBar = true;
@@ -694,6 +695,12 @@ public sealed partial class MainWindow : Window
             _settingsWindow?.HideWithOwner();
             _appWindow.Hide();
         }
+    }
+
+    internal void EnterNotificationAreaAfterLoginLaunch()
+    {
+        if (_settings.LaunchAtLogin)
+            MinimizeToTray(showNotification: false);
     }
 
     public void ActivateFromSecondaryLaunch() => RestoreFromTray();

@@ -121,6 +121,24 @@
                             MinWidth="0" HorizontalAlignment="Right" VerticalAlignment="Center" />
             </Grid>
           </Border>
+
+          <Border Style="{StaticResource CardStyle}" Padding="14,9">
+            <Grid ColumnSpacing="16">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel VerticalAlignment="Center" Spacing="3">
+                <TextBlock x:Name="LaunchAtLoginLabel" Text="开机运行" FontWeight="SemiBold" />
+                <TextBlock x:Name="LaunchAtLoginDescription"
+                           Text="登录 Windows 后自动启动并直接在托盘运行"
+                           Style="{StaticResource CaptionStyle}" />
+              </StackPanel>
+              <ToggleSwitch x:Name="LaunchAtLoginToggle" Grid.Column="1"
+                            MinWidth="0" HorizontalAlignment="Right" VerticalAlignment="Center"
+                            Toggled="LaunchAtLoginToggle_Toggled" />
+            </Grid>
+          </Border>
         </StackPanel>
             </StackPanel>
           </ScrollViewer>

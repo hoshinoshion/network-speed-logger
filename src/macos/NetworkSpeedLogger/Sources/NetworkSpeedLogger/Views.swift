@@ -971,6 +971,7 @@ struct PreferencesView: View {
     @ObservedObject var monitor: NetworkMonitor
     @ObservedObject var updateChecker: UpdateChecker
     @State private var selectedTab = PreferencesTab.general
+    @State private var launchAtLoginErrorMessage: String?
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -1006,12 +1007,25 @@ struct PreferencesView: View {
             settings.normalizeDefaultValues()
             settings.normalizeMenuBarSpeedValues()
         }
+        .alert(
+            settings.text("Unable to Change Login Launch", "无法更改开机运行"),
+            isPresented: Binding(
+                get: { launchAtLoginErrorMessage != nil },
+                set: { if !$0 { launchAtLoginErrorMessage = nil } }
+            )
+        ) {
+            Button(settings.text("OK", "确定"), role: .cancel) {
+                launchAtLoginErrorMessage = nil
+            }
+        } message: {
+            Text(launchAtLoginErrorMessage ?? "")
+        }
     }
 
     private var preferredHeight: CGFloat {
         switch selectedTab {
         case .general:
-            return 260
+            return 330
         case .recording:
             return 410
         case .menuBar:
@@ -1043,6 +1057,27 @@ struct PreferencesView: View {
                     ),
                     isOn: $settings.keepsRunningInMenuBar
                 )
+
+                Toggle(
+                    settings.text("Open at Login", "开机运行"),
+                    isOn: Binding(
+                        get: { settings.launchesAtLogin },
+                        set: { enabled in
+                            do {
+                                try settings.setLaunchAtLogin(enabled)
+                            } catch {
+                                launchAtLoginErrorMessage = error.localizedDescription
+                            }
+                        }
+                    )
+                )
+
+                Text(settings.text(
+                    "Starts automatically after you log in and goes directly to the menu bar. Enabling this also enables menu-bar background running.",
+                    "登录 macOS 后自动启动并直接在状态栏运行；开启时也会自动开启状态栏后台运行。"
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

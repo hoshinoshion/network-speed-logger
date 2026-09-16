@@ -57,7 +57,7 @@ public sealed class TaskbarSpeedSettings
 public sealed class AppSettingsData
 {
     [JsonPropertyName("schemaVersion")]
-    public int SchemaVersion { get; set; } = 5;
+    public int SchemaVersion { get; set; } = 6;
 
     [JsonPropertyName("language")]
     public string Language { get; set; } = "Auto";
@@ -74,6 +74,9 @@ public sealed class AppSettingsData
     [JsonPropertyName("minimizeToTray")]
     public bool MinimizeToTray { get; set; }
 
+    [JsonPropertyName("launchAtLogin")]
+    public bool LaunchAtLogin { get; set; }
+
     [JsonPropertyName("taskbarSpeed")]
     public TaskbarSpeedSettings TaskbarSpeed { get; set; } = new();
 
@@ -88,6 +91,7 @@ public sealed class AppSettingsData
         OutputFolder = OutputFolder,
         AutomaticallyCheckForUpdates = AutomaticallyCheckForUpdates,
         MinimizeToTray = MinimizeToTray,
+        LaunchAtLogin = LaunchAtLogin,
         TaskbarSpeed = TaskbarSpeed.Clone(),
         Defaults = Defaults.Clone()
     };
@@ -211,10 +215,11 @@ public static class AppSettingsStore
     private static void Normalize(AppSettingsData settings)
     {
         AppSettingsData builtIn = CreateDefaults();
-        settings.SchemaVersion = 5;
+        settings.SchemaVersion = 6;
         if (!IsValidLanguage(settings.Language)) settings.Language = builtIn.Language;
         if (!IsValidTheme(settings.Theme)) settings.Theme = builtIn.Theme;
         settings.OutputFolder = (settings.OutputFolder ?? string.Empty).Trim();
+        if (settings.LaunchAtLogin) settings.MinimizeToTray = true;
         settings.TaskbarSpeed ??= builtIn.TaskbarSpeed;
         if (!IsValidSampleInterval(settings.TaskbarSpeed.SampleIntervalSeconds))
             settings.TaskbarSpeed.SampleIntervalSeconds = builtIn.TaskbarSpeed.SampleIntervalSeconds;

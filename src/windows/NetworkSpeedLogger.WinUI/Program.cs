@@ -16,20 +16,22 @@ public static class Program
     public static int Main(string[] args)
     {
         WinRT.ComWrappersSupport.InitializeComWrappers();
-        if (DecideRedirection()) return 0;
+        bool launchedAtLogin = args.Any(argument =>
+            string.Equals(argument, LaunchAtLoginService.LaunchArgument, StringComparison.OrdinalIgnoreCase));
+        if (DecideRedirection(launchedAtLogin)) return 0;
 
         Application.Start(_ =>
         {
             var context = new DispatcherQueueSynchronizationContext(
                 DispatcherQueue.GetForCurrentThread());
             SynchronizationContext.SetSynchronizationContext(context);
-            _app = new App();
+            _app = new App(launchedAtLogin);
         });
 
         return 0;
     }
 
-    private static bool DecideRedirection()
+    private static bool DecideRedirection(bool launchedAtLogin)
     {
         AppActivationArguments activationArguments =
             AppInstance.GetCurrent().GetActivatedEventArgs();
@@ -40,6 +42,10 @@ public static class Program
             mainInstance.Activated += OnActivated;
             return false;
         }
+
+        // A background sign-in launch must never bring an already-running app
+        // to the foreground. The registered primary instance is already usable.
+        if (launchedAtLogin) return true;
 
         RedirectActivationTo(activationArguments, mainInstance);
         return true;

@@ -71,6 +71,8 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(keepsRunningInMenuBar, forKey: Key.keepsRunningInMenuBar) }
     }
 
+    @Published private(set) var launchesAtLogin: Bool
+
     @Published var showsNetworkSpeedInMenuBar: Bool {
         didSet { defaults.set(showsNetworkSpeedInMenuBar, forKey: Key.showsNetworkSpeedInMenuBar) }
     }
@@ -129,6 +131,7 @@ final class AppSettings: ObservableObject {
         speedUnit = storedDefaultSpeedUnit
         automaticallyChecksForUpdates = (defaults.object(forKey: Key.automaticallyChecksForUpdates) as? Bool) ?? true
         keepsRunningInMenuBar = (defaults.object(forKey: Key.keepsRunningInMenuBar) as? Bool) ?? false
+        launchesAtLogin = LaunchAtLoginService.isRegistered
         showsNetworkSpeedInMenuBar =
             (defaults.object(forKey: Key.showsNetworkSpeedInMenuBar) as? Bool) ?? false
         menuBarSpeedUnit = MenuBarSpeedUnit(
@@ -269,6 +272,14 @@ final class AppSettings: ObservableObject {
             max(menuBarSpeedActivityThresholdKilobytesPerSecond, 0),
             1_000_000
         )
+    }
+
+    func setLaunchAtLogin(_ enabled: Bool) throws {
+        try LaunchAtLoginService.setEnabled(enabled)
+        launchesAtLogin = LaunchAtLoginService.isRegistered
+        if enabled {
+            keepsRunningInMenuBar = true
+        }
     }
 
     private func restoreOutputFolder() {

@@ -8,6 +8,7 @@ final class StatusBarController: NSObject, ObservableObject {
     private weak var mainWindow: NSWindow?
     private var statusItem: NSStatusItem?
     private var isInStatusBarMode = false
+    private var shouldEnterStatusBarModeAfterLoginLaunch = false
 
     private let interfaceProvider = InterfaceProvider()
     private var speedSamplingTimer: DispatchSourceTimer?
@@ -39,6 +40,12 @@ final class StatusBarController: NSObject, ObservableObject {
         self.monitor = monitor
         reconcileSpeedSampling()
         reconcileStatusItem()
+        scheduleLoginLaunchPresentationIfReady()
+    }
+
+    func enterStatusBarModeAfterLoginLaunch() {
+        shouldEnterStatusBarModeAfterLoginLaunch = true
+        scheduleLoginLaunchPresentationIfReady()
     }
 
     func handleMainWindowClose(_ window: NSWindow) -> Bool {
@@ -66,6 +73,18 @@ final class StatusBarController: NSObject, ObservableObject {
             leaveStatusBarMode()
         } else {
             reconcileStatusItem()
+        }
+        scheduleLoginLaunchPresentationIfReady()
+    }
+
+    private func scheduleLoginLaunchPresentationIfReady() {
+        guard shouldEnterStatusBarModeAfterLoginLaunch,
+              settings != nil,
+              mainWindow != nil else { return }
+
+        shouldEnterStatusBarModeAfterLoginLaunch = false
+        DispatchQueue.main.async { [weak self] in
+            self?.enterStatusBarMode()
         }
     }
 

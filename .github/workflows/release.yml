@@ -1,4 +1,4 @@
-name: Release v0.9.5 Windows pre-release
+name: Release v0.9.6 dual-platform pre-release
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.9.5
-  APP_BUILD_NUMBER: 38
+  APP_VERSION: 0.9.6
+  APP_BUILD_NUMBER: 39
 
 jobs:
   release-check:
@@ -20,12 +20,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.9.5 already exists
+      - name: Check whether v0.9.6 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.9.5 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.9.6 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -33,7 +33,7 @@ jobs:
 
   build-macos:
     needs: release-check
-    if: ${{ false }}
+    if: needs.release-check.outputs.exists != 'true'
     runs-on: macos-26
 
     steps:
@@ -232,12 +232,13 @@ jobs:
           $settingsDir = Join-Path $env:LOCALAPPDATA "NetworkSpeedLogger"
           New-Item -ItemType Directory -Force -Path $settingsDir | Out-Null
           @{
-            schemaVersion = 5
+            schemaVersion = 6
             language = "en-US"
             theme = "Auto"
             outputFolder = $env:RUNNER_TEMP
             automaticallyCheckForUpdates = $false
             minimizeToTray = $false
+            launchAtLogin = $false
             taskbarSpeed = @{
               enabled = $true
               sampleIntervalSeconds = 1
@@ -252,6 +253,12 @@ jobs:
               speedUnit = "MB/s"
             }
           } | ConvertTo-Json -Depth 4 | Set-Content (Join-Path $settingsDir "settings.json") -Encoding utf8
+
+          $startupRegistryPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+          New-Item -Path $startupRegistryPath -Force | Out-Null
+          New-ItemProperty -Path $startupRegistryPath -Name NetworkSpeedLogger `
+            -Value '"C:\stale\NetworkSpeedLogger.exe" --launch-at-login' `
+            -PropertyType String -Force | Out-Null
 
           $process = Start-Process $app.FullName -PassThru
           Start-Sleep -Seconds 8
@@ -268,6 +275,9 @@ jobs:
               Select-Object -First 10 TimeCreated, Id, ProviderName, LevelDisplayName, Message |
               Format-List | Out-String | Write-Host
             throw "The installed application exited during the startup smoke test with code $($process.ExitCode)."
+          }
+          if ($null -ne (Get-ItemProperty -Path $startupRegistryPath -Name NetworkSpeedLogger -ErrorAction SilentlyContinue)) {
+            throw "A disabled sign-in launch left a stale Run registration behind."
           }
 
           $secondProcess = Start-Process $app.FullName -PassThru
@@ -493,6 +503,59 @@ jobs:
             }
           }
 
+          $savedSettings = Get-Content $settingsPath -Raw | ConvertFrom-Json
+          $savedSettings.launchAtLogin = $true
+          $savedSettings.minimizeToTray = $false
+          $savedSettings.taskbarSpeed.enabled = $false
+          $savedSettings | ConvertTo-Json -Depth 4 | Set-Content $settingsPath -Encoding utf8
+
+          $loginProcess = Start-Process $app.FullName -ArgumentList "--launch-at-login" -PassThru
+          try {
+            Start-Sleep -Seconds 8
+            if ($loginProcess.HasExited) {
+              throw "The application exited during the sign-in launch smoke test with code $($loginProcess.ExitCode)."
+            }
+
+            $runValue = (Get-ItemProperty -Path $startupRegistryPath -Name NetworkSpeedLogger `
+              -ErrorAction Stop).NetworkSpeedLogger
+            if ($runValue -notlike "*$($app.FullName)*" -or $runValue -notlike "*--launch-at-login*") {
+              throw "The per-user Run registration does not point to the installed application with its sign-in argument."
+            }
+
+            $loginWindow = [NativeWindowLookup]::FindWindow($null, "Network Speed Logger")
+            if ($loginWindow -eq [IntPtr]::Zero) {
+              throw "The application window was not created during the sign-in launch smoke test."
+            }
+            if ([NativeWindowLookup]::IsWindowVisible($loginWindow)) {
+              throw "The sign-in launch opened the main window instead of starting in the notification area."
+            }
+          }
+          finally {
+            if (-not $loginProcess.HasExited) {
+              Stop-Process -Id $loginProcess.Id -Force
+            }
+          }
+
+          $savedSettings = Get-Content $settingsPath -Raw | ConvertFrom-Json
+          $savedSettings.launchAtLogin = $false
+          $savedSettings.minimizeToTray = $false
+          $savedSettings | ConvertTo-Json -Depth 4 | Set-Content $settingsPath -Encoding utf8
+          $cleanupProcess = Start-Process $app.FullName -PassThru
+          try {
+            Start-Sleep -Seconds 5
+            if ($cleanupProcess.HasExited) {
+              throw "The application exited while verifying sign-in registration cleanup."
+            }
+            if ($null -ne (Get-ItemProperty -Path $startupRegistryPath -Name NetworkSpeedLogger -ErrorAction SilentlyContinue)) {
+              throw "Turning off sign-in launch did not remove the Run registration."
+            }
+          }
+          finally {
+            if (-not $cleanupProcess.HasExited) {
+              Stop-Process -Id $cleanupProcess.Id -Force
+            }
+          }
+
           $uninstaller = Join-Path $installDir "unins000.exe"
           $uninstallProcess = Start-Process $uninstaller `
             -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART") `
@@ -509,14 +572,21 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [release-check, build-windows]
+    needs: [release-check, build-macos, build-windows]
     if: >-
       github.ref == 'refs/heads/main' &&
       needs.release-check.outputs.exists != 'true' &&
+      needs.build-macos.result == 'success' &&
       needs.build-windows.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-release
+          path: artifacts
+
       - name: Download Windows installer
         uses: actions/download-artifact@v4
         with:
@@ -528,20 +598,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.9.5 Windows Pre-release
+          Network Speed Logger 0.9.6 Pre-release
 
-          - Overrides the WinUI 3 NavigationView content background, border, and corner radius so Windows Settings uses one continuous window surface
-          - Keeps the standard WinUI 3 left NavigationView selection styling and individual settings-card hierarchy
-          - Preserves all existing settings, validation, update checks, single-instance behavior, and taskbar speed behavior
-          - Includes the self-contained Windows x64 installer
+          - Adds a standard Open at Login setting to the macOS client using Service Management
+          - Adds a standard per-user Run at sign-in setting to the Windows client
+          - Enabling login launch also enables menu-bar or notification-area background running
+          - Login launches go directly to the menu bar or notification area without opening the main window
+          - Disabling the setting removes the corresponding system startup registration
+          - Includes the Universal macOS DMG and self-contained Windows x64 installer
 
-          The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown.
+          The applications and installer are not Developer ID/code-signed, so the operating system may identify the publisher as unknown.
           EOF
           )
-          gh release create v0.9.5 \
+          gh release create v0.9.6 \
+            artifacts/NetworkSpeedLogger.dmg \
             artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.9.5" \
+            --title "v0.9.6" \
             --notes "$notes" \
             --prerelease

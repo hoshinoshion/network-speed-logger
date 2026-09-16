@@ -6,11 +6,13 @@ namespace NetworkSpeedLogger;
 public partial class App : Application
 {
     private readonly DispatcherQueue _dispatcherQueue;
+    private readonly bool _launchedAtLogin;
     private Window? _window;
     private bool _redirectedActivationPending;
 
-    public App()
+    public App(bool launchedAtLogin = false)
     {
+        _launchedAtLogin = launchedAtLogin;
         _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
             WriteCrashLog("AppDomain.UnhandledException", args.ExceptionObject as Exception);
@@ -25,6 +27,8 @@ public partial class App : Application
             var mainWindow = new MainWindow();
             _window = mainWindow;
             mainWindow.Activate();
+            if (_launchedAtLogin)
+                mainWindow.EnterNotificationAreaAfterLoginLaunch();
             if (_redirectedActivationPending)
             {
                 _redirectedActivationPending = false;

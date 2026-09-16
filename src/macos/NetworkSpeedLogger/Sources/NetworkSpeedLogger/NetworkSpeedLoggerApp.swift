@@ -1,9 +1,22 @@
 import AppKit
+import CoreServices
 import SwiftUI
 
 @MainActor
 final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     weak var statusBarController: StatusBarController?
+    private(set) var launchedAsLoginItem = false
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        captureLoginItemLaunch()
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        captureLoginItemLaunch()
+        if launchedAsLoginItem {
+            statusBarController?.enterStatusBarModeAfterLoginLaunch()
+        }
+    }
 
     func applicationShouldHandleReopen(
         _ sender: NSApplication,
@@ -13,6 +26,14 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
             return true
         }
         return false
+    }
+
+    private func captureLoginItemLaunch() {
+        guard let event = NSAppleEventManager.shared().currentAppleEvent,
+              event.eventID == kAEOpenApplication,
+              event.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue
+                == keyAELaunchedAsLogInItem else { return }
+        launchedAsLoginItem = true
     }
 }
 
@@ -35,6 +56,9 @@ struct NetworkSpeedLoggerApp: App {
                 .frame(minWidth: 1_040, minHeight: 700)
                 .onAppear {
                     applicationDelegate.statusBarController = statusBarController
+                    if applicationDelegate.launchedAsLoginItem {
+                        statusBarController.enterStatusBarModeAfterLoginLaunch()
+                    }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
                     monitor.stop(reason: .applicationQuit)

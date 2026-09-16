@@ -39,6 +39,8 @@ The macOS client is a native SwiftUI application designed around standard macOS 
 
 Settings can enable keeping the application in the menu bar after its window is closed with the Close button or `Command-W`. While it is running there, the Dock icon is hidden and active recordings continue uninterrupted. Left-click the two-arrow menu-bar icon to reopen the window, or right-click it to start recording, stop recording, or quit. `Command-Q` always quits the application normally.
 
+Settings can also register the app with macOS **Open at Login**. Enabling it automatically enables menu-bar background running; launches triggered by macOS login go directly to the menu bar without opening the main window. Turning it off unregisters the login item.
+
 A separate setting keeps the menu-bar item visible for the entire time the application is running and shows live upload above download to the left of the arrows. This display has its own automatic/manual interface selection, sample interval (one second by default), and Byte/bit unit, with B, K, M, G, and T prefixes selected dynamically. The upload and download arrows independently become fully opaque above a configurable activity threshold (50 KB/s by default) and remain translucent below it. Enabling this display does not change the separate close-window or Dock behavior.
 
 ### Install
@@ -71,6 +73,8 @@ The Windows client is installed per user with a standard setup and uninstall pro
 Use the Settings button to change the interface language, output folder, and launch defaults. Changes to duration, sample interval, and speed unit made directly in the main window apply only until the app is closed. Windows Settings can uninstall the application; uninstalling never removes CSV or Markdown files.
 
 Settings can also enable minimizing to the notification area. When enabled, the Close button hides the window without interrupting an active recording and briefly shows a Windows notification. Left-click the notification-area icon to reopen the window, or right-click it to start recording, stop recording, or exit the application.
+
+The **Run at sign-in** setting uses the current user's standard Windows startup registration. Enabling it also enables notification-area background running, and sign-in launches go directly to the notification area. Turning it off removes the startup registration.
 
 Windows Settings can enable a non-interactive real-time upload and download speed display on the primary taskbar, with a drop-down menu for choosing a two-line or single-line layout. The two-line layout shows upload first and download second; the single-line layout uses larger text and places them left to right with comfortable spacing. Both layouts use regular-weight system typography with high-quality grayscale edges. It has its own automatic or manual adapter selection, sample interval (one second by default), and Byte/bit unit. The B, K, M, G, and T prefix changes automatically with the current speed. With centered Start and app buttons, the display sits on the left immediately after the Windows Widgets area; with left-aligned buttons, it sits on the right before the notification area. It uses the modern Windows 11 system typeface when available and follows the taskbar theme including high-contrast mode. The display window is owned by the taskbar so it stays present while switching among Start, notification panels, the tray, the desktop, and ordinary applications, and hides with an auto-hidden taskbar.
 

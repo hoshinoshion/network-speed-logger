@@ -52,6 +52,8 @@ for architecture in arm64 x86_64; do
         "${source_files[@]}" \
         -framework AppKit \
         -framework Charts \
+        -framework CoreServices \
+        -framework ServiceManagement \
         -framework SystemConfiguration \
         -o "$build_dir/NetworkSpeedLogger-$architecture"
 done
