@@ -41,6 +41,12 @@
                       IsSettingsVisible="False" AlwaysShowHeader="False"
                       OpenPaneLength="188"
                       SelectionChanged="SettingsNavigation_SelectionChanged">
+        <NavigationView.Resources>
+          <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+          <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
+          <Thickness x:Key="NavigationViewContentGridBorderThickness">0</Thickness>
+          <CornerRadius x:Key="NavigationViewContentGridCornerRadius">0</CornerRadius>
+        </NavigationView.Resources>
         <NavigationView.MenuItems>
           <NavigationViewItem x:Name="GeneralNavigationItem" Tag="General" Content="通用" IsSelected="True">
             <NavigationViewItem.Icon><SymbolIcon Symbol="Setting" /></NavigationViewItem.Icon>

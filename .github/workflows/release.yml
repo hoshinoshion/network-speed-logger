@@ -1,4 +1,4 @@
-name: Release v0.9.4 Windows pre-release
+name: Release v0.9.5 Windows pre-release
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.9.4
-  APP_BUILD_NUMBER: 37
+  APP_VERSION: 0.9.5
+  APP_BUILD_NUMBER: 38
 
 jobs:
   release-check:
@@ -20,12 +20,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.9.4 already exists
+      - name: Check whether v0.9.5 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.9.4 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.9.5 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -528,9 +528,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.9.4 Windows Pre-release
+          Network Speed Logger 0.9.5 Windows Pre-release
 
-          - Removes the separate full-panel background from the right side of Windows Settings for a seamless window surface
+          - Overrides the WinUI 3 NavigationView content background, border, and corner radius so Windows Settings uses one continuous window surface
           - Keeps the standard WinUI 3 left NavigationView selection styling and individual settings-card hierarchy
           - Preserves all existing settings, validation, update checks, single-instance behavior, and taskbar speed behavior
           - Includes the self-contained Windows x64 installer
@@ -538,10 +538,10 @@ jobs:
           The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown.
           EOF
           )
-          gh release create v0.9.4 \
+          gh release create v0.9.5 \
             artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.9.4" \
+            --title "v0.9.5" \
             --notes "$notes" \
             --prerelease
