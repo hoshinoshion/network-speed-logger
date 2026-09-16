@@ -256,7 +256,6 @@ final class StatusBarController: NSObject, ObservableObject {
 
     private func scheduleLoginLaunchVerificationIfRequested() {
         guard isInStatusBarMode,
-              mainWindow != nil,
               let resultPath = ProcessInfo.processInfo.environment[
                 "NETWORK_SPEED_LOGGER_LOGIN_ITEM_TEST_RESULT"
               ],
@@ -268,7 +267,7 @@ final class StatusBarController: NSObject, ObservableObject {
             let result = [
                 "statusItemInstalled=\(self.statusItem != nil)",
                 "activationPolicyAccessory=\(NSRunningApplication.current.activationPolicy == .accessory)",
-                "mainWindowVisible=\(self.mainWindow?.isVisible == true)"
+                "visibleWindowCount=\(NSApp.windows.filter { $0.isVisible }.count)"
             ].joined(separator: "\n") + "\n"
             try? result.write(toFile: resultPath, atomically: true, encoding: .utf8)
         }

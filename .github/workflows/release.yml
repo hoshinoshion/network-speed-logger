@@ -167,7 +167,7 @@ jobs:
           cat "$result_path"
           grep -Fx 'statusItemInstalled=true' "$result_path"
           grep -Fx 'activationPolicyAccessory=true' "$result_path"
-          grep -Fx 'mainWindowVisible=false' "$result_path"
+          grep -Fx 'visibleWindowCount=0' "$result_path"
 
           cleanup
           trap - EXIT
