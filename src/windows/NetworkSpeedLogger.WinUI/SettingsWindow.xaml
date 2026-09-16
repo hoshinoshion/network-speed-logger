@@ -56,7 +56,7 @@
           </NavigationViewItem>
         </NavigationView.MenuItems>
 
-        <Grid Background="{ThemeResource AppContentBrush}">
+        <Grid>
           <ScrollViewer x:Name="GeneralSettingsPage" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Padding="20,12,20,18" Spacing="14">
 <StackPanel Spacing="6">

@@ -1,4 +1,4 @@
-name: Release v0.9.3 pre-release
+name: Release v0.9.4 Windows pre-release
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.9.3
-  APP_BUILD_NUMBER: 36
+  APP_VERSION: 0.9.4
+  APP_BUILD_NUMBER: 37
 
 jobs:
   release-check:
@@ -20,12 +20,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.9.3 already exists
+      - name: Check whether v0.9.4 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.9.3 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.9.4 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -33,7 +33,7 @@ jobs:
 
   build-macos:
     needs: release-check
-    if: needs.release-check.outputs.exists != 'true'
+    if: ${{ false }}
     runs-on: macos-26
 
     steps:
@@ -509,21 +509,14 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [release-check, build-macos, build-windows]
+    needs: [release-check, build-windows]
     if: >-
       github.ref == 'refs/heads/main' &&
       needs.release-check.outputs.exists != 'true' &&
-      needs.build-macos.result == 'success' &&
       needs.build-windows.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download macOS artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-release
-          path: artifacts
-
       - name: Download Windows installer
         uses: actions/download-artifact@v4
         with:
@@ -535,22 +528,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.9.3 Pre-release
+          Network Speed Logger 0.9.4 Windows Pre-release
 
-          - Makes the macOS Settings window resize to match the selected tab, including the expanded manual-interface view
-          - Replaces the Windows top tabs with a standard WinUI 3 NavigationView and left-side selection styling
-          - Makes the Windows application single-instanced; subsequent launches restore and activate the existing window
-          - Preserves all existing settings, validation, interface selection, update checks, and save behavior
-          - Includes the Universal macOS DMG for Apple silicon and Intel Macs and the self-contained Windows x64 installer
+          - Removes the separate full-panel background from the right side of Windows Settings for a seamless window surface
+          - Keeps the standard WinUI 3 left NavigationView selection styling and individual settings-card hierarchy
+          - Preserves all existing settings, validation, update checks, single-instance behavior, and taskbar speed behavior
+          - Includes the self-contained Windows x64 installer
 
-          The macOS application is ad-hoc signed and is not notarized. The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown. Follow the README instructions if macOS Gatekeeper blocks the first launch.
+          The Windows application and installer are not code-signed, so the operating system may identify the publisher as unknown.
           EOF
           )
-          gh release create v0.9.3 \
-            artifacts/NetworkSpeedLogger.dmg \
+          gh release create v0.9.4 \
             artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.9.3" \
+            --title "v0.9.4" \
             --notes "$notes" \
             --prerelease
