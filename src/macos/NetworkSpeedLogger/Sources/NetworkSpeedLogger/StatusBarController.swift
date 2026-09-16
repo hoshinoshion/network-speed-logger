@@ -262,8 +262,7 @@ final class StatusBarController: NSObject, ObservableObject {
               !resultPath.isEmpty else { return }
 
         loginLaunchVerificationWorkItem?.cancel()
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let self else { return }
+        let workItem = DispatchWorkItem { [self] in
             let result = [
                 "statusItemInstalled=\(self.statusItem != nil)",
                 "activationPolicyAccessory=\(NSRunningApplication.current.activationPolicy == .accessory)",

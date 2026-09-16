@@ -77,6 +77,15 @@ struct NetworkSpeedLoggerApp: App {
         applicationDelegate.statusBarController = statusBarController
 
         if ProcessInfo.processInfo.environment["NETWORK_SPEED_LOGGER_LOGIN_ITEM_TEST"] == "1" {
+            if let resultPath = ProcessInfo.processInfo.environment[
+                "NETWORK_SPEED_LOGGER_LOGIN_ITEM_TEST_RESULT"
+            ] {
+                try? "appInitialized=true\n".write(
+                    toFile: resultPath,
+                    atomically: true,
+                    encoding: .utf8
+                )
+            }
             statusBarController.enterStatusBarModeAfterLoginLaunch()
         }
     }

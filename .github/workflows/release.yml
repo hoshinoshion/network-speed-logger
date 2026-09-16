@@ -148,7 +148,7 @@ jobs:
           trap cleanup EXIT
 
           for _ in {1..15}; do
-            if [[ -s "$result_path" ]]; then
+            if [[ -s "$result_path" ]] && grep -q '^visibleWindowCount=' "$result_path"; then
               break
             fi
             if ! kill -0 "$app_pid" >/dev/null 2>&1; then
@@ -159,8 +159,11 @@ jobs:
             sleep 1
           done
 
-          if [[ ! -s "$result_path" ]]; then
+          if [[ ! -s "$result_path" ]] || ! grep -q '^visibleWindowCount=' "$result_path"; then
             cat "$log_path"
+            if [[ -s "$result_path" ]]; then
+              cat "$result_path"
+            fi
             echo "The login-item presentation did not become ready." >&2
             exit 1
           fi
