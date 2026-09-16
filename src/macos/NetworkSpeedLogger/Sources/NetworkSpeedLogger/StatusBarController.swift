@@ -9,7 +9,6 @@ final class StatusBarController: NSObject, ObservableObject {
     private var statusItem: NSStatusItem?
     private var isInStatusBarMode = false
     private var shouldEnterStatusBarModeAfterLoginLaunch = false
-    private var loginLaunchVerificationWorkItem: DispatchWorkItem?
 
     private let interfaceProvider = InterfaceProvider()
     private var speedSamplingTimer: DispatchSourceTimer?
@@ -34,7 +33,6 @@ final class StatusBarController: NSObject, ObservableObject {
 
     deinit {
         speedSamplingTimer?.cancel()
-        loginLaunchVerificationWorkItem?.cancel()
     }
 
     func configure(settings: AppSettings, monitor: NetworkMonitor) {
@@ -76,7 +74,7 @@ final class StatusBarController: NSObject, ObservableObject {
         } else {
             reconcileStatusItem()
         }
-        scheduleLoginLaunchVerificationIfRequested()
+        writeLoginLaunchVerificationIfRequested()
     }
 
     private func enterStatusBarModeAfterLoginLaunchIfReady() {
@@ -101,14 +99,14 @@ final class StatusBarController: NSObject, ObservableObject {
             window.orderOut(nil)
         }
         NSApp.setActivationPolicy(.accessory)
-        scheduleLoginLaunchVerificationIfRequested()
+        writeLoginLaunchVerificationIfRequested()
     }
 
     private func keepMainWindowHiddenInStatusBarMode(_ window: NSWindow) {
         window.orderOut(nil)
         NSApp.setActivationPolicy(.accessory)
         reconcileStatusItem()
-        scheduleLoginLaunchVerificationIfRequested()
+        writeLoginLaunchVerificationIfRequested()
     }
 
     private func leaveStatusBarMode() {
@@ -254,24 +252,19 @@ final class StatusBarController: NSObject, ObservableObject {
         reconcileStatusItem()
     }
 
-    private func scheduleLoginLaunchVerificationIfRequested() {
+    private func writeLoginLaunchVerificationIfRequested() {
         guard isInStatusBarMode,
               let resultPath = ProcessInfo.processInfo.environment[
                 "NETWORK_SPEED_LOGGER_LOGIN_ITEM_TEST_RESULT"
               ],
               !resultPath.isEmpty else { return }
 
-        loginLaunchVerificationWorkItem?.cancel()
-        let workItem = DispatchWorkItem { [self] in
-            let result = [
-                "statusItemInstalled=\(self.statusItem != nil)",
-                "activationPolicyAccessory=\(NSRunningApplication.current.activationPolicy == .accessory)",
-                "visibleWindowCount=\(NSApp.windows.filter { $0.isVisible }.count)"
-            ].joined(separator: "\n") + "\n"
-            try? result.write(toFile: resultPath, atomically: true, encoding: .utf8)
-        }
-        loginLaunchVerificationWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(750), execute: workItem)
+        let result = [
+            "statusItemInstalled=\(statusItem != nil)",
+            "activationPolicyAccessory=\(NSRunningApplication.current.activationPolicy == .accessory)",
+            "visibleWindowCount=\(NSApp.windows.filter { $0.isVisible }.count)"
+        ].joined(separator: "\n") + "\n"
+        try? result.write(toFile: resultPath, atomically: true, encoding: .utf8)
     }
 
     private func reconcileSpeedSampling() {
