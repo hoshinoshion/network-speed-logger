@@ -50,6 +50,11 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
 
         deliveredLoginItemLaunch = true
         statusBarController.enterStatusBarModeAfterLoginLaunch()
+        if ProcessInfo.processInfo.environment[
+            "NETWORK_SPEED_LOGGER_LOGIN_ITEM_RESTORE_TEST"
+        ] == "1" {
+            statusBarController.restoreMainWindowAfterLoginLaunchForTesting()
+        }
     }
 }
 
@@ -68,7 +73,11 @@ struct NetworkSpeedLoggerApp: App {
         let updateChecker = UpdateChecker()
         let statusBarController = StatusBarController()
 
-        statusBarController.configure(settings: settings, monitor: monitor)
+        statusBarController.configure(
+            settings: settings,
+            monitor: monitor,
+            updateChecker: updateChecker
+        )
 
         _settings = StateObject(wrappedValue: settings)
         _monitor = StateObject(wrappedValue: monitor)

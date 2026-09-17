@@ -5,7 +5,9 @@ import SwiftUI
 final class StatusBarController: NSObject, ObservableObject {
     private var settings: AppSettings?
     private var monitor: NetworkMonitor?
+    private var updateChecker: UpdateChecker?
     private weak var mainWindow: NSWindow?
+    private var createdMainWindow: NSWindow?
     private var statusItem: NSStatusItem?
     private var isInStatusBarMode = false
     private var shouldEnterStatusBarModeAfterLoginLaunch = false
@@ -35,9 +37,14 @@ final class StatusBarController: NSObject, ObservableObject {
         speedSamplingTimer?.cancel()
     }
 
-    func configure(settings: AppSettings, monitor: NetworkMonitor) {
+    func configure(
+        settings: AppSettings,
+        monitor: NetworkMonitor,
+        updateChecker: UpdateChecker
+    ) {
         self.settings = settings
         self.monitor = monitor
+        self.updateChecker = updateChecker
         reconcileSpeedSampling()
         reconcileStatusItem()
         enterStatusBarModeAfterLoginLaunchIfReady()
@@ -68,6 +75,11 @@ final class StatusBarController: NSObject, ObservableObject {
     }
 
     func registerMainWindow(_ window: NSWindow) {
+        if let createdMainWindow, createdMainWindow !== window {
+            window.orderOut(nil)
+            return
+        }
+
         mainWindow = window
         if isInStatusBarMode {
             keepMainWindowHiddenInStatusBarMode(window)
@@ -75,6 +87,15 @@ final class StatusBarController: NSObject, ObservableObject {
             reconcileStatusItem()
         }
         writeLoginLaunchVerificationIfRequested()
+    }
+
+    func handleMainWindowClosed(_ window: NSWindow) {
+        if mainWindow === window {
+            mainWindow = nil
+        }
+        if createdMainWindow === window {
+            createdMainWindow = nil
+        }
     }
 
     private func enterStatusBarModeAfterLoginLaunchIfReady() {
@@ -89,6 +110,10 @@ final class StatusBarController: NSObject, ObservableObject {
         guard isInStatusBarMode || mainWindow?.isVisible != true else { return false }
         restoreMainWindow()
         return true
+    }
+
+    func restoreMainWindowAfterLoginLaunchForTesting() {
+        restoreMainWindow()
     }
 
     private func enterStatusBarMode() {
@@ -246,10 +271,46 @@ final class StatusBarController: NSObject, ObservableObject {
             leaveStatusBarMode()
         }
 
+        let window = mainWindow ?? createMainWindow()
         NSApp.unhide(nil)
-        mainWindow?.makeKeyAndOrderFront(nil)
+        window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         reconcileStatusItem()
+        writeMainWindowRestoreVerificationIfRequested()
+    }
+
+    private func createMainWindow() -> NSWindow? {
+        if let createdMainWindow {
+            mainWindow = createdMainWindow
+            return createdMainWindow
+        }
+        guard let settings, let monitor, let updateChecker else { return nil }
+
+        let rootView = RootView(
+            settings: settings,
+            monitor: monitor,
+            updateChecker: updateChecker,
+            statusBarController: self
+        )
+        .frame(minWidth: 1_040, minHeight: 700)
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1_180, height: 780),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Network Speed Logger"
+        window.contentMinSize = NSSize(width: 1_040, height: 700)
+        window.contentViewController = NSHostingController(rootView: rootView)
+        window.isReleasedWhenClosed = false
+        window.tabbingMode = .disallowed
+        window.identifier = NSUserInterfaceItemIdentifier("NetworkSpeedLogger.MainWindow")
+        window.center()
+
+        createdMainWindow = window
+        mainWindow = window
+        return window
     }
 
     private func writeLoginLaunchVerificationIfRequested() {
@@ -263,6 +324,21 @@ final class StatusBarController: NSObject, ObservableObject {
             "statusItemInstalled=\(statusItem != nil)",
             "activationPolicyAccessory=\(NSRunningApplication.current.activationPolicy == .accessory)",
             "visibleWindowCount=\(NSApp.windows.filter { $0.isVisible }.count)"
+        ].joined(separator: "\n") + "\n"
+        try? result.write(toFile: resultPath, atomically: true, encoding: .utf8)
+    }
+
+    private func writeMainWindowRestoreVerificationIfRequested() {
+        guard let resultPath = ProcessInfo.processInfo.environment[
+            "NETWORK_SPEED_LOGGER_LOGIN_ITEM_RESTORE_TEST_RESULT"
+        ],
+              !resultPath.isEmpty else { return }
+
+        let result = [
+            "mainWindowCreated=\(mainWindow != nil)",
+            "fallbackMainWindowCreated=\(createdMainWindow != nil)",
+            "mainWindowVisible=\(mainWindow?.isVisible == true)",
+            "activationPolicyRegular=\(NSRunningApplication.current.activationPolicy == .regular)"
         ].joined(separator: "\n") + "\n"
         try? result.write(toFile: resultPath, atomically: true, encoding: .utf8)
     }
@@ -557,6 +633,13 @@ private final class MainWindowDelegateProxy: NSObject, NSWindowDelegate {
             controller?.handleMainWindowBecameActive(window)
         }
         forwardingDelegate?.windowDidBecomeMain?(notification)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        if let window = notification.object as? NSWindow {
+            controller?.handleMainWindowClosed(window)
+        }
+        forwardingDelegate?.windowWillClose?(notification)
     }
 
     override func responds(to selector: Selector!) -> Bool {

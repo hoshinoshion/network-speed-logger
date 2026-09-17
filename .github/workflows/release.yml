@@ -1,4 +1,4 @@
-name: Release v0.9.7 macOS pre-release
+name: Release v0.9.8 macOS pre-release
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.9.7
-  APP_BUILD_NUMBER: 40
+  APP_VERSION: 0.9.8
+  APP_BUILD_NUMBER: 41
 
 jobs:
   release-check:
@@ -20,12 +20,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.9.7 already exists
+      - name: Check whether v0.9.8 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.9.7 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.9.8 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -121,6 +121,42 @@ jobs:
               exit 1
             fi
           done
+
+          cleanup
+          trap - EXIT
+
+          restore_result_path="$RUNNER_TEMP/network-speed-logger-login-item-restore-result.txt"
+          rm -f "$restore_result_path"
+
+          NETWORK_SPEED_LOGGER_LOGIN_ITEM_TEST=1 \
+          NETWORK_SPEED_LOGGER_LOGIN_ITEM_RESTORE_TEST=1 \
+          NETWORK_SPEED_LOGGER_LOGIN_ITEM_RESTORE_TEST_RESULT="$restore_result_path" \
+            "$executable" >"$log_path" 2>&1 &
+          app_pid=$!
+          trap cleanup EXIT
+
+          for _ in {1..15}; do
+            if [[ -s "$restore_result_path" ]]; then
+              break
+            fi
+            if ! kill -0 "$app_pid" >/dev/null 2>&1; then
+              cat "$log_path"
+              echo "The macOS application exited while restoring the login-item window." >&2
+              exit 1
+            fi
+            sleep 1
+          done
+
+          if [[ ! -s "$restore_result_path" ]]; then
+            cat "$log_path"
+            echo "The login-item main window was not restored." >&2
+            exit 1
+          fi
+          cat "$restore_result_path"
+          grep -Fx 'mainWindowCreated=true' "$restore_result_path"
+          grep -Fx 'fallbackMainWindowCreated=true' "$restore_result_path"
+          grep -Fx 'mainWindowVisible=true' "$restore_result_path"
+          grep -Fx 'activationPolicyRegular=true' "$restore_result_path"
 
           cleanup
           trap - EXIT
@@ -662,21 +698,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.9.7 macOS Pre-release
+          Network Speed Logger 0.9.8 macOS Pre-release
 
-          - Fixes macOS login launch getting stuck in the Dock without a menu-bar item
-          - Initializes the menu-bar controller before SwiftUI creates or activates the main window
-          - Keeps delayed main-window activation events from leaving menu-bar mode during login launch
-          - Adds a login-item presentation smoke test covering the status item, Dock policy, and hidden main window
+          - Fixes the main window not appearing after clicking the menu-bar item following a macOS login launch
+          - Reuses the existing SwiftUI window when available and creates the same main view when login launch has no window
+          - Keeps the restored window connected to the existing logging, settings, update, and menu-bar state
+          - Adds a login-item restoration smoke test covering window creation, visibility, and Dock activation policy
           - Includes the Universal macOS DMG for Apple silicon and Intel Macs
 
           This pre-release contains the macOS client only. The application is ad-hoc signed, is not notarized, and may require Open Anyway in System Settings > Privacy & Security on first launch.
           EOF
           )
-          gh release create v0.9.7 \
+          gh release create v0.9.8 \
             artifacts/NetworkSpeedLogger.dmg \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.9.7" \
+            --title "v0.9.8" \
             --notes "$notes" \
             --prerelease
