@@ -2,6 +2,28 @@ import AppKit
 import CoreServices
 import SwiftUI
 
+enum MainWindowScene {
+    static let identifier = "main-window"
+    static let openCommandTitles = ["Open Main Window", "打开主窗口"]
+}
+
+private struct MainWindowCommands: Commands {
+    @ObservedObject var settings: AppSettings
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button(settings.text(
+                MainWindowScene.openCommandTitles[0],
+                MainWindowScene.openCommandTitles[1]
+            )) {
+                openWindow(id: MainWindowScene.identifier)
+            }
+            .keyboardShortcut("n", modifiers: .command)
+        }
+    }
+}
+
 @MainActor
 final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     var statusBarController: StatusBarController? {
@@ -18,6 +40,15 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         captureLoginItemLaunch()
         deliverLoginItemLaunchIfReady()
+        if ProcessInfo.processInfo.environment[
+            "NETWORK_SPEED_LOGGER_LOGIN_ITEM_RESTORE_TEST"
+        ] == "1" {
+            // The SwiftUI command hierarchy is available only after app launch
+            // has completed, matching a real status-item click after login.
+            DispatchQueue.main.async { [weak self] in
+                self?.statusBarController?.restoreMainWindowAfterLoginLaunchForTesting()
+            }
+        }
     }
 
     func applicationShouldHandleReopen(
@@ -50,11 +81,6 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
 
         deliveredLoginItemLaunch = true
         statusBarController.enterStatusBarModeAfterLoginLaunch()
-        if ProcessInfo.processInfo.environment[
-            "NETWORK_SPEED_LOGGER_LOGIN_ITEM_RESTORE_TEST"
-        ] == "1" {
-            statusBarController.restoreMainWindowAfterLoginLaunchForTesting()
-        }
     }
 }
 
@@ -73,11 +99,7 @@ struct NetworkSpeedLoggerApp: App {
         let updateChecker = UpdateChecker()
         let statusBarController = StatusBarController()
 
-        statusBarController.configure(
-            settings: settings,
-            monitor: monitor,
-            updateChecker: updateChecker
-        )
+        statusBarController.configure(settings: settings, monitor: monitor)
 
         _settings = StateObject(wrappedValue: settings)
         _monitor = StateObject(wrappedValue: monitor)
@@ -100,7 +122,7 @@ struct NetworkSpeedLoggerApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: MainWindowScene.identifier) {
             RootView(
                 settings: settings,
                 monitor: monitor,
@@ -115,6 +137,8 @@ struct NetworkSpeedLoggerApp: App {
         .defaultSize(width: 1_180, height: 780)
         .windowStyle(.titleBar)
         .commands {
+            MainWindowCommands(settings: settings)
+
             CommandGroup(after: .appInfo) {
                 Button(settings.text("Check for Updates…", "检查更新…")) {
                     Task { await updateChecker.checkForUpdates(manual: true) }

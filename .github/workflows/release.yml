@@ -1,4 +1,4 @@
-name: Release v0.9.8 macOS pre-release
+name: Release v0.9.9 macOS pre-release
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.9.8
-  APP_BUILD_NUMBER: 41
+  APP_VERSION: 0.9.9
+  APP_BUILD_NUMBER: 42
 
 jobs:
   release-check:
@@ -20,12 +20,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.9.8 already exists
+      - name: Check whether v0.9.9 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.9.8 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.9.9 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -77,6 +77,14 @@ jobs:
 
       - name: Smoke-test macOS application startup
         run: |
+          if rg -n 'NSHostingController\(rootView:|private func createMainWindow' \
+            src/macos/NetworkSpeedLogger/Sources/NetworkSpeedLogger/StatusBarController.swift; then
+            echo "The status-item restore path must not construct a parallel AppKit window." >&2
+            exit 1
+          fi
+          rg -n 'WindowGroup\(id: MainWindowScene.identifier\)' \
+            src/macos/NetworkSpeedLogger/Sources/NetworkSpeedLogger/NetworkSpeedLoggerApp.swift
+
           app_path="dist/NetworkSpeedLogger.app"
           executable="dist/NetworkSpeedLogger.app/Contents/MacOS/NetworkSpeedLogger"
           log_path="$RUNNER_TEMP/network-speed-logger-startup.log"
@@ -136,7 +144,11 @@ jobs:
           trap cleanup EXIT
 
           for _ in {1..15}; do
-            if [[ -s "$restore_result_path" ]]; then
+            if [[ -s "$restore_result_path" ]] && \
+              grep -Fxq 'mainWindowCreated=true' "$restore_result_path" && \
+              grep -Fxq 'nativeWindowCommandInvoked=true' "$restore_result_path" && \
+              grep -Fxq 'mainWindowVisible=true' "$restore_result_path" && \
+              grep -Fxq 'activationPolicyRegular=true' "$restore_result_path"; then
               break
             fi
             if ! kill -0 "$app_pid" >/dev/null 2>&1; then
@@ -154,7 +166,7 @@ jobs:
           fi
           cat "$restore_result_path"
           grep -Fx 'mainWindowCreated=true' "$restore_result_path"
-          grep -Fx 'fallbackMainWindowCreated=true' "$restore_result_path"
+          grep -Fx 'nativeWindowCommandInvoked=true' "$restore_result_path"
           grep -Fx 'mainWindowVisible=true' "$restore_result_path"
           grep -Fx 'activationPolicyRegular=true' "$restore_result_path"
 
@@ -698,21 +710,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.9.8 macOS Pre-release
+          Network Speed Logger 0.9.9 macOS Pre-release
 
-          - Fixes the main window not appearing after clicking the menu-bar item following a macOS login launch
-          - Reuses the existing SwiftUI window when available and creates the same main view when login launch has no window
-          - Keeps the restored window connected to the existing logging, settings, update, and menu-bar state
-          - Adds a login-item restoration smoke test covering window creation, visibility, and Dock activation policy
+          - Fixes the main-window toolbar and layout becoming compressed or misplaced after a macOS login launch
+          - Restores the window through its native SwiftUI WindowGroup so its toolbar, navigation layout, and scene behavior match a normal launch
+          - Removes the parallel AppKit-hosted fallback window introduced in v0.9.8
+          - Extends the login-item restoration smoke test to require native SwiftUI window creation, visibility, and Dock activation policy
           - Includes the Universal macOS DMG for Apple silicon and Intel Macs
 
           This pre-release contains the macOS client only. The application is ad-hoc signed, is not notarized, and may require Open Anyway in System Settings > Privacy & Security on first launch.
           EOF
           )
-          gh release create v0.9.8 \
+          gh release create v0.9.9 \
             artifacts/NetworkSpeedLogger.dmg \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.9.8" \
+            --title "v0.9.9" \
             --notes "$notes" \
             --prerelease

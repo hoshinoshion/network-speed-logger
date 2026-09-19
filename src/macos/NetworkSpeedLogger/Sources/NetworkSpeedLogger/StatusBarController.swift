@@ -5,12 +5,13 @@ import SwiftUI
 final class StatusBarController: NSObject, ObservableObject {
     private var settings: AppSettings?
     private var monitor: NetworkMonitor?
-    private var updateChecker: UpdateChecker?
     private weak var mainWindow: NSWindow?
-    private var createdMainWindow: NSWindow?
     private var statusItem: NSStatusItem?
     private var isInStatusBarMode = false
     private var shouldEnterStatusBarModeAfterLoginLaunch = false
+    private var isNativeWindowRestorePending = false
+    private var nativeWindowCommandInvoked = false
+    private var nativeWindowCommandRetryCount = 0
 
     private let interfaceProvider = InterfaceProvider()
     private var speedSamplingTimer: DispatchSourceTimer?
@@ -37,14 +38,9 @@ final class StatusBarController: NSObject, ObservableObject {
         speedSamplingTimer?.cancel()
     }
 
-    func configure(
-        settings: AppSettings,
-        monitor: NetworkMonitor,
-        updateChecker: UpdateChecker
-    ) {
+    func configure(settings: AppSettings, monitor: NetworkMonitor) {
         self.settings = settings
         self.monitor = monitor
-        self.updateChecker = updateChecker
         reconcileSpeedSampling()
         reconcileStatusItem()
         enterStatusBarModeAfterLoginLaunchIfReady()
@@ -75,14 +71,16 @@ final class StatusBarController: NSObject, ObservableObject {
     }
 
     func registerMainWindow(_ window: NSWindow) {
-        if let createdMainWindow, createdMainWindow !== window {
-            window.orderOut(nil)
-            return
-        }
-
         mainWindow = window
         if isInStatusBarMode {
             keepMainWindowHiddenInStatusBarMode(window)
+        } else if isNativeWindowRestorePending {
+            isNativeWindowRestorePending = false
+            nativeWindowCommandRetryCount = 0
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            reconcileStatusItem()
+            writeMainWindowRestoreVerificationIfRequested()
         } else {
             reconcileStatusItem()
         }
@@ -92,9 +90,6 @@ final class StatusBarController: NSObject, ObservableObject {
     func handleMainWindowClosed(_ window: NSWindow) {
         if mainWindow === window {
             mainWindow = nil
-        }
-        if createdMainWindow === window {
-            createdMainWindow = nil
         }
     }
 
@@ -271,46 +266,57 @@ final class StatusBarController: NSObject, ObservableObject {
             leaveStatusBarMode()
         }
 
-        let window = mainWindow ?? createMainWindow()
         NSApp.unhide(nil)
-        window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-        reconcileStatusItem()
-        writeMainWindowRestoreVerificationIfRequested()
+        if let mainWindow {
+            isNativeWindowRestorePending = false
+            nativeWindowCommandRetryCount = 0
+            mainWindow.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            reconcileStatusItem()
+            writeMainWindowRestoreVerificationIfRequested()
+            return
+        }
+
+        isNativeWindowRestorePending = true
+        nativeWindowCommandInvoked = false
+        nativeWindowCommandRetryCount = 0
+        requestNativeMainWindow()
     }
 
-    private func createMainWindow() -> NSWindow? {
-        if let createdMainWindow {
-            mainWindow = createdMainWindow
-            return createdMainWindow
+    private func requestNativeMainWindow() {
+        guard isNativeWindowRestorePending, mainWindow == nil else { return }
+
+        if let command = findOpenMainWindowCommand(in: NSApp.mainMenu),
+           let action = command.action,
+           NSApp.sendAction(action, to: command.target, from: command) {
+            nativeWindowCommandInvoked = true
+            NSApp.activate(ignoringOtherApps: true)
+            return
         }
-        guard let settings, let monitor, let updateChecker else { return nil }
 
-        let rootView = RootView(
-            settings: settings,
-            monitor: monitor,
-            updateChecker: updateChecker,
-            statusBarController: self
-        )
-        .frame(minWidth: 1_040, minHeight: 700)
+        nativeWindowCommandRetryCount += 1
+        guard nativeWindowCommandRetryCount < 20 else {
+            isNativeWindowRestorePending = false
+            writeMainWindowRestoreVerificationIfRequested()
+            return
+        }
 
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1_180, height: 780),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = "Network Speed Logger"
-        window.contentMinSize = NSSize(width: 1_040, height: 700)
-        window.contentViewController = NSHostingController(rootView: rootView)
-        window.isReleasedWhenClosed = false
-        window.tabbingMode = .disallowed
-        window.identifier = NSUserInterfaceItemIdentifier("NetworkSpeedLogger.MainWindow")
-        window.center()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.requestNativeMainWindow()
+        }
+    }
 
-        createdMainWindow = window
-        mainWindow = window
-        return window
+    private func findOpenMainWindowCommand(in menu: NSMenu?) -> NSMenuItem? {
+        guard let menu else { return nil }
+        for item in menu.items {
+            if MainWindowScene.openCommandTitles.contains(item.title) {
+                return item
+            }
+            if let match = findOpenMainWindowCommand(in: item.submenu) {
+                return match
+            }
+        }
+        return nil
     }
 
     private func writeLoginLaunchVerificationIfRequested() {
@@ -336,7 +342,7 @@ final class StatusBarController: NSObject, ObservableObject {
 
         let result = [
             "mainWindowCreated=\(mainWindow != nil)",
-            "fallbackMainWindowCreated=\(createdMainWindow != nil)",
+            "nativeWindowCommandInvoked=\(nativeWindowCommandInvoked)",
             "mainWindowVisible=\(mainWindow?.isVisible == true)",
             "activationPolicyRegular=\(NSRunningApplication.current.activationPolicy == .regular)"
         ].joined(separator: "\n") + "\n"
