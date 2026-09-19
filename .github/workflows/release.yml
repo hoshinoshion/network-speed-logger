@@ -77,12 +77,12 @@ jobs:
 
       - name: Smoke-test macOS application startup
         run: |
-          if rg -n 'NSHostingController\(rootView:|private func createMainWindow' \
+          if grep -En 'NSHostingController\(rootView:|private func createMainWindow' \
             src/macos/NetworkSpeedLogger/Sources/NetworkSpeedLogger/StatusBarController.swift; then
             echo "The status-item restore path must not construct a parallel AppKit window." >&2
             exit 1
           fi
-          rg -n 'WindowGroup\(id: MainWindowScene.identifier\)' \
+          grep -En 'WindowGroup\(id: MainWindowScene.identifier\)' \
             src/macos/NetworkSpeedLogger/Sources/NetworkSpeedLogger/NetworkSpeedLoggerApp.swift
 
           app_path="dist/NetworkSpeedLogger.app"
