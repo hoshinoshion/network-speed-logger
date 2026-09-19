@@ -108,6 +108,10 @@ final class StatusBarController: NSObject, ObservableObject {
     }
 
     func restoreMainWindowAfterLoginLaunchForTesting() {
+        // Exercise the same no-window state seen when a login launch does not
+        // instantiate WindowGroup. Keep this test-only setup out of production.
+        mainWindow?.orderOut(nil)
+        mainWindow = nil
         restoreMainWindow()
     }
 
