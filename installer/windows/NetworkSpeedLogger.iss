@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.8.9"
+  #define AppVersion "1.0.0"
 #endif
 
 #define AppName "Network Speed Logger"
