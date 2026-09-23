@@ -133,23 +133,19 @@ public sealed partial class MainWindow : Window
         Title = T("网速记录工具", "Network Speed Logger");
         TitleBarText.Text = T("网速记录工具", "Network Speed Logger");
         CurrentSessionTitle.Text = T("本次记录", "Current session");
-        CurrentSessionDescription.Text = T("主窗口中的修改只在本次启动期间有效", "Changes here remain temporary until the app closes");
         DurationLabel.Text = T("运行时长（小时）", "Duration (hours)");
         IntervalLabel.Text = T("采样间隔（秒）", "Sample interval (sec)");
         UnitLabel.Text = T("速度单位", "Speed unit");
         AdapterModeLabel.Text = T("网卡模式", "Adapter mode");
-        OutputFolderLabel.Text = T("结果保存位置", "Output folder");
+        OutputFolderLabel.Text = T("结果保存文件夹", "Output folder");
         MainTitleText.Text = T("网络流量监控", "Network traffic monitor");
-        MainSubtitleText.Text = T("记录电脑实际发送与接收的流量，包括互联网和局域网流量", "Record actual sent and received traffic, including internet and local-network traffic");
         CurrentDownloadLabel.Text = T("当前下载", "Current download");
         CurrentUploadLabel.Text = T("当前上传", "Current upload");
         ElapsedLabel.Text = T("已运行", "Elapsed");
         ChartTitleText.Text = T("实时速度趋势", "Real-time speed trend");
-        ChartSubtitleText.Text = T("最近 60 个采样点，纵轴会自动调整", "Latest 60 samples with automatic scaling");
         DownloadLegendText.Text = T("下载", "Download");
         UploadLegendText.Text = T("上传", "Upload");
         RecentTitleText.Text = T("最近 5 条采样", "Latest 5 samples");
-        RecentSubtitleText.Text = T("新记录显示在最上方", "Newest sample appears first");
         SummaryTitleText.Text = T("本次统计", "Session statistics");
         SampleTrafficLabel.Text = T("样本与流量", "Samples & traffic");
         MinimumLabel.Text = T("最小速度", "Minimum");
@@ -263,7 +259,7 @@ public sealed partial class MainWindow : Window
     {
         bool available = FolderService.TryValidate(_settings.OutputFolder, out _);
         FolderInfoBar.IsOpen = !available;
-        FolderInfoBar.Title = available ? string.Empty : T("需要选择结果保存位置", "Choose an output folder");
+        FolderInfoBar.Title = available ? string.Empty : T("需要选择结果保存文件夹", "Choose an output folder");
         FolderInfoBar.Message = available
             ? string.Empty
             : T("每个采样会立即写入这里，应用会记住这个文件夹。", "Every sample is written here immediately, and the app remembers this folder.");
@@ -297,7 +293,7 @@ public sealed partial class MainWindow : Window
         if (!FolderService.TryValidate(_settings.OutputFolder, out string? folderError))
         {
             if (startedFromTray) RestoreMainWindowFromTray();
-            await ShowMessageAsync(T("无法开始", "Unable to start"), T("结果保存位置不可用，请重新选择。", "The output folder is unavailable. Choose another folder.") + "\n\n" + folderError);
+            await ShowMessageAsync(T("无法开始", "Unable to start"), T("结果保存文件夹不可用，请重新选择。", "The output folder is unavailable. Choose another folder.") + "\n\n" + folderError);
             UpdateOutputFolderState();
             return;
         }
@@ -333,7 +329,7 @@ public sealed partial class MainWindow : Window
             SummaryStateText.Text = T("正在采样并实时写入 CSV", "Sampling and writing to CSV");
             SidebarStatusText.Text = T("正在记录 · ", "Recording · ") + string.Join(Localization.IsChinese ? "、" : ", ", activeAdapters);
             SessionInfoBar.Severity = InfoBarSeverity.Informational;
-            SessionInfoBar.Message = T("正在写入：", "Writing: ") + Path.GetFileName(_session.CsvPath) + T("。每次采样后都会立即保存。", ". Data is flushed after every sample.");
+            SessionInfoBar.Message = T("正在写入：", "Writing: ") + Path.GetFileName(_session.CsvPath);
             _sampleTimer.Interval = TimeSpan.FromSeconds(options.SampleIntervalSeconds);
             _sampleTimer.Start();
             _uiTimer.Start();
@@ -561,10 +557,10 @@ public sealed partial class MainWindow : Window
         }
 
         bool confirmed = await ShowConfirmationAsync(
-            T("清理保存位置", "Clear output folder"),
+            T("清理保存文件夹", "Clear output folder"),
             T(
-                "将以下保存位置中的所有文件和文件夹移入回收站吗？保存位置本身会保留。",
-                "Move every file and folder in the output folder below to the Recycle Bin? The output folder itself will be kept.") +
+                "将以下保存文件夹中的所有文件和文件夹移入回收站吗？",
+                "Move every file and folder in the output folder below to the Recycle Bin?") +
                 "\n\n" + _settings.OutputFolder,
             T("清理", "Clear"));
         if (!confirmed) return;
@@ -573,7 +569,7 @@ public sealed partial class MainWindow : Window
         {
             int movedItemCount = FolderService.MoveContentsToRecycleBin(_settings.OutputFolder);
             SidebarStatusText.Text = movedItemCount == 0
-                ? T("保存位置已经是空的", "The output folder is already empty")
+                ? T("保存文件夹已经是空的", "The output folder is already empty")
                 : Localization.IsChinese
                     ? $"已将 {movedItemCount} 项移入回收站"
                     : $"Moved {movedItemCount} {(movedItemCount == 1 ? "item" : "items")} to the Recycle Bin";
@@ -582,7 +578,7 @@ public sealed partial class MainWindow : Window
         {
             await ShowMessageAsync(
                 T("清理失败", "Unable to clear folder"),
-                T("无法将保存位置中的所有内容移入回收站。", "Not all output-folder contents could be moved to the Recycle Bin.") +
+                T("无法将保存文件夹中的所有内容移入回收站。", "Not all output-folder contents could be moved to the Recycle Bin.") +
                 "\n\n" + exception.Message);
         }
     }

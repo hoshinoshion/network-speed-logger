@@ -438,8 +438,8 @@ private struct ControlsSidebar: View {
                 return Alert(
                     title: Text(settings.text("Clear Output Folder", "清理输出目录")),
                     message: Text(settings.text(
-                        "Move every file and folder in the output folder below to the Trash? The output folder itself will be kept.",
-                        "将以下输出目录中的所有文件和文件夹移到废纸篓吗？输出目录本身会保留。"
+                        "Move every file and folder in the output folder below to the Trash?",
+                        "将以下输出目录中的所有文件和文件夹移到废纸篓吗？"
                     ) + "\n\n" + (settings.outputFolderURL?.path ?? "—")),
                     primaryButton: .destructive(Text(settings.text("Clear", "清理"))) {
                         clearOutputFolder()
@@ -1021,11 +1021,11 @@ struct PreferencesView: View {
     private var preferredHeight: CGFloat {
         switch selectedTab {
         case .general:
-            return 330
+            return 300
         case .recording:
             return 410
         case .menuBar:
-            return settings.menuBarSpeedInterfaceMode == .manual ? 560 : 420
+            return settings.menuBarSpeedInterfaceMode == .manual ? 530 : 390
         case .updates:
             return 320
         }
@@ -1068,12 +1068,6 @@ struct PreferencesView: View {
                     )
                 )
 
-                Text(settings.text(
-                    "Starts automatically after you log in and goes directly to the menu bar. Enabling this also enables menu-bar background running.",
-                    "登录 macOS 后自动启动并直接在状态栏运行；开启时也会自动开启状态栏后台运行。"
-                ))
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
@@ -1230,13 +1224,6 @@ struct PreferencesView: View {
                     }
                 }
                 .disabled(!settings.showsNetworkSpeedInMenuBar)
-
-                Text(settings.text(
-                    "Upload is shown above download. Each arrow becomes fully opaque when its direction reaches the threshold; lower activity remains translucent.",
-                    "上传显示在上、下载显示在下。对应方向达到阈值时箭头完全不透明，低于阈值时保持半透明。"
-                ))
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

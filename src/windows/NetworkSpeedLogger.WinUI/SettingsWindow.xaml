@@ -31,8 +31,6 @@
 
       <StackPanel Grid.Row="0" Padding="24,14,24,10" Spacing="2">
           <TextBlock x:Name="PageTitleText" Text="设置" FontSize="24" FontWeight="SemiBold" />
-          <TextBlock x:Name="PageSubtitleText" Text="管理每次启动时使用的默认值和文件保存位置"
-                     Style="{StaticResource CaptionStyle}" />
         </StackPanel>
 
       <NavigationView x:Name="SettingsNavigation" Grid.Row="1"
@@ -75,8 +73,6 @@
               </Grid.ColumnDefinitions>
               <StackPanel VerticalAlignment="Center" Spacing="3">
                 <TextBlock x:Name="LanguageLabel" Text="界面语言" FontWeight="SemiBold" />
-                <TextBlock x:Name="LanguageDescription" Text="默认根据 Windows 显示语言自动选择"
-                           Style="{StaticResource CaptionStyle}" />
               </StackPanel>
               <ComboBox x:Name="LanguageCombo" Grid.Column="1" HorizontalAlignment="Stretch">
                 <ComboBoxItem x:Name="LanguageAutoItem" Tag="Auto" Content="跟随系统" />
@@ -94,8 +90,6 @@
               </Grid.ColumnDefinitions>
               <StackPanel VerticalAlignment="Center" Spacing="3">
                 <TextBlock x:Name="ThemeLabel" Text="应用外观" FontWeight="SemiBold" />
-                <TextBlock x:Name="ThemeDescription" Text="默认跟随 Windows 浅色或深色模式"
-                           Style="{StaticResource CaptionStyle}" />
               </StackPanel>
               <ComboBox x:Name="ThemeCombo" Grid.Column="1" HorizontalAlignment="Stretch"
                         SelectionChanged="ThemeCombo_SelectionChanged">
@@ -114,8 +108,6 @@
               </Grid.ColumnDefinitions>
               <StackPanel VerticalAlignment="Center" Spacing="3">
                 <TextBlock x:Name="MinimizeToTrayLabel" Text="最小化到托盘" FontWeight="SemiBold" />
-                <TextBlock x:Name="MinimizeToTrayDescription" Text="开启后，点击关闭按钮会让应用继续在后台运行"
-                           Style="{StaticResource CaptionStyle}" />
               </StackPanel>
               <ToggleSwitch x:Name="MinimizeToTrayToggle" Grid.Column="1"
                             MinWidth="0" HorizontalAlignment="Right" VerticalAlignment="Center" />
@@ -130,9 +122,6 @@
               </Grid.ColumnDefinitions>
               <StackPanel VerticalAlignment="Center" Spacing="3">
                 <TextBlock x:Name="LaunchAtLoginLabel" Text="开机运行" FontWeight="SemiBold" />
-                <TextBlock x:Name="LaunchAtLoginDescription"
-                           Text="登录 Windows 后自动启动并直接在托盘运行"
-                           Style="{StaticResource CaptionStyle}" />
               </StackPanel>
               <ToggleSwitch x:Name="LaunchAtLoginToggle" Grid.Column="1"
                             MinWidth="0" HorizontalAlignment="Right" VerticalAlignment="Center"
@@ -205,7 +194,7 @@
           <Border Style="{StaticResource CardStyle}" Padding="14,10">
             <StackPanel Spacing="7">
               <StackPanel Spacing="3">
-                <TextBlock x:Name="OutputFolderLabel" Text="结果保存位置" FontWeight="SemiBold" />
+                <TextBlock x:Name="OutputFolderLabel" Text="结果保存文件夹" FontWeight="SemiBold" />
                 <TextBlock x:Name="OutputFolderDescription" Text="CSV 和 Markdown 汇总都会保存到此文件夹"
                            Style="{StaticResource CaptionStyle}" />
               </StackPanel>
@@ -233,8 +222,6 @@
             <StackPanel Padding="20,12,20,18" Spacing="14">
 <StackPanel Spacing="6">
           <TextBlock x:Name="TaskbarSectionText" Text="任务栏网速" Style="{StaticResource SectionTitleStyle}" />
-          <TextBlock x:Name="TaskbarSectionDescription" Text="在主任务栏上持续显示独立采样的实时下载和上传速度"
-                     Style="{StaticResource CaptionStyle}" />
 
           <Border Style="{StaticResource CardStyle}" Padding="14,9">
             <Grid ColumnSpacing="16">
@@ -244,8 +231,6 @@
               </Grid.ColumnDefinitions>
               <StackPanel VerticalAlignment="Center" Spacing="3">
                 <TextBlock x:Name="TaskbarEnabledLabel" Text="显示任务栏网速" FontWeight="SemiBold" />
-                <TextBlock x:Name="TaskbarEnabledDescription" Text="应用运行期间显示；内容不会响应点击"
-                           Style="{StaticResource CaptionStyle}" />
               </StackPanel>
               <ToggleSwitch x:Name="TaskbarEnabledToggle" Grid.Column="1"
                             MinWidth="0" HorizontalAlignment="Right" VerticalAlignment="Center"
@@ -262,9 +247,6 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center" Spacing="3">
                   <TextBlock x:Name="TaskbarLayoutLabel" Text="显示布局" FontWeight="SemiBold" />
-                  <TextBlock x:Name="TaskbarLayoutDescription"
-                             Text="选择上传和下载的排列方式"
-                             Style="{StaticResource CaptionStyle}" />
                 </StackPanel>
                 <ComboBox x:Name="TaskbarLayoutCombo" Grid.Column="1" HorizontalAlignment="Stretch">
                   <ComboBoxItem x:Name="TaskbarLayoutTwoLineItem" Tag="TwoLine" Content="双行" />
@@ -297,12 +279,10 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center" Spacing="3">
                   <TextBlock x:Name="TaskbarUnitLabel" Text="速度单位" FontWeight="SemiBold" />
-                  <TextBlock x:Name="TaskbarUnitDescription" Text="K、M、G 等前缀会根据实时速度自动变化"
-                             Style="{StaticResource CaptionStyle}" />
                 </StackPanel>
                 <ComboBox x:Name="TaskbarUnitCombo" Grid.Column="1" HorizontalAlignment="Stretch">
-                  <ComboBoxItem x:Name="TaskbarUnitByteItem" Tag="Byte" Content="Byte（B/s、KB/s、MB/s）" />
-                  <ComboBoxItem x:Name="TaskbarUnitBitItem" Tag="bit" Content="bit（bps、Kbps、Mbps）" />
+                  <ComboBoxItem x:Name="TaskbarUnitByteItem" Tag="Byte" Content="Byte" />
+                  <ComboBoxItem x:Name="TaskbarUnitBitItem" Tag="bit" Content="bit" />
                 </ComboBox>
               </Grid>
             </Border>
@@ -451,8 +431,6 @@
           <ColumnDefinition Width="Auto" />
           <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
-        <TextBlock x:Name="SaveHintText" VerticalAlignment="Center" Style="{StaticResource CaptionStyle}"
-                   Text="保存后立即应用可用设置" />
         <Button x:Name="CancelButton" Grid.Column="1" Content="取消" TabIndex="0" Click="CancelButton_Click" />
         <Button x:Name="SaveButton" Grid.Column="2" Content="保存"
                 Style="{StaticResource AccentButtonStyle}" Click="SaveButton_Click" />

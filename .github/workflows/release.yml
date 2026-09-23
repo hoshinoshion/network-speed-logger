@@ -1,4 +1,4 @@
-name: Release v0.9.9 macOS pre-release
+name: Release v0.9.10 macOS and Windows pre-release
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 0.9.9
-  APP_BUILD_NUMBER: 42
+  APP_VERSION: 0.9.10
+  APP_BUILD_NUMBER: 43
 
 jobs:
   release-check:
@@ -20,12 +20,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v0.9.9 already exists
+      - name: Check whether v0.9.10 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.9.9 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v0.9.10 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -232,7 +232,7 @@ jobs:
 
   build-windows:
     needs: release-check
-    if: ${{ false }}
+    if: needs.release-check.outputs.exists != 'true'
     runs-on: windows-latest
 
     steps:
@@ -691,11 +691,12 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [release-check, build-macos]
+    needs: [release-check, build-macos, build-windows]
     if: >-
       github.ref == 'refs/heads/main' &&
       needs.release-check.outputs.exists != 'true' &&
-      needs.build-macos.result == 'success'
+      needs.build-macos.result == 'success' &&
+      needs.build-windows.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
@@ -705,26 +706,32 @@ jobs:
           name: macos-release
           path: artifacts
 
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-installer
+          path: artifacts
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 0.9.9 macOS Pre-release
+          Network Speed Logger 0.9.10 macOS and Windows Pre-release
 
-          - Fixes the main-window toolbar and layout becoming compressed or misplaced after a macOS login launch
-          - Restores the window through its native SwiftUI WindowGroup so its toolbar, navigation layout, and scene behavior match a normal launch
-          - Removes the parallel AppKit-hosted fallback window introduced in v0.9.8
-          - Extends the login-item restoration smoke test to require native SwiftUI window creation, visibility, and Dock activation policy
-          - Includes the Universal macOS DMG for Apple silicon and Intel Macs
+          - Simplifies Chinese and English interface text in the macOS and Windows clients
+          - Removes redundant descriptions and shortens taskbar layout and speed-unit choices
+          - Uses "保存文件夹" consistently across the Windows main window and settings
+          - Includes the Universal macOS DMG and Windows x64 installer
 
-          This pre-release contains the macOS client only. The application is ad-hoc signed, is not notarized, and may require Open Anyway in System Settings > Privacy & Security on first launch.
+          Features and behavior are unchanged. The macOS application is ad-hoc signed, is not notarized, and may require Open Anyway in System Settings > Privacy & Security on first launch.
           EOF
           )
-          gh release create v0.9.9 \
+          gh release create v0.9.10 \
             artifacts/NetworkSpeedLogger.dmg \
+            artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v0.9.9" \
+            --title "v0.9.10" \
             --notes "$notes" \
             --prerelease

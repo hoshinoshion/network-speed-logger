@@ -297,7 +297,7 @@ public static class FolderService
             if (string.Equals(selected, applicationFolder, StringComparison.OrdinalIgnoreCase) ||
                 selected.StartsWith(applicationFolder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
             {
-                error = Localization.T("不能将程序安装目录用作记录保存位置。", "The application folder cannot be used for session files.");
+                error = Localization.T("不能将程序安装目录用作记录保存文件夹。", "The application folder cannot be used for session files.");
                 return false;
             }
 

@@ -138,50 +138,29 @@ public sealed partial class SettingsWindow : Window
         Title = T("设置", "Settings");
         TitleBarText.Text = T("设置", "Settings");
         PageTitleText.Text = T("设置", "Settings");
-        PageSubtitleText.Text = T("按类别管理应用行为、记录配置、系统栏显示与更新", "Manage app behavior, recording, system-bar display, and updates by category");
         GeneralNavigationItem.Content = T("通用", "General");
         RecordingNavigationItem.Content = T("记录", "Recording");
         TaskbarNavigationItem.Content = T("任务栏", "Taskbar");
         UpdatesNavigationItem.Content = T("更新", "Updates");
         GeneralSectionText.Text = T("常规", "General");
         LanguageLabel.Text = T("界面语言", "App language");
-        LanguageDescription.Text = T("默认根据 Windows 显示语言自动选择", "By default, follows the Windows display language");
         LanguageAutoItem.Content = T("跟随系统", "Follow system");
         ThemeLabel.Text = T("应用外观", "App appearance");
-        ThemeDescription.Text = T("默认跟随 Windows 浅色或深色模式", "By default, follows the Windows light or dark mode");
         ThemeAutoItem.Content = T("跟随系统", "Follow system");
         ThemeLightItem.Content = T("浅色", "Light");
         ThemeDarkItem.Content = T("深色", "Dark");
         MinimizeToTrayLabel.Text = T("最小化到托盘", "Minimize to notification area");
-        MinimizeToTrayDescription.Text = T(
-            "开启后，点击关闭按钮会让应用继续在后台运行",
-            "When enabled, the Close button keeps the app running in the background");
         LaunchAtLoginLabel.Text = T("开机运行", "Run at sign-in");
-        LaunchAtLoginDescription.Text = T(
-            "登录 Windows 后自动启动并直接在托盘运行",
-            "Start automatically after Windows sign-in and go directly to the notification area");
         TaskbarSectionText.Text = T("任务栏网速", "Taskbar speed");
-        TaskbarSectionDescription.Text = T(
-            "在主任务栏上持续显示独立采样的实时下载和上传速度",
-            "Continuously show independently sampled download and upload speeds on the primary taskbar");
         TaskbarEnabledLabel.Text = T("显示任务栏网速", "Show taskbar speed");
-        TaskbarEnabledDescription.Text = T(
-            "应用运行期间显示；内容不会响应点击",
-            "Shown while the app is running; the display does not respond to clicks");
         TaskbarLayoutLabel.Text = T("显示布局", "Display layout");
-        TaskbarLayoutDescription.Text = T(
-            "选择上传和下载的排列方式",
-            "Choose how upload and download speeds are arranged");
-        TaskbarLayoutTwoLineItem.Content = T("双行（上传在上）", "Two lines (upload on top)");
-        TaskbarLayoutSingleLineItem.Content = T("单行（上传在左）", "Single line (upload on left)");
+        TaskbarLayoutTwoLineItem.Content = T("双行", "Two lines");
+        TaskbarLayoutSingleLineItem.Content = T("单行", "Single line");
         TaskbarIntervalLabel.Text = T("采样频率", "Sample interval");
         TaskbarIntervalDescription.Text = T("1 到 3600 秒；默认为 1 秒", "1 to 3600 seconds; default is 1 second");
         TaskbarUnitLabel.Text = T("速度单位", "Speed unit");
-        TaskbarUnitDescription.Text = T(
-            "K、M、G 等前缀会根据实时速度自动变化",
-            "K, M, and G prefixes change automatically with the current speed");
-        TaskbarUnitByteItem.Content = T("Byte（B/s、KB/s、MB/s）", "Byte (B/s, KB/s, MB/s)");
-        TaskbarUnitBitItem.Content = T("bit（bps、Kbps、Mbps）", "bit (bps, Kbps, Mbps)");
+        TaskbarUnitByteItem.Content = T("Byte", "Byte");
+        TaskbarUnitBitItem.Content = T("bit", "bit");
         TaskbarAdapterModeLabel.Text = T("网卡模式", "Adapter mode");
         TaskbarAdapterModeDescription.Text = T("与网速记录功能分开设置", "Configured separately from traffic logging");
         TaskbarAutoModeRadio.Content = T("自动（推荐）", "Auto (recommended)");
@@ -198,7 +177,7 @@ public sealed partial class SettingsWindow : Window
         DefaultUnitMbItem.Content = T("MB/s（兆字节/秒）", "MB/s (megabytes/sec)");
         DefaultUnitMbpsItem.Content = T("Mbps（兆比特/秒）", "Mbps (megabits/sec)");
         FilesSectionText.Text = T("文件", "Files");
-        OutputFolderLabel.Text = T("结果保存位置", "Output folder");
+        OutputFolderLabel.Text = T("结果保存文件夹", "Output folder");
         OutputFolderDescription.Text = T("CSV 和 Markdown 汇总都会保存到此文件夹", "CSV logs and Markdown summaries are saved here");
         OpenFolderButtonText.Text = T("打开", "Open");
         BrowseButtonText.Text = T("更改", "Change");
@@ -212,7 +191,6 @@ public sealed partial class SettingsWindow : Window
         ViewUpdateButtonText.Text = T("查看更新", "View update");
         AboutSectionText.Text = T("关于", "About");
         RepositoryButtonText.Text = T("GitHub 仓库", "GitHub repository");
-        SaveHintText.Text = T("保存后立即应用可用设置", "Available settings are applied immediately after saving");
         CancelButton.Content = T("取消", "Cancel");
         SaveButton.Content = T("保存", "Save");
         UpdateTaskbarOptionsUi();
