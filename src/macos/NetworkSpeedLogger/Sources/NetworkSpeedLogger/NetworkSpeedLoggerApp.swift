@@ -29,6 +29,8 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     var statusBarController: StatusBarController? {
         didSet { deliverLoginItemLaunchIfReady() }
     }
+    var updateChecker: UpdateChecker?
+    var settings: AppSettings?
     private(set) var launchedAsLoginItem = false
     private var deliveredLoginItemLaunch = false
 
@@ -40,6 +42,11 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         captureLoginItemLaunch()
         deliverLoginItemLaunchIfReady()
+        if let updateChecker, let settings {
+            updateChecker.startAutomaticChecks(isEnabled: { [weak settings] in
+                settings?.automaticallyChecksForUpdates == true
+            })
+        }
         if ProcessInfo.processInfo.environment[
             "NETWORK_SPEED_LOGGER_LOGIN_ITEM_RESTORE_TEST"
         ] == "1" {
@@ -49,6 +56,10 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
                 self?.statusBarController?.restoreMainWindowAfterLoginLaunchForTesting()
             }
         }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        updateChecker?.stopAutomaticChecks()
     }
 
     func applicationShouldHandleReopen(
@@ -99,12 +110,14 @@ struct NetworkSpeedLoggerApp: App {
         let updateChecker = UpdateChecker()
         let statusBarController = StatusBarController()
 
-        statusBarController.configure(settings: settings, monitor: monitor)
+        statusBarController.configure(settings: settings, monitor: monitor, updateChecker: updateChecker)
 
         _settings = StateObject(wrappedValue: settings)
         _monitor = StateObject(wrappedValue: monitor)
         _updateChecker = StateObject(wrappedValue: updateChecker)
         _statusBarController = StateObject(wrappedValue: statusBarController)
+        applicationDelegate.settings = settings
+        applicationDelegate.updateChecker = updateChecker
         applicationDelegate.statusBarController = statusBarController
 
         if ProcessInfo.processInfo.environment["NETWORK_SPEED_LOGGER_LOGIN_ITEM_TEST"] == "1" {

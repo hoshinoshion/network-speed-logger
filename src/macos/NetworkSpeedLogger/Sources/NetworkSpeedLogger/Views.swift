@@ -22,11 +22,6 @@ struct RootView: View {
             try? await Task.sleep(nanoseconds: 100_000_000)
             MenuBarLocalizer.apply(usesChinese: settings.usesChinese)
         }
-        .task {
-            try? await Task.sleep(nanoseconds: 10_000_000_000)
-            guard !Task.isCancelled, settings.automaticallyChecksForUpdates else { return }
-            await updateChecker.checkAutomaticallyIfNeeded()
-        }
         .alert(
             settings.text("Update Available", "发现新版本"),
             isPresented: Binding(
@@ -1237,6 +1232,11 @@ struct PreferencesView: View {
                     settings.text("Automatically check for updates", "自动检查更新"),
                     isOn: $settings.automaticallyChecksForUpdates
                 )
+                .onChange(of: settings.automaticallyChecksForUpdates) { enabled in
+                    if enabled {
+                        Task { await updateChecker.checkAutomaticallyIfNeeded() }
+                    }
+                }
 
                 LabeledContent(
                     settings.text("Current version", "当前版本"),

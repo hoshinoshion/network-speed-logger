@@ -89,11 +89,41 @@ final class UpdateChecker: ObservableObject {
 
     private let defaults: UserDefaults
     private let session: URLSession
+    private let installedVersion: String?
     private var isChecking = false
+    private var automaticCheckTask: Task<Void, Never>?
 
-    init(defaults: UserDefaults = .standard, session: URLSession = .shared) {
+    init(defaults: UserDefaults = .standard, session: URLSession = .shared, installedVersion: String? = nil) {
         self.defaults = defaults
         self.session = session
+        self.installedVersion = installedVersion ?? Self.currentVersion
+    }
+
+    // The timer belongs to the application, so checks continue while no window exists.
+    func startAutomaticChecks(
+        isEnabled: @escaping @MainActor () -> Bool,
+        initialDelay: UInt64 = 10_000_000_000,
+        repeatInterval: UInt64 = 60 * 60 * 1_000_000_000
+    ) {
+        automaticCheckTask?.cancel()
+        automaticCheckTask = Task { [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: initialDelay)
+                while !Task.isCancelled {
+                    if isEnabled() { await self?.checkAutomaticallyIfNeeded() }
+                    try await Task.sleep(nanoseconds: repeatInterval)
+                }
+            } catch is CancellationError {
+                // Application shutdown or a replacement timer.
+            } catch {
+                // Task.sleep only throws on cancellation.
+            }
+        }
+    }
+
+    func stopAutomaticChecks() {
+        automaticCheckTask?.cancel()
+        automaticCheckTask = nil
     }
 
     func checkAutomaticallyIfNeeded() async {
@@ -112,14 +142,13 @@ final class UpdateChecker: ObservableObject {
 
         do {
             let release = try await fetchLatestRelease()
-            defaults.set(Date(), forKey: Key.lastSuccessfulCheck)
-
-            guard let currentText = Self.currentVersion,
+            guard let currentText = installedVersion,
                   let current = ComparableVersion(currentText),
                   let latest = ComparableVersion(release.version) else {
                 status = .failed
                 return
             }
+            defaults.set(Date(), forKey: Key.lastSuccessfulCheck)
 
             guard latest > current else {
                 availableRelease = nil
@@ -162,6 +191,7 @@ final class UpdateChecker: ObservableObject {
         guard let release = availableRelease else { return }
         markReminded(release)
         NSWorkspace.shared.open(release.pageURL)
+        presentedRelease = nil
     }
 
     private var automaticCheckIsDue: Bool {
@@ -193,19 +223,44 @@ final class UpdateChecker: ObservableObject {
         defaults.set(Date(), forKey: Key.lastReminderDate)
     }
 
+    private struct ReleaseHTTPError: Error {
+        let statusCode: Int
+    }
+
     private func fetchLatestRelease() async throws -> UpdateReleaseInfo {
         let endpoint = URL(string: "https://api.github.com/repos/hoshinoshion/network-speed-logger/releases/latest")!
-        var request = URLRequest(url: endpoint, timeoutInterval: 8)
+        var request = URLRequest(url: endpoint, timeoutInterval: 20)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.setValue("NetworkSpeedLogger-macOS", forHTTPHeaderField: "User-Agent")
         request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            throw URLError(.badServerResponse)
+        for attempt in 0..<3 {
+            do {
+                let (data, response) = try await session.data(for: request)
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw URLError(.badServerResponse)
+                }
+                guard httpResponse.statusCode == 200 else {
+                    throw ReleaseHTTPError(statusCode: httpResponse.statusCode)
+                }
+                return try parseRelease(data)
+            } catch {
+                guard attempt < 2, Self.isTransient(error) else { throw error }
+                try await Task.sleep(nanoseconds: UInt64(attempt + 1) * 1_000_000_000)
+            }
         }
+        throw URLError(.badServerResponse)
+    }
 
+    private static func isTransient(_ error: Error) -> Bool {
+        if let http = error as? ReleaseHTTPError {
+            return (500...504).contains(http.statusCode)
+        }
+        guard let urlError = error as? URLError else { return false }
+        return [.timedOut, .networkConnectionLost, .cannotConnectToHost].contains(urlError.code)
+    }
+
+    private func parseRelease(_ data: Data) throws -> UpdateReleaseInfo {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let payload = try decoder.decode(ReleaseResponse.self, from: data)

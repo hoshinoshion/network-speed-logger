@@ -1,4 +1,4 @@
-name: Release v1.0.0 macOS and Windows
+name: Release v1.0.1 macOS pre-release
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 env:
-  APP_VERSION: 1.0.0
-  APP_BUILD_NUMBER: 44
+  APP_VERSION: 1.0.1
+  APP_BUILD_NUMBER: 45
 
 jobs:
   release-check:
@@ -20,12 +20,12 @@ jobs:
       exists: ${{ steps.release_check.outputs.exists }}
 
     steps:
-      - name: Check whether v1.0.0 already exists
+      - name: Check whether v1.0.1 already exists
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v1.0.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v1.0.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -230,473 +230,12 @@ jobs:
           path: dist/NetworkSpeedLogger.dmg
           if-no-files-found: error
 
-  build-windows:
-    needs: release-check
-    if: needs.release-check.outputs.exists != 'true'
-    runs-on: windows-latest
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Build Windows application
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          dotnet publish src\windows\NetworkSpeedLogger.WinUI\NetworkSpeedLogger.WinUI.csproj `
-            --configuration Release `
-            --runtime win-x64 `
-            --self-contained true `
-            -p:Platform=x64 `
-            -p:WindowsAppSDKSelfContained=true `
-            -p:Version=$env:APP_VERSION `
-            -p:AssemblyVersion=${env:APP_VERSION}.0 `
-            -p:FileVersion=${env:APP_VERSION}.0
-          if ($LASTEXITCODE -ne 0) {
-            throw "dotnet publish failed with exit code $LASTEXITCODE."
-          }
-
-          $app = Get-Item src\windows\NetworkSpeedLogger.WinUI\bin\x64\Release\net10.0-windows10.0.17763.0\win-x64\publish\NetworkSpeedLogger.exe
-          if (-not $app.VersionInfo.FileVersion.StartsWith($env:APP_VERSION)) {
-            throw "Unexpected application file version: $($app.VersionInfo.FileVersion)"
-          }
-
-      - name: Install Inno Setup
-        shell: pwsh
-        run: choco install innosetup --yes --no-progress
-
-      - name: Build installer
-        shell: pwsh
-        run: |
-          $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
-          $iscc = if ($null -ne $command) {
-            $command.Source
-          } else {
-            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          }
-
-          if (-not (Test-Path $iscc)) {
-            throw "ISCC.exe was not found."
-          }
-
-          & $iscc "/DAppVersion=$env:APP_VERSION" installer\windows\NetworkSpeedLogger.iss
-          if ($LASTEXITCODE -ne 0) {
-            throw "Inno Setup failed with exit code $LASTEXITCODE."
-          }
-
-          $installer = Get-Item dist\NetworkSpeedLogger-Setup.exe
-          if ($installer.Length -lt 10MB) {
-            throw "The installer is unexpectedly small."
-          }
-
-      - name: Smoke-test installer
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $installer = (Resolve-Path dist\NetworkSpeedLogger-Setup.exe).Path
-          $installDir = Join-Path $env:RUNNER_TEMP "NetworkSpeedLogger-smoke"
-
-          $installProcess = Start-Process $installer `
-            -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$installDir") `
-            -Wait -PassThru
-          if ($installProcess.ExitCode -ne 0) {
-            throw "Silent installation failed with exit code $($installProcess.ExitCode)."
-          }
-
-          $requiredFiles = @(
-            "NetworkSpeedLogger.exe",
-            "NetworkSpeedLogger.dll",
-            "NetworkSpeedLogger.pri",
-            "NetworkSpeedLogger.ico",
-            "Microsoft.ui.xaml.dll",
-            "Microsoft.WindowsAppRuntime.dll"
-          )
-          foreach ($file in $requiredFiles) {
-            if (-not (Test-Path (Join-Path $installDir $file))) {
-              throw "Installed payload is missing $file."
-            }
-          }
-
-          $app = Get-Item (Join-Path $installDir "NetworkSpeedLogger.exe")
-          if (-not $app.VersionInfo.FileVersion.StartsWith($env:APP_VERSION)) {
-            throw "Unexpected installed application file version: $($app.VersionInfo.FileVersion)"
-          }
-
-          $settingsDir = Join-Path $env:LOCALAPPDATA "NetworkSpeedLogger"
-          New-Item -ItemType Directory -Force -Path $settingsDir | Out-Null
-          @{
-            schemaVersion = 6
-            language = "en-US"
-            theme = "Auto"
-            outputFolder = $env:RUNNER_TEMP
-            automaticallyCheckForUpdates = $false
-            minimizeToTray = $false
-            launchAtLogin = $false
-            taskbarSpeed = @{
-              enabled = $true
-              sampleIntervalSeconds = 1
-              speedUnit = "Byte"
-              singleLine = $true
-              manualMode = $false
-              selectedAdapterIds = @()
-            }
-            defaults = @{
-              durationHours = 24
-              sampleIntervalSeconds = 15
-              speedUnit = "MB/s"
-            }
-          } | ConvertTo-Json -Depth 4 | Set-Content (Join-Path $settingsDir "settings.json") -Encoding utf8
-
-          $startupRegistryPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-          New-Item -Path $startupRegistryPath -Force | Out-Null
-          New-ItemProperty -Path $startupRegistryPath -Name NetworkSpeedLogger `
-            -Value '"C:\stale\NetworkSpeedLogger.exe" --launch-at-login' `
-            -PropertyType String -Force | Out-Null
-
-          $process = Start-Process $app.FullName -PassThru
-          Start-Sleep -Seconds 8
-          if ($process.HasExited) {
-            $crashLog = Join-Path $env:LOCALAPPDATA "NetworkSpeedLogger\crash.log"
-            if (Test-Path $crashLog) {
-              Write-Host "Application crash log:"
-              Get-Content $crashLog
-            }
-            Write-Host "Recent Windows application events:"
-            Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = (Get-Date).AddMinutes(-3) } `
-              -ErrorAction SilentlyContinue |
-              Where-Object { $_.Message -match "NetworkSpeedLogger" } |
-              Select-Object -First 10 TimeCreated, Id, ProviderName, LevelDisplayName, Message |
-              Format-List | Out-String | Write-Host
-            throw "The installed application exited during the startup smoke test with code $($process.ExitCode)."
-          }
-          if ($null -ne (Get-ItemProperty -Path $startupRegistryPath -Name NetworkSpeedLogger -ErrorAction SilentlyContinue)) {
-            throw "A disabled sign-in launch left a stale Run registration behind."
-          }
-
-          $secondProcess = Start-Process $app.FullName -PassThru
-          if (-not $secondProcess.WaitForExit(10000)) {
-            Stop-Process -Id $secondProcess.Id -Force -ErrorAction SilentlyContinue
-            throw "A second application instance remained running."
-          }
-          if ($secondProcess.ExitCode -ne 0) {
-            throw "The redirected application instance exited with code $($secondProcess.ExitCode)."
-          }
-          Start-Sleep -Seconds 2
-          if ($process.HasExited) {
-            throw "The primary application instance exited after redirected activation."
-          }
-          $extraInstances = @(
-            Get-Process -Name "NetworkSpeedLogger" -ErrorAction SilentlyContinue |
-              Where-Object { $_.Id -ne $process.Id }
-          )
-          if ($extraInstances.Count -ne 0) {
-            throw "Additional Network Speed Logger processes remained after redirected activation."
-          }
-
-          Add-Type @"
-          using System;
-          using System.Runtime.InteropServices;
-          public static class NativeWindowLookup
-          {
-              [StructLayout(LayoutKind.Sequential)]
-              public struct Rect
-              {
-                  public int Left;
-                  public int Top;
-                  public int Right;
-                  public int Bottom;
-              }
-
-              [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-              public static extern IntPtr FindWindow(string className, string windowName);
-
-              [DllImport("user32.dll")]
-              [return: MarshalAs(UnmanagedType.Bool)]
-              public static extern bool GetWindowRect(IntPtr window, out Rect rectangle);
-
-              [DllImport("user32.dll")]
-              [return: MarshalAs(UnmanagedType.Bool)]
-              public static extern bool IsWindowVisible(IntPtr window);
-
-              public delegate bool EnumWindowsProcedure(IntPtr window, IntPtr parameter);
-
-              [DllImport("user32.dll")]
-              [return: MarshalAs(UnmanagedType.Bool)]
-              public static extern bool EnumWindows(EnumWindowsProcedure callback, IntPtr parameter);
-
-              [DllImport("user32.dll")]
-              public static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
-
-              [DllImport("user32.dll")]
-              [return: MarshalAs(UnmanagedType.Bool)]
-              public static extern bool SetForegroundWindow(IntPtr window);
-
-              [DllImport("user32.dll")]
-              public static extern IntPtr GetWindow(IntPtr window, uint command);
-
-              [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-              public static extern IntPtr CreateWindowEx(
-                  uint extendedStyle,
-                  string className,
-                  string windowName,
-                  uint style,
-                  int x,
-                  int y,
-                  int width,
-                  int height,
-                  IntPtr parent,
-                  IntPtr menu,
-                  IntPtr instance,
-                  IntPtr parameter);
-
-              [DllImport("user32.dll")]
-              [return: MarshalAs(UnmanagedType.Bool)]
-              public static extern bool ShowWindow(IntPtr window, int command);
-
-              [DllImport("user32.dll")]
-              [return: MarshalAs(UnmanagedType.Bool)]
-              public static extern bool DestroyWindow(IntPtr window);
-
-              public static bool HasVisibleWindowForProcess(int processId)
-              {
-                  bool found = false;
-                  EnumWindows((window, parameter) =>
-                  {
-                      GetWindowThreadProcessId(window, out uint ownerProcessId);
-                      if (ownerProcessId == (uint)processId && IsWindowVisible(window))
-                      {
-                          found = true;
-                          return false;
-                      }
-                      return true;
-                  }, IntPtr.Zero);
-                  return found;
-              }
-
-          }
-          "@
-          $overlayWindow = [NativeWindowLookup]::FindWindow("NetworkSpeedLogger.TaskbarSpeed.$($process.Id)", $null)
-          if ($overlayWindow -eq [IntPtr]::Zero) {
-            throw "The taskbar speed overlay window was not created."
-          }
-          $singleLineRect = New-Object NativeWindowLookup+Rect
-          if (-not [NativeWindowLookup]::GetWindowRect($overlayWindow, [ref]$singleLineRect) -or
-              $singleLineRect.Right - $singleLineRect.Left -lt 200) {
-            throw "The single-line taskbar speed layout did not use the expected wider overlay."
-          }
-
-          $taskbarWindow = [NativeWindowLookup]::FindWindow("Shell_TrayWnd", $null)
-          if ($taskbarWindow -eq [IntPtr]::Zero) {
-            throw "The primary taskbar window was not found."
-          }
-          $taskbarRect = New-Object NativeWindowLookup+Rect
-          if (-not [NativeWindowLookup]::GetWindowRect($taskbarWindow, [ref]$taskbarRect)) {
-            throw "Unable to read the primary taskbar position."
-          }
-          if ([NativeWindowLookup]::GetWindow($overlayWindow, 4) -ne $taskbarWindow) {
-            throw "The taskbar speed overlay is not owned by the primary taskbar window."
-          }
-
-          $desktopWindow = [NativeWindowLookup]::FindWindow("Progman", $null)
-          if ($desktopWindow -ne [IntPtr]::Zero) {
-            $desktopFocused = [NativeWindowLookup]::SetForegroundWindow($desktopWindow)
-            if ($desktopFocused) {
-              Start-Sleep -Seconds 2
-              if (-not [NativeWindowLookup]::IsWindowVisible($overlayWindow)) {
-                throw "The overlay disappeared when the desktop received focus."
-              }
-            }
-          }
-
-          if ([NativeWindowLookup]::SetForegroundWindow($taskbarWindow)) {
-            Start-Sleep -Seconds 2
-            if (-not [NativeWindowLookup]::IsWindowVisible($overlayWindow)) {
-              throw "The overlay disappeared when the taskbar received focus."
-            }
-          }
-
-          $normalWindow = [NativeWindowLookup]::CreateWindowEx(
-            0, "STATIC", "Network Speed Logger normal-window smoke test", 0x00CF0000,
-            100, 100, 800, 600, [IntPtr]::Zero, [IntPtr]::Zero, [IntPtr]::Zero, [IntPtr]::Zero)
-          if ($normalWindow -ne [IntPtr]::Zero) {
-            try {
-              [NativeWindowLookup]::ShowWindow($normalWindow, 3) | Out-Null
-              if ([NativeWindowLookup]::SetForegroundWindow($normalWindow)) {
-                Start-Sleep -Seconds 2
-                if (-not [NativeWindowLookup]::IsWindowVisible($overlayWindow)) {
-                  throw "The overlay disappeared while a maximized ordinary window was active."
-                }
-              }
-            }
-            finally {
-              [NativeWindowLookup]::DestroyWindow($normalWindow) | Out-Null
-            }
-          }
-
-          $alignmentPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-          New-Item -Force -Path $alignmentPath | Out-Null
-          $originalProperties = Get-ItemProperty -Path $alignmentPath -ErrorAction SilentlyContinue
-          $hadAlignment = $null -ne $originalProperties -and `
-            $originalProperties.PSObject.Properties.Name -contains "TaskbarAl"
-          $originalAlignment = if ($hadAlignment) { $originalProperties.TaskbarAl } else { $null }
-
-          try {
-            New-ItemProperty -Path $alignmentPath -Name TaskbarAl -Value 1 -PropertyType DWord -Force | Out-Null
-            Start-Sleep -Seconds 2
-            $leftRect = New-Object NativeWindowLookup+Rect
-            if (-not [NativeWindowLookup]::GetWindowRect($overlayWindow, [ref]$leftRect) -or
-                $leftRect.Left -le $taskbarRect.Left + 100 -or
-                $leftRect.Left -ge $taskbarRect.Left + (($taskbarRect.Right - $taskbarRect.Left) / 2)) {
-              throw "Centered taskbar mode did not place the overlay after the Widgets area on the left."
-            }
-            if (-not [NativeWindowLookup]::IsWindowVisible($overlayWindow)) {
-              throw "The overlay disappeared while testing centered taskbar mode."
-            }
-
-            New-ItemProperty -Path $alignmentPath -Name TaskbarAl -Value 0 -PropertyType DWord -Force | Out-Null
-            Start-Sleep -Seconds 2
-            $rightRect = New-Object NativeWindowLookup+Rect
-            if (-not [NativeWindowLookup]::GetWindowRect($overlayWindow, [ref]$rightRect) -or
-                $rightRect.Left -le $taskbarRect.Left + (($taskbarRect.Right - $taskbarRect.Left) / 2)) {
-              throw "Left-aligned taskbar mode did not place the overlay on the right."
-            }
-            if (-not [NativeWindowLookup]::IsWindowVisible($overlayWindow)) {
-              throw "The overlay disappeared while testing left-aligned taskbar mode."
-            }
-
-            Remove-ItemProperty -Path $alignmentPath -Name TaskbarAl -ErrorAction SilentlyContinue
-            if ([Environment]::OSVersion.Version.Build -ge 22000) {
-              Start-Sleep -Seconds 2
-              $defaultRect = New-Object NativeWindowLookup+Rect
-              if (-not [NativeWindowLookup]::GetWindowRect($overlayWindow, [ref]$defaultRect) -or
-                  $defaultRect.Left -le $taskbarRect.Left + 100 -or
-                  $defaultRect.Left -ge $taskbarRect.Left + (($taskbarRect.Right - $taskbarRect.Left) / 2)) {
-                throw "Windows 11's default centered taskbar was not placed after the Widgets area on the left."
-              }
-              if (-not [NativeWindowLookup]::IsWindowVisible($overlayWindow)) {
-                throw "The overlay disappeared while testing Windows 11's default taskbar mode."
-              }
-            }
-          }
-          finally {
-            if ($hadAlignment) {
-              New-ItemProperty -Path $alignmentPath -Name TaskbarAl -Value $originalAlignment -PropertyType DWord -Force | Out-Null
-            } else {
-              Remove-ItemProperty -Path $alignmentPath -Name TaskbarAl -ErrorAction SilentlyContinue
-            }
-          }
-          Stop-Process -Id $process.Id -Force
-
-          $settingsPath = Join-Path $settingsDir "settings.json"
-          $savedSettings = Get-Content $settingsPath -Raw | ConvertFrom-Json
-          $savedSettings.taskbarSpeed.singleLine = $false
-          $savedSettings | ConvertTo-Json -Depth 4 | Set-Content $settingsPath -Encoding utf8
-
-          $twoLineProcess = Start-Process $app.FullName -PassThru
-          try {
-            Start-Sleep -Seconds 8
-            if ($twoLineProcess.HasExited) {
-              throw "The application exited while smoke-testing the two-line taskbar layout with code $($twoLineProcess.ExitCode)."
-            }
-            $twoLineOverlay = [NativeWindowLookup]::FindWindow("NetworkSpeedLogger.TaskbarSpeed.$($twoLineProcess.Id)", $null)
-            if ($twoLineOverlay -eq [IntPtr]::Zero) {
-              throw "The two-line taskbar speed overlay window was not created."
-            }
-            $twoLineRect = New-Object NativeWindowLookup+Rect
-            if (-not [NativeWindowLookup]::GetWindowRect($twoLineOverlay, [ref]$twoLineRect)) {
-              throw "Unable to read the two-line taskbar overlay position."
-            }
-            $singleLineWidth = $singleLineRect.Right - $singleLineRect.Left
-            $twoLineWidth = $twoLineRect.Right - $twoLineRect.Left
-            if ($twoLineWidth -lt 100 -or $twoLineWidth -ge $singleLineWidth) {
-              throw "The two-line taskbar layout did not use the expected narrower overlay."
-            }
-            if (-not [NativeWindowLookup]::IsWindowVisible($twoLineOverlay)) {
-              throw "The two-line taskbar speed overlay was not visible."
-            }
-          }
-          finally {
-            if (-not $twoLineProcess.HasExited) {
-              Stop-Process -Id $twoLineProcess.Id -Force
-            }
-          }
-
-          $savedSettings = Get-Content $settingsPath -Raw | ConvertFrom-Json
-          $savedSettings.launchAtLogin = $true
-          $savedSettings.minimizeToTray = $false
-          $savedSettings.taskbarSpeed.enabled = $false
-          $savedSettings | ConvertTo-Json -Depth 4 | Set-Content $settingsPath -Encoding utf8
-
-          $loginProcess = Start-Process $app.FullName -ArgumentList "--launch-at-login" -PassThru
-          try {
-            Start-Sleep -Seconds 8
-            if ($loginProcess.HasExited) {
-              throw "The application exited during the sign-in launch smoke test with code $($loginProcess.ExitCode)."
-            }
-
-            $runValue = (Get-ItemProperty -Path $startupRegistryPath -Name NetworkSpeedLogger `
-              -ErrorAction Stop).NetworkSpeedLogger
-            if ($runValue -notlike "*$($app.FullName)*" -or $runValue -notlike "*--launch-at-login*") {
-              throw "The per-user Run registration does not point to the installed application with its sign-in argument."
-            }
-
-            if ([NativeWindowLookup]::HasVisibleWindowForProcess($loginProcess.Id)) {
-              throw "The sign-in launch opened the main window instead of starting in the notification area."
-            }
-          }
-          finally {
-            if (-not $loginProcess.HasExited) {
-              Stop-Process -Id $loginProcess.Id -Force
-            }
-          }
-
-          $savedSettings = Get-Content $settingsPath -Raw | ConvertFrom-Json
-          $savedSettings.launchAtLogin = $false
-          $savedSettings.minimizeToTray = $false
-          $savedSettings | ConvertTo-Json -Depth 4 | Set-Content $settingsPath -Encoding utf8
-          $cleanupProcess = Start-Process $app.FullName -PassThru
-          try {
-            Start-Sleep -Seconds 5
-            if ($cleanupProcess.HasExited) {
-              throw "The application exited while verifying sign-in registration cleanup."
-            }
-            if ($null -ne (Get-ItemProperty -Path $startupRegistryPath -Name NetworkSpeedLogger -ErrorAction SilentlyContinue)) {
-              throw "Turning off sign-in launch did not remove the Run registration."
-            }
-          }
-          finally {
-            if (-not $cleanupProcess.HasExited) {
-              Stop-Process -Id $cleanupProcess.Id -Force
-            }
-          }
-
-          $uninstaller = Join-Path $installDir "unins000.exe"
-          $uninstallProcess = Start-Process $uninstaller `
-            -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART") `
-            -Wait -PassThru
-          if ($uninstallProcess.ExitCode -ne 0) {
-            throw "Silent uninstall failed with exit code $($uninstallProcess.ExitCode)."
-          }
-
-      - name: Upload Windows installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-installer
-          path: dist/NetworkSpeedLogger-Setup.exe
-          if-no-files-found: error
-
   publish:
-    needs: [release-check, build-macos, build-windows]
+    needs: [release-check, build-macos]
     if: >-
       github.ref == 'refs/heads/main' &&
       needs.release-check.outputs.exists != 'true' &&
-      needs.build-macos.result == 'success' &&
-      needs.build-windows.result == 'success'
+      needs.build-macos.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
@@ -706,50 +245,27 @@ jobs:
           name: macos-release
           path: artifacts
 
-      - name: Download Windows artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-installer
-          path: artifacts
-
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(cat <<'EOF'
-          Network Speed Logger 1.0.0
+          Network Speed Logger 1.0.1 macOS preview
 
-          Stable release for macOS and Windows.
+          - Automatic update checks now run after login and continue while the app stays in the menu bar, even when no main window is open.
+          - A discovered update can be opened from the menu bar context menu.
+          - Manual checks wait longer for GitHub and retry temporary connection and server failures.
+          - Includes a Universal macOS DMG for Apple silicon and Intel. Windows remains at v1.0.0.
 
-          - Record combined traffic from active physical interfaces or choose interfaces manually, with live charts, CSV logs, and Markdown summaries
-          - Use Chinese or English, light or dark appearance, launch at login, and background running in the macOS menu bar or Windows notification area
-          - Show live network speed in the macOS menu bar or Windows taskbar
-          - Includes the Universal macOS DMG for Apple silicon and Intel, and the Windows x64 installer
+          This is a pre-release for validation. The automatic checker follows GitHub's latest stable release, so preview releases are available from the release page rather than the in-app update prompt.
 
-          The macOS application is ad-hoc signed but not notarized; first launch may require Open Anyway in System Settings > Privacy & Security. The Windows installer is not code-signed.
+          The macOS application is ad-hoc signed but not notarized; first launch may require Open Anyway in System Settings > Privacy & Security.
           EOF
           )
-          gh release create v1.0.0 \
+          gh release create v1.0.1 \
             artifacts/NetworkSpeedLogger.dmg \
-            artifacts/NetworkSpeedLogger-Setup.exe \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "v1.0.0" \
+            --title "v1.0.1 macOS preview" \
+            --prerelease \
             --notes "$notes"
-
-      - name: Remove pre-releases and their tags after stable release succeeds
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v1.0.0" \
-            | jq -e '(.prerelease == false) and ((.assets | map(.name) | sort) == ["NetworkSpeedLogger-Setup.exe", "NetworkSpeedLogger.dmg"])'
-
-          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-            --jq '.[] | select(.prerelease == true) | .tag_name' \
-            > "$RUNNER_TEMP/network-speed-logger-prereleases.txt"
-
-          while IFS= read -r tag; do
-            echo "Removing pre-release $tag"
-            gh release delete "$tag" --cleanup-tag --yes --repo "$GITHUB_REPOSITORY"
-          done < "$RUNNER_TEMP/network-speed-logger-prereleases.txt"

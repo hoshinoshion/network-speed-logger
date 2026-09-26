@@ -5,6 +5,7 @@ import SwiftUI
 final class StatusBarController: NSObject, ObservableObject {
     private var settings: AppSettings?
     private var monitor: NetworkMonitor?
+    private var updateChecker: UpdateChecker?
     private weak var mainWindow: NSWindow?
     private var statusItem: NSStatusItem?
     private var isInStatusBarMode = false
@@ -38,9 +39,10 @@ final class StatusBarController: NSObject, ObservableObject {
         speedSamplingTimer?.cancel()
     }
 
-    func configure(settings: AppSettings, monitor: NetworkMonitor) {
+    func configure(settings: AppSettings, monitor: NetworkMonitor, updateChecker: UpdateChecker) {
         self.settings = settings
         self.monitor = monitor
+        self.updateChecker = updateChecker
         reconcileSpeedSampling()
         reconcileStatusItem()
         enterStatusBarModeAfterLoginLaunchIfReady()
@@ -232,6 +234,20 @@ final class StatusBarController: NSObject, ObservableObject {
 
         menu.addItem(.separator())
 
+        if let release = updateChecker?.availableRelease {
+            let updateItem = NSMenuItem(
+                title: settings?.text(
+                    "View Update \(release.version)…",
+                    "查看新版本 \(release.version)…"
+                ) ?? "View Update \(release.version)…",
+                action: #selector(openAvailableUpdate),
+                keyEquivalent: ""
+            )
+            updateItem.target = self
+            menu.addItem(updateItem)
+            menu.addItem(.separator())
+        }
+
         let quitItem = NSMenuItem(
             title: settings?.text("Quit", "退出") ?? "Quit",
             action: #selector(quitApplication),
@@ -259,6 +275,10 @@ final class StatusBarController: NSObject, ObservableObject {
 
     @objc private func stopLogging() {
         monitor?.stop()
+    }
+
+    @objc private func openAvailableUpdate() {
+        updateChecker?.openAvailableRelease()
     }
 
     @objc private func quitApplication() {
