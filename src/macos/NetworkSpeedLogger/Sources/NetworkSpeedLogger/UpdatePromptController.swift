@@ -27,7 +27,6 @@ final class UpdatePromptController: NSObject, NSWindowDelegate {
             closePanelForModelChange()
             return
         }
-        writeTestStage("updateReceived")
 
         if let panel, shownVersion == release.version {
             panel.makeKeyAndOrderFront(nil)
@@ -53,16 +52,11 @@ final class UpdatePromptController: NSObject, NSWindowDelegate {
         panel.level = .floating
         panel.delegate = self
         panel.center()
-        writeTestStage("panelCreated")
 
         shownVersion = release.version
         self.panel = panel
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-        writeTestStage("panelOrdered")
-        DispatchQueue.main.async { [weak self] in
-            self?.writePresentationVerificationIfRequested()
-        }
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -82,20 +76,8 @@ final class UpdatePromptController: NSObject, NSWindowDelegate {
         previous?.close()
     }
 
-    private func writeTestStage(_ stage: String) {
-        guard let path = ProcessInfo.processInfo.environment[
-            "NETWORK_SPEED_LOGGER_UPDATE_PROMPT_TEST_RESULT"
-        ] else { return }
-        let previous = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
-        try? (previous + "\(stage)=true\n").write(
-            toFile: path, atomically: true, encoding: .utf8
-        )
-    }
-
-    private func writePresentationVerificationIfRequested() {
-        guard let path = ProcessInfo.processInfo.environment[
-            "NETWORK_SPEED_LOGGER_UPDATE_PROMPT_TEST_RESULT"
-        ], let panel else { return }
+    func verifyAndDismissForTesting(at path: String) {
+        guard let panel else { return }
 
         let mainWindowVisible = NSApp.windows.contains {
             $0.identifier?.rawValue == "NetworkSpeedLogger.MainWindow" && $0.isVisible
@@ -109,17 +91,13 @@ final class UpdatePromptController: NSObject, NSWindowDelegate {
             "mainWindowVisible=\(mainWindowVisible)",
             "activationPolicyAccessory=\(NSApp.activationPolicy() == .accessory)"
         ].joined(separator: "\n") + "\n"
-        try? result.write(toFile: path, atomically: true, encoding: .utf8)
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-            self?.panel?.performClose(nil)
-            let dismissal = [
-                "dismissalClearedRelease=\(self?.updateChecker.presentedRelease == nil)",
-                "promptClosed=\(self?.panel == nil)",
-                "stillInMenuBarMode=\(NSApp.activationPolicy() == .accessory)"
-            ].joined(separator: "\n") + "\n"
-            try? (result + dismissal).write(toFile: path, atomically: true, encoding: .utf8)
-        }
+        panel.performClose(nil)
+        let dismissal = [
+            "dismissalClearedRelease=\(updateChecker.presentedRelease == nil)",
+            "promptClosed=\(self.panel == nil)",
+            "stillInMenuBarMode=\(NSApp.activationPolicy() == .accessory)"
+        ].joined(separator: "\n") + "\n"
+        try? (result + dismissal).write(toFile: path, atomically: true, encoding: .utf8)
     }
 }
 

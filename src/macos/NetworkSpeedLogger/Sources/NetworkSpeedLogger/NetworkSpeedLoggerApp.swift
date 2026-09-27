@@ -54,16 +54,12 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
             try? "delegateDidFinish=true\n".write(
                 toFile: resultPath, atomically: true, encoding: .utf8
             )
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                try? "testReleaseDelivered=true\n".write(
-                    toFile: resultPath, atomically: true, encoding: .utf8
-                )
-                self?.updateChecker?.presentedRelease = UpdateReleaseInfo(
-                    version: "9.9.9",
-                    pageURL: URL(string: "https://github.com/hoshinoshion/network-speed-logger/releases")!,
-                    publishedAt: nil
-                )
-            }
+            updateChecker?.presentedRelease = UpdateReleaseInfo(
+                version: "9.9.9",
+                pageURL: URL(string: "https://github.com/hoshinoshion/network-speed-logger/releases")!,
+                publishedAt: nil
+            )
+            updatePromptController?.verifyAndDismissForTesting(at: resultPath)
         }
         if ProcessInfo.processInfo.environment[
             "NETWORK_SPEED_LOGGER_LOGIN_ITEM_RESTORE_TEST"
