@@ -47,6 +47,8 @@ final class UpdatePromptController: NSObject, NSWindowDelegate {
             updateChecker: updateChecker,
             release: release
         ))
+        panel.contentMinSize = NSSize(width: 440, height: 190)
+        panel.setContentSize(NSSize(width: 440, height: 190))
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
         panel.level = .floating
@@ -55,8 +57,8 @@ final class UpdatePromptController: NSObject, NSWindowDelegate {
 
         shownVersion = release.version
         self.panel = panel
-        panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
     }
 
     func windowWillClose(_ notification: Notification) {
