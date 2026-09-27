@@ -121,7 +121,8 @@ final class StatusBarController: NSObject, ObservableObject {
         isInStatusBarMode = true
         reconcileStatusItem()
 
-        for window in NSApp.windows where window.isVisible {
+        for window in NSApp.windows where window.isVisible
+            && window.identifier != UpdatePromptController.windowIdentifier {
             window.orderOut(nil)
         }
         NSApp.setActivationPolicy(.accessory)

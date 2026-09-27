@@ -5,7 +5,6 @@ import SwiftUI
 struct RootView: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject var monitor: NetworkMonitor
-    @ObservedObject var updateChecker: UpdateChecker
     @ObservedObject var statusBarController: StatusBarController
 
     var body: some View {
@@ -21,31 +20,6 @@ struct RootView: View {
         .task(id: settings.language) {
             try? await Task.sleep(nanoseconds: 100_000_000)
             MenuBarLocalizer.apply(usesChinese: settings.usesChinese)
-        }
-        .alert(
-            settings.text("Update Available", "发现新版本"),
-            isPresented: Binding(
-                get: { updateChecker.presentedRelease != nil },
-                set: { isPresented in
-                    if !isPresented { updateChecker.deferPresentedRelease() }
-                }
-            ),
-            presenting: updateChecker.presentedRelease
-        ) { _ in
-            Button(settings.text("View Release", "查看并下载")) {
-                updateChecker.openPresentedRelease()
-            }
-            Button(settings.text("Skip This Version", "跳过此版本")) {
-                updateChecker.skipPresentedRelease()
-            }
-            Button(settings.text("Later", "稍后"), role: .cancel) {
-                updateChecker.deferPresentedRelease()
-            }
-        } message: { release in
-            Text(settings.text(
-                "Network Speed Logger \(release.version) is available. You are using \(UpdateChecker.displayedCurrentVersion).",
-                "Network Speed Logger \(release.version) 已发布，当前版本为 \(UpdateChecker.displayedCurrentVersion)。"
-            ))
         }
     }
 }

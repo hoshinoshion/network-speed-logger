@@ -30,6 +30,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
         didSet { deliverLoginItemLaunchIfReady() }
     }
     var updateChecker: UpdateChecker?
+    var updatePromptController: UpdatePromptController?
     var settings: AppSettings?
     private(set) var launchedAsLoginItem = false
     private var deliveredLoginItemLaunch = false
@@ -46,6 +47,17 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
             updateChecker.startAutomaticChecks(isEnabled: { [weak settings] in
                 settings?.automaticallyChecksForUpdates == true
             })
+        }
+        if let resultPath = ProcessInfo.processInfo.environment[
+            "NETWORK_SPEED_LOGGER_UPDATE_PROMPT_TEST_RESULT"
+        ], !resultPath.isEmpty {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.updateChecker?.presentedRelease = UpdateReleaseInfo(
+                    version: "9.9.9",
+                    pageURL: URL(string: "https://github.com/hoshinoshion/network-speed-logger/releases")!,
+                    publishedAt: nil
+                )
+            }
         }
         if ProcessInfo.processInfo.environment[
             "NETWORK_SPEED_LOGGER_LOGIN_ITEM_RESTORE_TEST"
@@ -109,6 +121,7 @@ struct NetworkSpeedLoggerApp: App {
         let monitor = NetworkMonitor()
         let updateChecker = UpdateChecker()
         let statusBarController = StatusBarController()
+        let updatePromptController = UpdatePromptController(settings: settings, updateChecker: updateChecker)
 
         statusBarController.configure(settings: settings, monitor: monitor, updateChecker: updateChecker)
 
@@ -118,6 +131,7 @@ struct NetworkSpeedLoggerApp: App {
         _statusBarController = StateObject(wrappedValue: statusBarController)
         applicationDelegate.settings = settings
         applicationDelegate.updateChecker = updateChecker
+        applicationDelegate.updatePromptController = updatePromptController
         applicationDelegate.statusBarController = statusBarController
 
         if ProcessInfo.processInfo.environment["NETWORK_SPEED_LOGGER_LOGIN_ITEM_TEST"] == "1" {
@@ -139,7 +153,6 @@ struct NetworkSpeedLoggerApp: App {
             RootView(
                 settings: settings,
                 monitor: monitor,
-                updateChecker: updateChecker,
                 statusBarController: statusBarController
             )
                 .frame(minWidth: 1_040, minHeight: 700)
