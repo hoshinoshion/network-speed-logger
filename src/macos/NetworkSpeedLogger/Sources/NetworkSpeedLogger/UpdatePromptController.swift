@@ -27,6 +27,7 @@ final class UpdatePromptController: NSObject, NSWindowDelegate {
             closePanelForModelChange()
             return
         }
+        writeTestStage("updateReceived")
 
         if let panel, shownVersion == release.version {
             panel.makeKeyAndOrderFront(nil)
@@ -52,11 +53,13 @@ final class UpdatePromptController: NSObject, NSWindowDelegate {
         panel.level = .floating
         panel.delegate = self
         panel.center()
+        writeTestStage("panelCreated")
 
         shownVersion = release.version
         self.panel = panel
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        writeTestStage("panelOrdered")
         DispatchQueue.main.async { [weak self] in
             self?.writePresentationVerificationIfRequested()
         }
@@ -77,6 +80,16 @@ final class UpdatePromptController: NSObject, NSWindowDelegate {
         shownVersion = nil
         previous?.delegate = nil
         previous?.close()
+    }
+
+    private func writeTestStage(_ stage: String) {
+        guard let path = ProcessInfo.processInfo.environment[
+            "NETWORK_SPEED_LOGGER_UPDATE_PROMPT_TEST_RESULT"
+        ] else { return }
+        let previous = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+        try? (previous + "\(stage)=true\n").write(
+            toFile: path, atomically: true, encoding: .utf8
+        )
     }
 
     private func writePresentationVerificationIfRequested() {
