@@ -244,7 +244,7 @@ jobs:
           }
           trap cleanup EXIT
 
-          for _ in {1..15}; do
+          for _ in {1..45}; do
             if [[ -s "$result_path" ]] && grep -Fxq 'dismissalClearedRelease=true' "$result_path"; then
               break
             fi
