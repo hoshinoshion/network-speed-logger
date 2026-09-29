@@ -88,12 +88,12 @@ final class UpdateChecker: ObservableObject {
     @Published var presentedRelease: UpdateReleaseInfo?
 
     private let defaults: UserDefaults
-    private let session: URLSession
+    private let session: URLSession?
     private let installedVersion: String?
     private var isChecking = false
     private var automaticCheckTask: Task<Void, Never>?
 
-    init(defaults: UserDefaults = .standard, session: URLSession = .shared, installedVersion: String? = nil) {
+    init(defaults: UserDefaults = .standard, session: URLSession? = nil, installedVersion: String? = nil) {
         self.defaults = defaults
         self.session = session
         self.installedVersion = installedVersion ?? Self.currentVersion
@@ -103,7 +103,7 @@ final class UpdateChecker: ObservableObject {
     func startAutomaticChecks(
         isEnabled: @escaping @MainActor () -> Bool,
         initialDelay: UInt64 = 10_000_000_000,
-        repeatInterval: UInt64 = 60 * 60 * 1_000_000_000
+        repeatInterval: UInt64 = 5 * 60 * 1_000_000_000
     ) {
         automaticCheckTask?.cancel()
         automaticCheckTask = Task { [weak self] in
@@ -200,8 +200,10 @@ final class UpdateChecker: ObservableObject {
            now.timeIntervalSince(lastSuccessful) < 24 * 60 * 60 {
             return false
         }
+        // A failed check must be retried after connectivity returns, even when
+        // the application keeps running in the menu bar for days.
         if let lastAttempt = defaults.object(forKey: Key.lastAttempt) as? Date,
-           now.timeIntervalSince(lastAttempt) < 60 * 60 {
+           now.timeIntervalSince(lastAttempt) < 5 * 60 {
             return false
         }
         return true
@@ -228,15 +230,22 @@ final class UpdateChecker: ObservableObject {
     }
 
     private func fetchLatestRelease() async throws -> UpdateReleaseInfo {
+        // Start each check with a fresh network session. A menu bar application
+        // can outlive DNS, VPN and network changes by many hours.
+        let activeSession = session ?? Self.makeSession()
+        defer {
+            if session == nil { activeSession.finishTasksAndInvalidate() }
+        }
         let endpoint = URL(string: "https://api.github.com/repos/hoshinoshion/network-speed-logger/releases/latest")!
         var request = URLRequest(url: endpoint, timeoutInterval: 20)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.setValue("NetworkSpeedLogger-macOS", forHTTPHeaderField: "User-Agent")
         request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
 
         for attempt in 0..<3 {
             do {
-                let (data, response) = try await session.data(for: request)
+                let (data, response) = try await activeSession.data(for: request)
                 guard let httpResponse = response as? HTTPURLResponse else {
                     throw URLError(.badServerResponse)
                 }
@@ -245,11 +254,71 @@ final class UpdateChecker: ObservableObject {
                 }
                 return try parseRelease(data)
             } catch {
-                guard attempt < 2, Self.isTransient(error) else { throw error }
-                try await Task.sleep(nanoseconds: UInt64(attempt + 1) * 1_000_000_000)
+                if attempt < 2 && Self.isTransient(error) {
+                    try await Task.sleep(nanoseconds: UInt64(attempt + 1) * 1_000_000_000)
+                    continue
+                }
+                // The public API has a separate rate limit from GitHub's
+                // release pages. Use GitHub's documented latest-release URL
+                // when the API is temporarily unavailable.
+                if Self.canUseReleasePageFallback(error) {
+                    return try await fetchLatestReleasePage(using: activeSession)
+                }
+                throw error
             }
         }
         throw URLError(.badServerResponse)
+    }
+
+    private static func makeSession() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.waitsForConnectivity = true
+        return URLSession(configuration: configuration)
+    }
+
+    private static func canUseReleasePageFallback(_ error: Error) -> Bool {
+        if let http = error as? ReleaseHTTPError {
+            return http.statusCode == 403 || http.statusCode == 429 || (500...599).contains(http.statusCode)
+        }
+        guard let urlError = error as? URLError else { return false }
+        return [
+            .timedOut, .networkConnectionLost, .cannotConnectToHost,
+            .cannotFindHost, .dnsLookupFailed, .notConnectedToInternet,
+            .badServerResponse, .secureConnectionFailed
+        ].contains(urlError.code)
+    }
+
+    private func fetchLatestReleasePage(using session: URLSession) async throws -> UpdateReleaseInfo {
+        let endpoint = URL(string: "https://github.com/hoshinoshion/network-speed-logger/releases/latest")!
+        var request = URLRequest(url: endpoint, timeoutInterval: 20)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("NetworkSpeedLogger-macOS", forHTTPHeaderField: "User-Agent")
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200,
+              let pageURL = httpResponse.url else {
+            throw URLError(.badServerResponse)
+        }
+        return try Self.releaseFromLatestPageURL(pageURL)
+    }
+
+    private static func releaseFromLatestPageURL(_ url: URL) throws -> UpdateReleaseInfo {
+        let prefix = "/hoshinoshion/network-speed-logger/releases/tag/"
+        guard url.scheme == "https",
+              url.host == "github.com",
+              url.path.hasPrefix(prefix),
+              url.query == nil,
+              url.fragment == nil else {
+            throw URLError(.cannotParseResponse)
+        }
+        let tag = String(url.path.dropFirst(prefix.count))
+        let version = tag.first == "v" || tag.first == "V"
+            ? String(tag.dropFirst())
+            : tag
+        guard ComparableVersion(version) != nil else {
+            throw URLError(.cannotParseResponse)
+        }
+        return UpdateReleaseInfo(version: version, pageURL: url, publishedAt: nil)
     }
 
     private static func isTransient(_ error: Error) -> Bool {
@@ -257,7 +326,10 @@ final class UpdateChecker: ObservableObject {
             return (500...504).contains(http.statusCode)
         }
         guard let urlError = error as? URLError else { return false }
-        return [.timedOut, .networkConnectionLost, .cannotConnectToHost].contains(urlError.code)
+        return [
+            .timedOut, .networkConnectionLost, .cannotConnectToHost,
+            .cannotFindHost, .dnsLookupFailed, .notConnectedToInternet
+        ].contains(urlError.code)
     }
 
     private func parseRelease(_ data: Data) throws -> UpdateReleaseInfo {
